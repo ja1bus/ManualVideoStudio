@@ -1,0 +1,30 @@
+<Window x:Class="ManualVideoStudio.Views.RecordingControllerWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="録画中 - Manual Video Studio" WindowStyle="None" AllowsTransparency="True" Background="Transparent"
+        ResizeMode="NoResize" Topmost="True" ShowInTaskbar="True" SizeToContent="WidthAndHeight"
+        FontFamily="Yu Gothic UI, Segoe UI" FontSize="13" UseLayoutRounding="True">
+    <Border Background="#F2202020" CornerRadius="8" Padding="10,6" MouseLeftButtonDown="Border_MouseLeftButtonDown"
+            ToolTip="ドラッグで移動できます。この小窓は録画に写りません。">
+        <StackPanel Orientation="Horizontal">
+            <TextBlock Text="{Binding StateText}" FontWeight="Bold" VerticalAlignment="Center" MinWidth="104" AutomationProperties.Name="録画の状態">
+                <TextBlock.Style>
+                    <Style TargetType="TextBlock">
+                        <Setter Property="Foreground" Value="#FF5A5A"/>
+                        <Style.Triggers>
+                            <DataTrigger Binding="{Binding IsPaused}" Value="True">
+                                <Setter Property="Foreground" Value="#FFC857"/>
+                            </DataTrigger>
+                        </Style.Triggers>
+                    </Style>
+                </TextBlock.Style>
+            </TextBlock>
+            <TextBlock Text="{Binding ElapsedText}" Foreground="White" FontFamily="Consolas" FontSize="18" VerticalAlignment="Center" Margin="4,0,12,0"
+                       AutomationProperties.Name="経過時間"/>
+            <Button Content="{Binding PauseButtonText}" Command="{Binding PauseResumeCommand}" MinWidth="96" Padding="10,3" MinHeight="28"
+                    ToolTip="一時停止 / 再開 (Ctrl+Shift+F8)。一時停止中の時間は動画に含まれません" AutomationProperties.Name="一時停止"/>
+            <Button Content="■ 停止" Command="{Binding StopCommand}" MinWidth="80" Padding="10,3" MinHeight="28"
+                    ToolTip="録画を終了して保存 (Ctrl+Shift+F9)" AutomationProperties.Name="停止"/>
+        </StackPanel>
+    </Border>
+</Window>

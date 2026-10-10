@@ -1,0 +1,84 @@
+<Window x:Class="ManualVideoStudio.Views.GeminiCaptionWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Style="{StaticResource AppWindow}" Title="Gemini で字幕を作る"
+        Width="720" Height="760" MinWidth="620" MinHeight="560" WindowStartupLocation="CenterOwner" ShowInTaskbar="False">
+    <ScrollViewer VerticalScrollBarVisibility="Auto">
+        <StackPanel Margin="16">
+            <TextBlock Text="{Binding FlowText}" TextWrapping="Wrap" Style="{StaticResource Subtle}"/>
+            <TextBlock Text="時間軸はカット後の動画（完成動画と同じ）です。Gemini API・ブラウザの自動操作は使わず、コピー＆貼り付けで手動連携します。"
+                       TextWrapping="Wrap" Style="{StaticResource Subtle}" Margin="0,2,0,0"/>
+
+            <!-- ① 依頼用動画 -->
+            <TextBlock Text="① 字幕依頼用の動画を準備" Style="{StaticResource SectionTitle}" Margin="0,12,0,2"/>
+            <TextBlock Text="{Binding OutputDurationText}" Style="{StaticResource Subtle}"/>
+            <TextBlock Text="{Binding VideoStatus}" TextWrapping="Wrap" Margin="0,4,0,0" AutomationProperties.AutomationId="VideoStatus"/>
+            <TextBox Text="{Binding VideoPath, Mode=OneWay}" IsReadOnly="True" TextWrapping="Wrap" Margin="0,4,0,0"
+                     Visibility="{Binding VideoPath, Converter={StaticResource EmptyToCollapsed}}" AutomationProperties.Name="字幕依頼用動画の保存場所"/>
+            <StackPanel Orientation="Horizontal" Margin="0,6,0,0">
+                <Button Content="{Binding PrepareButtonText}" Style="{StaticResource AccentButton}" MinWidth="130" Command="{Binding PrepareCommand}" AutomationProperties.Name="動画を準備する"/>
+                <Button Content="保存場所のフォルダーを開く" MinWidth="170" Command="{Binding OpenVideoFolderCommand}"/>
+            </StackPanel>
+            <TextBlock Text="字幕なしの動画です（図形も含みません）。完成動画の書き出しにはこの動画を使わず、元動画から改めて作ります（動画の作成は、依頼用と完成用で別々に行います）。"
+                       TextWrapping="Wrap" Style="{StaticResource Subtle}" Margin="0,4,0,0"/>
+            <Border Background="{StaticResource InfoBackgroundBrush}" CornerRadius="4" Padding="8,6" Margin="0,6,0,0"
+                    Visibility="{Binding OrphanText, Converter={StaticResource EmptyToCollapsed}}">
+                <DockPanel>
+                    <Button DockPanel.Dock="Right" Content="確認して削除..." Command="{Binding DeleteOrphansCommand}" VerticalAlignment="Center"/>
+                    <TextBlock Text="{Binding OrphanText}" TextWrapping="Wrap" VerticalAlignment="Center"/>
+                </DockPanel>
+            </Border>
+
+            <!-- ② プロンプト -->
+            <TextBlock Text="② プロンプトをコピーして Gemini を開く" Style="{StaticResource SectionTitle}" Margin="0,14,0,2"/>
+            <StackPanel Orientation="Horizontal">
+                <Button Content="プロンプトをコピー" MinWidth="140" Command="{Binding CopyPromptCommand}"/>
+                <Button Content="Gemini を開く" MinWidth="120" Command="{Binding OpenGeminiCommand}"/>
+            </StackPanel>
+            <TextBlock Text="{Binding PromptMessage}" TextWrapping="Wrap" Margin="0,4,0,0"
+                       Visibility="{Binding PromptMessage, Converter={StaticResource EmptyToCollapsed}}"/>
+            <TextBlock Text="Gemini に貼り付けたら、「今回の動画の内容」を書き換え、準備した動画を添付して送信してください。プロンプトの内容は［設定］→［プロンプト］で変えられます。"
+                       TextWrapping="Wrap" Style="{StaticResource Subtle}" Margin="0,4,0,0"/>
+
+            <!-- ③ 回答 -->
+            <TextBlock Text="③ Gemini の回答を貼り付け" Style="{StaticResource SectionTitle}" Margin="0,14,0,2"/>
+            <TextBlock Text="回答の全文でも、SRT だけでも構いません（コードブロック内の SRT だけを読み取ります。推奨スタイルなどの周りの文章は使いません）。"
+                       TextWrapping="Wrap" Style="{StaticResource Subtle}"/>
+            <StackPanel Orientation="Horizontal" Margin="0,4,0,0">
+                <Button Content="クリップボードから貼り付け" MinWidth="170" Command="{Binding PasteFromClipboardCommand}" AutomationProperties.Name="クリップボードから貼り付け"
+                        ToolTip="回答欄の内容を、クリップボードの文字列に置き換えます"/>
+                <TextBlock Text="{Binding PasteMessage}" TextWrapping="Wrap" VerticalAlignment="Center" Margin="6,0,0,0" MaxWidth="460"
+                           AutomationProperties.AutomationId="PasteMessage"/>
+            </StackPanel>
+            <TextBox Text="{Binding ResponseText, UpdateSourceTrigger=PropertyChanged}" AcceptsReturn="True" AcceptsTab="False" TextWrapping="NoWrap"
+                     MinHeight="140" MaxHeight="240" Margin="0,4,0,0" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Auto"
+                     VerticalContentAlignment="Top" FontFamily="Consolas" AutomationProperties.Name="Gemini の回答"/>
+
+            <!-- ④ 検証・取り込み -->
+            <TextBlock Text="④ 検証して取り込み" Style="{StaticResource SectionTitle}" Margin="0,14,0,2"/>
+            <TextBlock Text="{Binding ParseSummary}" TextWrapping="Wrap" FontWeight="SemiBold" AutomationProperties.AutomationId="ParseSummary"/>
+            <ItemsControl ItemsSource="{Binding Issues}" Margin="0,4,0,0">
+                <ItemsControl.ItemTemplate>
+                    <DataTemplate>
+                        <TextBlock Text="{Binding}" TextWrapping="Wrap" Foreground="{StaticResource ErrorBrush}" Margin="0,1,0,1"/>
+                    </DataTemplate>
+                </ItemsControl.ItemTemplate>
+            </ItemsControl>
+            <TextBlock Text="{Binding ReplaceNotice}" TextWrapping="Wrap" Margin="0,4,0,0" Foreground="{StaticResource ErrorBrush}"
+                       Visibility="{Binding ReplaceNotice, Converter={StaticResource EmptyToCollapsed}}"/>
+            <TextBlock Text="取り込みに成功すると、字幕依頼用動画を削除するか確認します（通常は削除。どちらを選んでもこの画面は閉じます）。"
+                       TextWrapping="Wrap" Style="{StaticResource Subtle}" Margin="0,4,0,0"/>
+            <TextBlock Text="不正な字幕を黙って削除・短縮することはありません。重なり・動画の長さの超過・最短表示時間（0.2 秒）・文字数（200）・行数（3）は手動の字幕と同じ規則で確認します。"
+                       TextWrapping="Wrap" Style="{StaticResource Subtle}" Margin="0,4,0,0"/>
+            <StackPanel Orientation="Horizontal" Margin="0,8,0,0">
+                <Button Content="字幕を取り込む" Style="{StaticResource AccentButton}" MinWidth="140" Command="{Binding ImportCommand}" AutomationProperties.Name="字幕を取り込む"/>
+            </StackPanel>
+            <TextBlock Text="{Binding ResultMessage}" TextWrapping="Wrap" Margin="0,6,0,0"
+                       Visibility="{Binding ResultMessage, Converter={StaticResource EmptyToCollapsed}}" AutomationProperties.AutomationId="ResultMessage"/>
+
+            <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,14,0,0">
+                <Button Content="閉じる" MinWidth="90" IsCancel="True" Command="{Binding CloseCommand}"/>
+            </StackPanel>
+        </StackPanel>
+    </ScrollViewer>
+</Window>

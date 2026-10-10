@@ -1,0 +1,244 @@
+<Window x:Class="ManualVideoStudio.Views.AiAssistWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Style="{StaticResource AppWindow}" Title="AI 連携（Gemini Chat・手動）"
+        Width="1280" Height="860" MinWidth="960" MinHeight="600" WindowStartupLocation="CenterOwner">
+    <Window.Resources>
+        <Style x:Key="Step" TargetType="TextBlock" BasedOn="{StaticResource SectionTitle}">
+            <Setter Property="Foreground" Value="{StaticResource AccentBrush}"/>
+        </Style>
+    </Window.Resources>
+    <TabControl Margin="8" Background="White">
+        <TabItem Header="連携">
+            <DockPanel Margin="6">
+                <Border DockPanel.Dock="Top" Background="{StaticResource InfoBackgroundBrush}" CornerRadius="4" Padding="10,6" Margin="0,0,0,8">
+                    <StackPanel>
+                        <TextBlock TextWrapping="Wrap" FontWeight="SemiBold"
+                                   Text="① ブラウザで Gemini Chat を開き、下の動画ファイルをアップロード → ② プロンプトをコピーして貼り付け・送信 → ③ Gemini の回答全体をコピーして右の欄に貼り付け → ④［解析］で内容を確認して［取り込む］"/>
+                        <TextBlock Style="{StaticResource Subtle}" FontSize="11" Margin="0,2,0,0"
+                                   Text="このアプリは Gemini API を使わず、ブラウザの自動操作もしません。動画は利用者が Gemini へアップロードします。時刻はすべて元動画（カット前）基準です。"/>
+                    </StackPanel>
+                </Border>
+                <Grid>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*"/>
+                        <ColumnDefinition Width="12"/>
+                        <ColumnDefinition Width="*"/>
+                    </Grid.ColumnDefinitions>
+
+                    <!-- 左: 用途・動画・プロンプト -->
+                    <DockPanel>
+                        <StackPanel DockPanel.Dock="Top">
+                            <TextBlock Style="{StaticResource Step}" Text="1. 用途を選ぶ"/>
+                            <ComboBox ItemsSource="{Binding Purposes}" DisplayMemberPath="Label" SelectedValuePath="Value" SelectedValue="{Binding Purpose}"/>
+                            <TextBlock Text="{Binding StepText}" Style="{StaticResource Subtle}" Margin="2,4,2,0"/>
+
+                            <TextBlock Style="{StaticResource Step}" Text="2. この動画を Gemini にアップロード" Margin="0,12,0,6"/>
+                            <TextBox Text="{Binding VideoPath, Mode=OneWay}" IsReadOnly="True"/>
+                            <WrapPanel>
+                                <Button Content="Gemini を開く（ブラウザ）" Style="{StaticResource AccentButton}" Command="{Binding OpenGeminiCommand}"/>
+                                <Button Content="動画のフォルダーを開く" Command="{Binding RevealVideoCommand}"/>
+                                <Button Content="動画のパスをコピー" Command="{Binding CopyVideoPathCommand}"/>
+                            </WrapPanel>
+
+                            <DockPanel Margin="0,12,0,0">
+                                <StackPanel DockPanel.Dock="Right" Orientation="Horizontal">
+                                    <Button Content="再生成" Command="{Binding GeneratePromptCommand}" ToolTip="最新の画像ポイント・編集内容でプロンプトを作り直します"/>
+                                    <Button Content="プロンプトをコピー" Style="{StaticResource AccentButton}" Command="{Binding CopyPromptCommand}"/>
+                                </StackPanel>
+                                <TextBlock Style="{StaticResource Step}" Text="3. プロンプトをコピーして Gemini に貼り付け"/>
+                            </DockPanel>
+                            <TextBlock Text="{Binding CopyMessage}" Foreground="{StaticResource CaptureBrush}" TextWrapping="Wrap"
+                                       Visibility="{Binding CopyMessage, Converter={StaticResource EmptyToCollapsed}}"/>
+                            <Border Background="{StaticResource WarningBackgroundBrush}" CornerRadius="4" Padding="6,3" Margin="0,4"
+                                    Visibility="{Binding PromptWarning, Converter={StaticResource EmptyToCollapsed}}">
+                                <TextBlock Text="{Binding PromptWarning}" TextWrapping="Wrap"/>
+                            </Border>
+                        </StackPanel>
+                        <TextBox Text="{Binding PromptText, UpdateSourceTrigger=PropertyChanged}" AcceptsReturn="True" TextWrapping="Wrap"
+                                 VerticalContentAlignment="Top" VerticalScrollBarVisibility="Auto" FontFamily="Consolas, BIZ UDGothic, Yu Gothic UI" FontSize="12"
+                                 ToolTip="必要ならこの場で修正できます（テンプレート自体の編集は設定画面）"/>
+                    </DockPanel>
+
+                    <!-- 右: 回答・解析・取り込み -->
+                    <Grid Grid.Column="2">
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="2*"/>
+                            <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="3*"/>
+                            <RowDefinition Height="Auto"/>
+                        </Grid.RowDefinitions>
+                        <DockPanel>
+                            <StackPanel DockPanel.Dock="Right" Orientation="Horizontal">
+                                <Button Content="クリア" Command="{Binding ClearResponseCommand}"/>
+                                <Button Content="解析" Style="{StaticResource AccentButton}" MinWidth="90" Command="{Binding ParseCommand}"/>
+                            </StackPanel>
+                            <TextBlock Style="{StaticResource Step}" Text="4. Gemini の回答を貼り付けて解析"/>
+                        </DockPanel>
+                        <TextBox Grid.Row="1" Text="{Binding ResponseText, UpdateSourceTrigger=PropertyChanged}" AutomationProperties.Name="Gemini の回答" AcceptsReturn="True" AcceptsTab="True" TextWrapping="Wrap"
+                                 VerticalContentAlignment="Top" VerticalScrollBarVisibility="Auto" FontFamily="Consolas, BIZ UDGothic, Yu Gothic UI" FontSize="12"
+                                 ToolTip="JSON 以外の文章が含まれていても、```json ブロックや { } の範囲を探して解析します"/>
+
+                        <StackPanel Grid.Row="2" Margin="0,6,0,4">
+                            <TextBlock Style="{StaticResource Step}" Text="5. 内容を確認して取り込む"/>
+                            <Border Background="#FDE7E9" CornerRadius="4" Padding="6,3" Visibility="{Binding ErrorMessage, Converter={StaticResource EmptyToCollapsed}}">
+                                <TextBlock Text="{Binding ErrorMessage}" Foreground="{StaticResource ErrorBrush}" TextWrapping="Wrap"/>
+                            </Border>
+                            <TextBlock Text="{Binding ParseMessage}" TextWrapping="Wrap" Visibility="{Binding ParseMessage, Converter={StaticResource EmptyToCollapsed}}"/>
+                            <TextBlock Text="{Binding ReviewSummary}" TextWrapping="Wrap" FontWeight="SemiBold" Margin="0,4,0,0"
+                                       Visibility="{Binding ReviewSummary, Converter={StaticResource EmptyToCollapsed}}"/>
+                        </StackPanel>
+
+                        <Grid Grid.Row="3">
+                            <!-- キャプション -->
+                            <DataGrid ItemsSource="{Binding CaptionRows}" Visibility="{Binding IsCaptionMode, Converter={StaticResource BoolToVisibility}}"
+                                      CanUserSortColumns="False" SelectionMode="Single">
+                                <DataGrid.Columns>
+                                    <DataGridTemplateColumn Header="取込">
+                                        <DataGridTemplateColumn.CellTemplate>
+                                            <DataTemplate>
+                                                <CheckBox IsChecked="{Binding Include, UpdateSourceTrigger=PropertyChanged}" IsEnabled="{Binding CanImport}" HorizontalAlignment="Center"/>
+                                            </DataTemplate>
+                                        </DataGridTemplateColumn.CellTemplate>
+                                    </DataGridTemplateColumn>
+                                    <DataGridTextColumn Header="No" Binding="{Binding SequenceText}" IsReadOnly="True"/>
+                                    <DataGridTextColumn Header="id" Binding="{Binding Id}" IsReadOnly="True"/>
+                                    <DataGridTextColumn Header="画像の時刻" Binding="{Binding AppTimeText}" IsReadOnly="True" FontFamily="Consolas"/>
+                                    <DataGridTextColumn Header="現在" Binding="{Binding CurrentCaption}" IsReadOnly="True" MaxWidth="110"/>
+                                    <DataGridTemplateColumn Header="新しいキャプション（編集可）" Width="*" MinWidth="150">
+                                        <DataGridTemplateColumn.CellTemplate>
+                                            <DataTemplate>
+                                                <StackPanel>
+                                                    <TextBox Text="{Binding NewCaption, UpdateSourceTrigger=PropertyChanged}" IsEnabled="{Binding CanImport}"/>
+                                                    <TextBlock Text="{Binding FilenamePreview}" Style="{StaticResource Subtle}" FontSize="11" Margin="4,0"/>
+                                                </StackPanel>
+                                            </DataTemplate>
+                                        </DataGridTemplateColumn.CellTemplate>
+                                    </DataGridTemplateColumn>
+                                    <DataGridTemplateColumn Header="操作文（編集可。空なら変えない）" Width="*" MinWidth="150">
+                                        <DataGridTemplateColumn.CellTemplate>
+                                            <DataTemplate>
+                                                <StackPanel>
+                                                    <TextBox Text="{Binding NewStepText, UpdateSourceTrigger=PropertyChanged}" IsEnabled="{Binding CanImport}"/>
+                                                    <TextBlock Text="{Binding CurrentStepText, StringFormat=現在: {0}}" Style="{StaticResource Subtle}" FontSize="11" Margin="4,0"
+                                                               Visibility="{Binding CurrentStepText, Converter={StaticResource EmptyToCollapsed}}"/>
+                                                </StackPanel>
+                                            </DataTemplate>
+                                        </DataGridTemplateColumn.CellTemplate>
+                                    </DataGridTemplateColumn>
+                                    <DataGridTextColumn Header="状態" Binding="{Binding StatusText}" IsReadOnly="True"/>
+                                    <DataGridTemplateColumn Header="注記" Width="140">
+                                        <DataGridTemplateColumn.CellTemplate>
+                                            <DataTemplate>
+                                                <TextBlock Text="{Binding Note}" TextWrapping="Wrap" FontSize="11" ToolTip="{Binding Note}"/>
+                                            </DataTemplate>
+                                        </DataGridTemplateColumn.CellTemplate>
+                                    </DataGridTemplateColumn>
+                                </DataGrid.Columns>
+                            </DataGrid>
+                            <!-- カット候補（CutAnalysis / CutReview） -->
+                            <Grid Visibility="{Binding IsCutMode, Converter={StaticResource BoolToVisibility}}">
+                                <Grid.RowDefinitions>
+                                    <RowDefinition Height="Auto"/>
+                                    <RowDefinition Height="*"/>
+                                </Grid.RowDefinitions>
+                                <DataGrid ItemsSource="{Binding ReviewRows}" IsReadOnly="True" MaxHeight="200" Margin="0,0,0,6"
+                                          Visibility="{Binding IsReviewMode, Converter={StaticResource BoolToVisibility}}">
+                                    <DataGrid.Columns>
+                                        <DataGridTextColumn Header="対象の区間" Binding="{Binding Target}"/>
+                                        <DataGridTextColumn Header="判定" Binding="{Binding Verdict}"/>
+                                        <DataGridTextColumn Header="提案範囲" Binding="{Binding Suggestion}"/>
+                                        <DataGridTemplateColumn Header="コメント" Width="*">
+                                            <DataGridTemplateColumn.CellTemplate>
+                                                <DataTemplate>
+                                                    <TextBlock Text="{Binding Comment}" TextWrapping="Wrap"/>
+                                                </DataTemplate>
+                                            </DataGridTemplateColumn.CellTemplate>
+                                        </DataGridTemplateColumn>
+                                    </DataGrid.Columns>
+                                </DataGrid>
+                                <DataGrid Grid.Row="1" ItemsSource="{Binding CutRows}" CanUserSortColumns="False" SelectionMode="Single">
+                                    <DataGrid.Columns>
+                                        <DataGridTemplateColumn Header="取込">
+                                            <DataGridTemplateColumn.CellTemplate>
+                                                <DataTemplate>
+                                                    <CheckBox IsChecked="{Binding Include, UpdateSourceTrigger=PropertyChanged}" IsEnabled="{Binding IsValid}" HorizontalAlignment="Center"/>
+                                                </DataTemplate>
+                                            </DataGridTemplateColumn.CellTemplate>
+                                        </DataGridTemplateColumn>
+                                        <DataGridTextColumn Header="開始" Binding="{Binding StartText}" IsReadOnly="True" FontFamily="Consolas"/>
+                                        <DataGridTextColumn Header="終了" Binding="{Binding EndText}" IsReadOnly="True" FontFamily="Consolas"/>
+                                        <DataGridTextColumn Header="提案" Binding="{Binding ActionText}" IsReadOnly="True"/>
+                                        <DataGridTextColumn Header="信頼度" Binding="{Binding ConfidenceText}" IsReadOnly="True"/>
+                                        <DataGridTemplateColumn Header="理由" Width="*">
+                                            <DataGridTemplateColumn.CellTemplate>
+                                                <DataTemplate>
+                                                    <TextBlock Text="{Binding Reason}" TextWrapping="Wrap"/>
+                                                </DataTemplate>
+                                            </DataGridTemplateColumn.CellTemplate>
+                                        </DataGridTemplateColumn>
+                                        <DataGridTemplateColumn Header="注記" Width="170">
+                                            <DataGridTemplateColumn.CellTemplate>
+                                                <DataTemplate>
+                                                    <TextBlock Text="{Binding Note}" TextWrapping="Wrap" FontSize="11" Foreground="{StaticResource ErrorBrush}"/>
+                                                </DataTemplate>
+                                            </DataGridTemplateColumn.CellTemplate>
+                                        </DataGridTemplateColumn>
+                                    </DataGrid.Columns>
+                                </DataGrid>
+                            </Grid>
+                        </Grid>
+
+                        <DockPanel Grid.Row="4" Margin="0,6,0,0">
+                            <Button DockPanel.Dock="Right" Content="取り込む" Style="{StaticResource AccentButton}" MinWidth="120" Command="{Binding ImportCommand}"
+                                    IsEnabled="{Binding HasResult}"/>
+                            <TextBlock Style="{StaticResource Subtle}" VerticalAlignment="Center" FontSize="11"
+                                       Text="取り込みは主画面の［元に戻す］（Ctrl+Z）で取り消せます。カット候補は採用するまで編集に反映されません。"/>
+                        </DockPanel>
+                    </Grid>
+                </Grid>
+            </DockPanel>
+        </TabItem>
+
+        <TabItem Header="履歴">
+            <Grid Margin="6">
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="2*"/>
+                    <RowDefinition Height="Auto"/>
+                    <RowDefinition Height="3*"/>
+                </Grid.RowDefinitions>
+                <DataGrid ItemsSource="{Binding History}" SelectedItem="{Binding SelectedHistory}" IsReadOnly="True" SelectionMode="Single">
+                    <DataGrid.Columns>
+                        <DataGridTextColumn Header="プロンプト作成" Binding="{Binding PromptCreatedAt, StringFormat=yyyy-MM-dd HH:mm:ss}"/>
+                        <DataGridTextColumn Header="用途" Binding="{Binding Purpose}"/>
+                        <DataGridTextColumn Header="テンプレート" Binding="{Binding TemplateName}"/>
+                        <DataGridTextColumn Header="解析日時" Binding="{Binding ParsedAt, StringFormat=yyyy-MM-dd HH:mm:ss}"/>
+                        <DataGridCheckBoxColumn Header="解析成功" Binding="{Binding ParseSucceeded}"/>
+                        <DataGridTextColumn Header="取り込み結果" Binding="{Binding ImportSummary}" Width="*"/>
+                    </DataGrid.Columns>
+                </DataGrid>
+                <DockPanel Grid.Row="1" Margin="0,6">
+                    <Button DockPanel.Dock="Right" Content="この回答を連携タブへ戻す（再解析）" Command="{Binding RestoreHistoryCommand}"/>
+                    <TextBlock Style="{StaticResource Subtle}" VerticalAlignment="Center"
+                               Text="履歴はプロジェクトファイルに保存されます（Gemini Chat 側の履歴に依存しません）。"/>
+                </DockPanel>
+                <Grid Grid.Row="2">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition/>
+                        <ColumnDefinition Width="8"/>
+                        <ColumnDefinition/>
+                    </Grid.ColumnDefinitions>
+                    <DockPanel>
+                        <TextBlock DockPanel.Dock="Top" Text="プロンプト" FontWeight="SemiBold"/>
+                        <TextBox Text="{Binding SelectedHistory.Prompt, Mode=OneWay}" IsReadOnly="True" TextWrapping="Wrap" VerticalScrollBarVisibility="Auto" VerticalContentAlignment="Top" FontSize="12"/>
+                    </DockPanel>
+                    <DockPanel Grid.Column="2">
+                        <TextBlock DockPanel.Dock="Top" Text="Gemini の回答" FontWeight="SemiBold"/>
+                        <TextBox Text="{Binding SelectedHistory.Response, Mode=OneWay}" IsReadOnly="True" TextWrapping="Wrap" VerticalScrollBarVisibility="Auto" VerticalContentAlignment="Top" FontSize="12"/>
+                    </DockPanel>
+                </Grid>
+            </Grid>
+        </TabItem>
+    </TabControl>
+</Window>

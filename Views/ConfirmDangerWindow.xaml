@@ -1,0 +1,17 @@
+<Window x:Class="ManualVideoStudio.Views.ConfirmDangerWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Style="{StaticResource AppWindow}" Title="確認"
+        Width="500" SizeToContent="Height" ResizeMode="NoResize" WindowStartupLocation="CenterOwner" ShowInTaskbar="False">
+    <StackPanel Margin="16">
+        <DockPanel>
+            <TextBlock DockPanel.Dock="Left" Text="⚠" FontSize="28" Foreground="#C47F00" Margin="0,0,12,0" VerticalAlignment="Top"/>
+            <TextBlock x:Name="Message" TextWrapping="Wrap" AutomationProperties.AutomationId="Message"/>
+        </DockPanel>
+        <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,16,0,0">
+            <Button x:Name="OkButton" Style="{StaticResource AccentButton}" Background="{StaticResource ErrorBrush}" MinWidth="110" Click="Ok_Click"/>
+            <!-- 誤操作を防ぐため、既定（Enter）はキャンセル -->
+            <Button x:Name="CancelButton" MinWidth="100" IsCancel="True" IsDefault="True"/>
+        </StackPanel>
+    </StackPanel>
+</Window>

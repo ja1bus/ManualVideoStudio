@@ -1,0 +1,406 @@
+<Window x:Class="ManualVideoStudio.Views.SettingsWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:vm="clr-namespace:ManualVideoStudio.ViewModels"
+        xmlns:local="clr-namespace:ManualVideoStudio"
+        Style="{StaticResource AppWindow}" Title="設定"
+        Width="900" Height="700" MinWidth="720" MinHeight="560" WindowStartupLocation="CenterOwner" ShowInTaskbar="False">
+    <Window.Resources>
+        <Style x:Key="Label" TargetType="TextBlock">
+            <Setter Property="VerticalAlignment" Value="Center"/>
+            <Setter Property="Margin" Value="0,0,8,0"/>
+        </Style>
+        <Style x:Key="Num" TargetType="TextBox" BasedOn="{StaticResource {x:Type TextBox}}">
+            <Setter Property="Width" Value="90"/>
+            <Setter Property="HorizontalAlignment" Value="Left"/>
+        </Style>
+    </Window.Resources>
+    <DockPanel Margin="12">
+        <DockPanel DockPanel.Dock="Bottom" Margin="0,10,0,0">
+            <StackPanel DockPanel.Dock="Right" Orientation="Horizontal">
+                <Button Content="OK（保存）" Style="{StaticResource AccentButton}" MinWidth="110" Command="{Binding OkCommand}"/>
+                <Button Content="キャンセル" MinWidth="90" IsCancel="True" Command="{Binding CancelCommand}"/>
+            </StackPanel>
+            <CheckBox Content="出力・エンコード設定を開いているプロジェクトにも適用する" IsChecked="{Binding ApplyOutputToProject}" VerticalAlignment="Center"/>
+        </DockPanel>
+        <TabControl SelectedIndex="{Binding SelectedTab, Converter={StaticResource EnumToIndex}, ConverterParameter={x:Type vm:SettingsTab}}" Background="White">
+            <!-- FFmpeg -->
+            <TabItem Header="FFmpeg">
+                <StackPanel Margin="12">
+                    <TextBlock Style="{StaticResource Subtle}" Margin="0,0,0,10"
+                               Text="FFmpeg はアプリに同梱していません。別途インストールした ffmpeg.exe を指定するか、PATH に追加してください。探索順: ffmpeg = 指定したパス → PATH ／ ffprobe = 指定したパス（任意）→ ffmpeg.exe と同じフォルダー → PATH。"/>
+                    <Grid>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="150"/>
+                            <ColumnDefinition Width="*"/>
+                            <ColumnDefinition Width="Auto"/>
+                        </Grid.ColumnDefinitions>
+                        <Grid.RowDefinitions>
+                            <RowDefinition/>
+                            <RowDefinition/>
+                        </Grid.RowDefinitions>
+                        <TextBlock Style="{StaticResource Label}" Text="ffmpeg.exe"/>
+                        <TextBox Grid.Column="1" Text="{Binding FfmpegPath, UpdateSourceTrigger=PropertyChanged}" ToolTip="空欄なら PATH から探します"/>
+                        <Button Grid.Column="2" Content="参照..." Command="{Binding BrowseFfmpegCommand}"/>
+                        <TextBlock Grid.Row="1" Style="{StaticResource Label}" Text="ffprobe.exe（任意）"/>
+                        <TextBox Grid.Row="1" Grid.Column="1" Text="{Binding FfprobePath, UpdateSourceTrigger=PropertyChanged}" ToolTip="空欄なら ffmpeg.exe と同じフォルダー → PATH から探します"/>
+                        <Button Grid.Row="1" Grid.Column="2" Content="参照..." Command="{Binding BrowseFfprobeCommand}"/>
+                    </Grid>
+                    <WrapPanel Margin="0,6,0,0">
+                        <Button Content="再検出" Style="{StaticResource AccentButton}" Command="{Binding DetectCommand}"/>
+                        <Button Content="指定をクリア（PATH を使う）" Command="{Binding ClearFfmpegCommand}"/>
+                    </WrapPanel>
+                    <Border Style="{StaticResource Card}" Margin="0,10,0,0">
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="130"/>
+                                <ColumnDefinition Width="*"/>
+                            </Grid.ColumnDefinitions>
+                            <Grid.RowDefinitions>
+                                <RowDefinition Height="Auto"/>
+                                <RowDefinition Height="Auto"/>
+                                <RowDefinition Height="Auto"/>
+                                <RowDefinition Height="Auto"/>
+                                <RowDefinition Height="Auto"/>
+                                <RowDefinition Height="Auto"/>
+                            </Grid.RowDefinitions>
+                            <TextBlock Text="検出状態" Style="{StaticResource Label}"/>
+                            <TextBlock Grid.Column="1" Text="{Binding FFmpeg.StatusText}" FontWeight="SemiBold" Margin="0,3"/>
+                            <TextBlock Grid.Row="1" Text="使用する ffmpeg" Style="{StaticResource Label}"/>
+                            <TextBox Grid.Row="1" Grid.Column="1" Text="{Binding FFmpeg.Location.Ffmpeg.Path, Mode=OneWay}" IsReadOnly="True" BorderThickness="0"/>
+                            <TextBlock Grid.Row="2" Text="使用する ffprobe" Style="{StaticResource Label}"/>
+                            <TextBox Grid.Row="2" Grid.Column="1" Text="{Binding FFmpeg.Location.Ffprobe.Path, Mode=OneWay}" IsReadOnly="True" BorderThickness="0"/>
+                            <TextBlock Grid.Row="3" Text="FFmpeg バージョン" Style="{StaticResource Label}"/>
+                            <TextBlock Grid.Row="3" Grid.Column="1" Text="{Binding FFmpeg.Capabilities.FfmpegVersion}" Margin="4,3"/>
+                            <TextBlock Grid.Row="4" Text="ffprobe バージョン" Style="{StaticResource Label}"/>
+                            <TextBlock Grid.Row="4" Grid.Column="1" Text="{Binding FFmpeg.Capabilities.FfprobeVersion}" Margin="4,3"/>
+                            <TextBlock Grid.Row="5" Text="詳細・機能" Style="{StaticResource Label}" VerticalAlignment="Top" Margin="0,3"/>
+                            <TextBlock Grid.Row="5" Grid.Column="1" Text="{Binding FFmpeg.DetailText}" TextWrapping="Wrap" Margin="4,3"/>
+                        </Grid>
+                    </Border>
+                    <TextBlock Style="{StaticResource Subtle}" Margin="0,10,0,0" FontSize="11"
+                               Text="機能検出では libx264・aac（動画書き出し）、png・mjpeg（画像）、freezedetect・silencedetect（自動解析）、trim・concat（カット）の有無を確認します。"/>
+                </StackPanel>
+            </TabItem>
+
+            <!-- 出力 -->
+            <TabItem Header="出力">
+                <ScrollViewer VerticalScrollBarVisibility="Auto">
+                    <StackPanel Margin="12">
+                        <TextBlock Style="{StaticResource SectionTitle}" Text="プロジェクトの保存先"/>
+                        <DockPanel>
+                            <Button DockPanel.Dock="Right" Content="参照..." Command="{Binding BrowseProjectRootCommand}"/>
+                            <TextBox Text="{Binding ProjectRootDirectory, UpdateSourceTrigger=PropertyChanged}" AutomationProperties.Name="プロジェクトの保存先"/>
+                        </DockPanel>
+                        <TextBlock Style="{StaticResource Subtle}" TextWrapping="Wrap" Margin="0,2,0,10"
+                                   Text="録画した動画・開いた動画は、この中に作る「日時_プロジェクト名」のフォルダーへ移動します。書き出した動画・GIF はそのフォルダー、手順書画像はその中の images に保存します（録画画面の保存先と同じ設定）。"/>
+                        <TextBlock Style="{StaticResource SectionTitle}" Text="既定の出力先（通常は空欄。空欄ならプロジェクトフォルダー、画像は images）"/>
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="110"/>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="Auto"/>
+                            </Grid.ColumnDefinitions>
+                            <Grid.RowDefinitions>
+                                <RowDefinition/>
+                                <RowDefinition/>
+                            </Grid.RowDefinitions>
+                            <TextBlock Style="{StaticResource Label}" Text="動画"/>
+                            <TextBox Grid.Column="1" Text="{Binding VideoOutputDirectory, UpdateSourceTrigger=PropertyChanged}"/>
+                            <Button Grid.Column="2" Content="参照..." Command="{Binding BrowseVideoOutputCommand}"/>
+                            <TextBlock Grid.Row="1" Style="{StaticResource Label}" Text="画像" Visibility="{Binding IsFullMode, Converter={StaticResource BoolToVisibility}}"/>
+                            <TextBox Grid.Row="1" Grid.Column="1" Text="{Binding ImageOutputDirectory, UpdateSourceTrigger=PropertyChanged}" ToolTip="空欄ならプロジェクトフォルダーの images" Visibility="{Binding IsFullMode, Converter={StaticResource BoolToVisibility}}"/>
+                            <Button Grid.Row="1" Grid.Column="2" Content="参照..." Command="{Binding BrowseImageOutputCommand}" Visibility="{Binding IsFullMode, Converter={StaticResource BoolToVisibility}}"/>
+                        </Grid>
+
+                        <!-- 手順書画像の形式（簡易モードでは隠す。v1.11） -->
+                        <StackPanel Visibility="{Binding IsFullMode, Converter={StaticResource BoolToVisibility}}">
+                        <TextBlock Style="{StaticResource SectionTitle}" Text="手順書画像" Margin="0,14,0,6"/>
+                        <StackPanel Orientation="Horizontal">
+                            <RadioButton Content="PNG（推奨：文字がにじまない）" IsChecked="{Binding IsJpeg, Converter={StaticResource InverseBool}}"/>
+                            <RadioButton Content="JPEG" IsChecked="{Binding IsJpeg}"/>
+                            <TextBlock Text="JPEG 品質（2=最高～31）" Style="{StaticResource Label}" Margin="12,0,6,0"/>
+                            <TextBox Style="{StaticResource Num}" Width="50" Text="{Binding JpegQuality}" IsEnabled="{Binding IsJpeg}"/>
+                        </StackPanel>
+                        <CheckBox Content="画像と一緒にメタデータ JSON（capture-metadata.json）を出力する" IsChecked="{Binding WriteMetadataJson}"/>
+                        </StackPanel>
+
+                        <TextBlock Style="{StaticResource SectionTitle}" Text="動画の書き出し（H.264 / AAC、正確なカットのため再エンコード）" Margin="0,14,0,6"/>
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="160"/>
+                                <ColumnDefinition Width="*"/>
+                            </Grid.ColumnDefinitions>
+                            <Grid.RowDefinitions>
+                                <RowDefinition/>
+                                <RowDefinition/>
+                                <RowDefinition/>
+                            </Grid.RowDefinitions>
+                            <TextBlock Style="{StaticResource Label}" Text="画質 CRF（小さいほど高画質）"/>
+                            <TextBox Grid.Column="1" Style="{StaticResource Num}" Text="{Binding VideoCrf}" ToolTip="既定 22。18 は入力より大きくなりやすい"/>
+                            <TextBlock Grid.Row="1" Style="{StaticResource Label}" Text="速度 preset"/>
+                            <ComboBox Grid.Row="1" Grid.Column="1" Width="140" HorizontalAlignment="Left" ItemsSource="{Binding Presets}" SelectedItem="{Binding VideoPreset}"/>
+                            <TextBlock Grid.Row="2" Style="{StaticResource Label}" Text="音声ビットレート（kbps）"/>
+                            <TextBox Grid.Row="2" Grid.Column="1" Style="{StaticResource Num}" Text="{Binding AudioBitrateKbps}"/>
+                        </Grid>
+                        <CheckBox Content="カットのつなぎ目に短いクロスフェード（0.3 秒）を入れる（MP4 / GIF 共通）" IsChecked="{Binding CutTransition}" Margin="0,8,0,0"
+                                  ToolTip="削除・短縮で消す部分を前後 0.15 秒ずつ重ねてなめらかにつなぎます。動画の長さと字幕の時刻は変わりません"/>
+                    </StackPanel>
+                </ScrollViewer>
+            </TabItem>
+
+            <!-- 字幕（v1.5。すべてのプロジェクトに共通。字幕ごとの位置・サイズは主画面の字幕の欄） -->
+            <TabItem Header="字幕">
+                <DockPanel Margin="12">
+                    <TextBlock DockPanel.Dock="Top" Style="{StaticResource Subtle}" Margin="0,0,0,10" TextWrapping="Wrap"
+                               Text="すべてのプロジェクトの字幕に共通の設定です（書き出しと主画面のプレビューに反映）。字幕ごとの位置（上・中・下と上下のずらし）・文字サイズは、主画面の字幕の欄で変えます。"/>
+                    <Grid DockPanel.Dock="Top">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="200"/>
+                            <ColumnDefinition Width="*"/>
+                        </Grid.ColumnDefinitions>
+                        <Grid.RowDefinitions>
+                            <RowDefinition/>
+                            <RowDefinition/>
+                            <RowDefinition/>
+                            <RowDefinition/>
+                            <RowDefinition/>
+                            <RowDefinition/>
+                        </Grid.RowDefinitions>
+                        <TextBlock Style="{StaticResource Label}" Text="見た目"/>
+                        <ComboBox Grid.Column="1" Width="220" HorizontalAlignment="Left" ItemsSource="{x:Static vm:SettingsViewModel.SubtitlePresetLabels}"
+                                  SelectedIndex="{Binding SubtitlePresetIndex}" AutomationProperties.Name="字幕の見た目"/>
+                        <TextBlock Grid.Row="1" Style="{StaticResource Label}" Text="フォント"/>
+                        <StackPanel Grid.Row="1" Grid.Column="1" Orientation="Horizontal">
+                            <ComboBox Width="320" ItemsSource="{Binding SubtitleFontChoices}" SelectedItem="{Binding SubtitleFont}"
+                                      AutomationProperties.Name="字幕のフォント" ToolTip="この PC に入っているフォント（日本語が使えるものを先に並べています）">
+                                <ComboBox.ItemTemplate>
+                                    <DataTemplate>
+                                        <StackPanel Orientation="Horizontal">
+                                            <TextBlock Text="{Binding DisplayName}"/>
+                                            <TextBlock Text="{Binding Detail}" Margin="8,0,0,0" Foreground="{StaticResource SubtleTextBrush}"/>
+                                        </StackPanel>
+                                    </DataTemplate>
+                                </ComboBox.ItemTemplate>
+                            </ComboBox>
+                            <TextBlock Text="{Binding SubtitleFontNote}" Foreground="{StaticResource ErrorBrush}" VerticalAlignment="Center" Margin="8,0,0,0"
+                                       TextWrapping="Wrap" MaxWidth="300"/>
+                        </StackPanel>
+                        <TextBlock Grid.Row="2" Style="{StaticResource Label}" Text="上下の余白（画面の端から）"/>
+                        <ComboBox Grid.Row="2" Grid.Column="1" Width="160" HorizontalAlignment="Left" ItemsSource="{Binding SubtitleMargins}"
+                                  DisplayMemberPath="Label" SelectedValuePath="Value" SelectedValue="{Binding SubtitleMargin}"
+                                  AutomationProperties.Name="字幕の上下の余白" ToolTip="上・下に出す字幕と画面の端の間隔（全字幕で共通。字幕ごとの微調整は主画面の ▲▼）"/>
+                        <TextBlock Grid.Row="3" Style="{StaticResource Label}" Text="新しい字幕の文字サイズ"/>
+                        <ComboBox Grid.Row="3" Grid.Column="1" Width="90" HorizontalAlignment="Left" ItemsSource="{Binding SubtitleFontSizes}"
+                                  SelectedItem="{Binding SubtitleDefaultFontSize}" AutomationProperties.Name="新しい字幕の文字サイズ"
+                                  ToolTip="動画の高さ 1080px のときの文字の大きさ（px）"/>
+                        <TextBlock Grid.Row="4" Style="{StaticResource Label}" Text="新しい字幕の位置"/>
+                        <ComboBox Grid.Row="4" Grid.Column="1" Width="90" HorizontalAlignment="Left" SelectedIndex="{Binding SubtitleDefaultPositionIndex}"
+                                  AutomationProperties.Name="新しい字幕の位置">
+                            <ComboBoxItem Content="上"/>
+                            <ComboBoxItem Content="中央"/>
+                            <ComboBoxItem Content="下"/>
+                        </ComboBox>
+                        <StackPanel Grid.Row="5" Grid.Column="1" Orientation="Horizontal" Margin="0,6,0,0">
+                            <Button Content="初期値に戻す" Command="{Binding ResetSubtitleCommand}"
+                                    ToolTip="白文字＋半透明の黒帯・メイリオ・余白 5%・48・下 に戻します（OK で保存）"/>
+                            <Button Content="確認画像を作り直す" Command="{Binding RefreshSampleCommand}"/>
+                        </StackPanel>
+                    </Grid>
+                    <TextBlock DockPanel.Dock="Top" Margin="0,10,0,2" Text="{Binding SampleSubjectText}" Style="{StaticResource Subtle}" TextWrapping="Wrap"/>
+                    <TextBlock DockPanel.Dock="Top" Text="{Binding SampleMessage}" Style="{StaticResource Subtle}" TextWrapping="Wrap"/>
+                    <TextBlock DockPanel.Dock="Top" Text="{Binding SampleFontWarning}" Foreground="{StaticResource ErrorBrush}" TextWrapping="Wrap"
+                               Visibility="{Binding SampleFontWarning, Converter={StaticResource EmptyToCollapsed}}"/>
+                    <Border BorderBrush="{StaticResource BorderBrush}" BorderThickness="1" Margin="0,6,0,0" Background="#202020">
+                        <Grid>
+                            <Image Source="{Binding SampleImage}" Stretch="Uniform" AutomationProperties.Name="字幕の確認画像"/>
+                            <ProgressBar IsIndeterminate="True" Height="4" VerticalAlignment="Top"
+                                         Visibility="{Binding IsSampleBusy, Converter={StaticResource BoolToVisibility}}"/>
+                        </Grid>
+                    </Border>
+                </DockPanel>
+            </TabItem>
+
+            <!-- 前後フレーム -->
+            <TabItem Header="前後フレーム" Visibility="{Binding IsFullMode, Converter={StaticResource BoolToVisibility}}">
+                <StackPanel Margin="12">
+                    <TextBlock Style="{StaticResource Subtle}" Margin="0,0,0,10"
+                               Text="［前後比較］で、登録した時刻の前後に並べる候補画像の設定です。Windows のアニメーション途中やマウス移動中を避けるために使います。"/>
+                    <Grid>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="200"/>
+                            <ColumnDefinition Width="*"/>
+                        </Grid.ColumnDefinitions>
+                        <Grid.RowDefinitions>
+                            <RowDefinition/>
+                            <RowDefinition/>
+                            <RowDefinition/>
+                        </Grid.RowDefinitions>
+                        <TextBlock Style="{StaticResource Label}" Text="候補の間隔（秒）"/>
+                        <TextBox Grid.Column="1" Style="{StaticResource Num}" Text="{Binding StepSeconds}"/>
+                        <TextBlock Grid.Row="1" Style="{StaticResource Label}" Text="前後それぞれの枚数（1～5）"/>
+                        <TextBox Grid.Row="1" Grid.Column="1" Style="{StaticResource Num}" Text="{Binding CountEachSide}"/>
+                        <TextBlock Grid.Row="2" Style="{StaticResource Label}" Text="一覧のサムネイル幅（px）"/>
+                        <TextBox Grid.Row="2" Grid.Column="1" Style="{StaticResource Num}" Text="{Binding ThumbnailWidth}"/>
+                    </Grid>
+                </StackPanel>
+            </TabItem>
+
+            <!-- 自動解析 -->
+            <TabItem Header="自動解析">
+                <ScrollViewer VerticalScrollBarVisibility="Auto">
+                    <StackPanel Margin="12">
+                        <TextBlock Style="{StaticResource Subtle}" Margin="0,0,0,10"
+                                   Text="ローカル解析は ffmpeg の freezedetect（静止）・silencedetect（無音）・scene（画面変化）を使います。結果は候補として表示し、自動で削除はしません。ナレーション付きの静止画面は説明中の可能性があるため優先度を下げます。"/>
+                        <StackPanel Orientation="Horizontal">
+                            <TextBlock Style="{StaticResource Label}" Text="プリセット"/>
+                            <ComboBox Width="320" ItemsSource="{Binding AnalysisPresets}" DisplayMemberPath="Label" SelectedValuePath="Value" SelectedValue="{Binding AnalysisPreset}"/>
+                        </StackPanel>
+                        <WrapPanel Margin="0,8,0,0">
+                            <CheckBox Content="静止区間" IsChecked="{Binding EnableFreeze}" Margin="0,0,16,0"/>
+                            <CheckBox Content="無音区間" IsChecked="{Binding EnableSilence}" Margin="0,0,16,0"/>
+                            <CheckBox Content="画面変化（タイムラインに目印を表示）" IsChecked="{Binding EnableSceneChange}"/>
+                        </WrapPanel>
+                        <Grid Margin="0,8,0,0">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="260"/>
+                                <ColumnDefinition Width="*"/>
+                            </Grid.ColumnDefinitions>
+                            <Grid.RowDefinitions>
+                                <RowDefinition/>
+                                <RowDefinition/>
+                                <RowDefinition/>
+                                <RowDefinition/>
+                                <RowDefinition/>
+                                <RowDefinition/>
+                                <RowDefinition/>
+                                <RowDefinition/>
+                                <RowDefinition/>
+                            </Grid.RowDefinitions>
+                            <TextBlock Style="{StaticResource Label}" Text="静止とみなす最短時間（秒）"/>
+                            <TextBox Grid.Column="1" Style="{StaticResource Num}" Text="{Binding FreezeMinSeconds}"/>
+                            <TextBlock Grid.Row="1" Style="{StaticResource Label}" Text="静止判定の許容ノイズ（dB、例 -60）"/>
+                            <TextBox Grid.Row="1" Grid.Column="1" Style="{StaticResource Num}" Text="{Binding FreezeNoiseDb}" ToolTip="小さい値（-70 等）ほど厳密。カーソル点滅で途切れる場合は大きく（-50 等）"/>
+                            <TextBlock Grid.Row="2" Style="{StaticResource Label}" Text="無音とみなす最短時間（秒）"/>
+                            <TextBox Grid.Row="2" Grid.Column="1" Style="{StaticResource Num}" Text="{Binding SilenceMinSeconds}"/>
+                            <TextBlock Grid.Row="3" Style="{StaticResource Label}" Text="無音とみなす音量（dB、例 -45）"/>
+                            <TextBox Grid.Row="3" Grid.Column="1" Style="{StaticResource Num}" Text="{Binding SilenceNoiseDb}"/>
+                            <TextBlock Grid.Row="4" Style="{StaticResource Label}" Text="画面変化のしきい値（0～1）"/>
+                            <TextBox Grid.Row="4" Grid.Column="1" Style="{StaticResource Num}" Text="{Binding SceneThreshold}"/>
+                            <TextBlock Grid.Row="5" Style="{StaticResource Label}" Text="候補の前後に残す余白（秒）"/>
+                            <TextBox Grid.Row="5" Grid.Column="1" Style="{StaticResource Num}" Text="{Binding EdgeMarginSeconds}"/>
+                            <TextBlock Grid.Row="6" Style="{StaticResource Label}" Text="短縮候補で残す秒数"/>
+                            <TextBox Grid.Row="6" Grid.Column="1" Style="{StaticResource Num}" Text="{Binding ShortenKeepSeconds}"/>
+                            <TextBlock Grid.Row="7" Style="{StaticResource Label}" Text="解析時の縮小幅（px、0 で縮小なし）"/>
+                            <TextBox Grid.Row="7" Grid.Column="1" Style="{StaticResource Num}" Text="{Binding ScaleWidth}"/>
+                            <CheckBox Grid.Row="8" Grid.ColumnSpan="2" Content="無音だけの区間（画面は動いている）も候補にする" IsChecked="{Binding IncludeSilenceOnly}"/>
+                        </Grid>
+                    </StackPanel>
+                </ScrollViewer>
+            </TabItem>
+
+            <!-- プロンプト -->
+            <TabItem Header="プロンプト" Visibility="{Binding IsFullMode, Converter={StaticResource BoolToVisibility}}">
+                <DockPanel Margin="12">
+                    <StackPanel DockPanel.Dock="Top">
+                        <StackPanel Orientation="Horizontal">
+                            <TextBlock Style="{StaticResource Label}" Text="テンプレート"/>
+                            <ComboBox Width="420" ItemsSource="{Binding Purposes}" DisplayMemberPath="Label" SelectedValuePath="Value" SelectedValue="{Binding SelectedPurpose}" AutomationProperties.Name="テンプレートの種類"/>
+                            <Border Background="#EDE7FE" CornerRadius="3" Padding="6,1" Margin="8,0" VerticalAlignment="Center"
+                                    Visibility="{Binding IsTemplateCustomized, Converter={StaticResource BoolToVisibility}}">
+                                <TextBlock Text="編集済み" Foreground="{StaticResource AiCandidateBrush}" FontSize="11"/>
+                            </Border>
+                        </StackPanel>
+                        <TextBlock Style="{StaticResource Subtle}" FontSize="11" Margin="0,4" TextWrapping="Wrap" Text="{Binding TemplateHint}"/>
+                    </StackPanel>
+                    <DockPanel DockPanel.Dock="Bottom" Margin="0,6,0,0">
+                        <StackPanel DockPanel.Dock="Right" Orientation="Horizontal">
+                            <Button Content="保存" Style="{StaticResource AccentButton}" Command="{Binding SaveTemplateCommand}"/>
+                            <Button Content="初期値へ戻す" Command="{Binding ResetTemplateCommand}"/>
+                        </StackPanel>
+                        <TextBlock Text="{Binding TemplateMessage}" Foreground="{StaticResource SubtleTextBrush}" TextWrapping="Wrap" VerticalAlignment="Center"/>
+                    </DockPanel>
+                    <Expander DockPanel.Dock="Right" ExpandDirection="Left" IsExpanded="True" Margin="6,0,0,0">
+                        <Expander.Header>
+                            <TextBlock Text="変数一覧">
+                                <TextBlock.LayoutTransform>
+                                    <RotateTransform Angle="90"/>
+                                </TextBlock.LayoutTransform>
+                            </TextBlock>
+                        </Expander.Header>
+                        <ListBox Width="250" ItemsSource="{Binding Variables}">
+                            <ListBox.ItemTemplate>
+                                <DataTemplate DataType="{x:Type vm:VariableInfo}">
+                                    <StackPanel Margin="0,2">
+                                        <TextBox Text="{Binding Name, Mode=OneWay}" IsReadOnly="True" BorderThickness="0" Background="Transparent" FontFamily="Consolas" Padding="0" Margin="0"/>
+                                        <TextBlock Text="{Binding Description}" Style="{StaticResource Subtle}" FontSize="11" Width="230"/>
+                                    </StackPanel>
+                                </DataTemplate>
+                            </ListBox.ItemTemplate>
+                        </ListBox>
+                    </Expander>
+                    <TextBox Text="{Binding TemplateText, UpdateSourceTrigger=PropertyChanged}" AutomationProperties.Name="テンプレート" AcceptsReturn="True" AcceptsTab="True" TextWrapping="Wrap"
+                             VerticalContentAlignment="Top" VerticalScrollBarVisibility="Auto" FontFamily="Consolas, BIZ UDGothic, Yu Gothic UI" FontSize="12"/>
+                </DockPanel>
+            </TabItem>
+
+            <!-- 操作 -->
+            <TabItem Header="操作・その他">
+                <StackPanel Margin="12">
+                    <TextBlock Style="{StaticResource SectionTitle}" Text="画面のモード" Margin="0,0,0,6"/>
+                    <!-- ○に GroupName を付けない（同じ親の○は自動で 1 組になる）。GroupName があると閉じた設定画面の○とも組になり、開き直したときに両方の○が外れる（v1.11） -->
+                    <RadioButton Content="簡易モード（録画・カット・字幕・図形・MP4 / GIF の書き出し）"
+                                 IsChecked="{Binding IsSimpleMode}" AutomationProperties.Name="簡易モード"/>
+                    <RadioButton Content="{local:Str Set.ModeFull}"
+                                 IsChecked="{Binding IsSimpleMode, Converter={StaticResource InverseBool}}" AutomationProperties.Name="全機能モード" Margin="0,4,0,0"/>
+                    <TextBlock Style="{StaticResource Subtle}" TextWrapping="Wrap" Margin="0,4,0,14"
+                               Text="{local:Str Set.ModeDesc}"/>
+                    <!-- 詳細・外部連携（v1.14）。簡易・全機能のどちらからも開ける。ON にしても画面のモードは変えない -->
+                    <Expander Header="{local:Str Set.ExtHeader}" IsExpanded="False" Margin="0,0,0,14" AutomationProperties.AutomationId="Settings.ExternalDocument.Expander">
+                        <StackPanel Margin="18,6,0,0">
+                            <CheckBox Content="{local:Str Set.ExtCheck}" IsChecked="{Binding EnableExternalDocumentExport}"
+                                      AutomationProperties.AutomationId="Settings.ExternalDocument.Enable"/>
+                            <TextBlock Style="{StaticResource Subtle}" TextWrapping="Wrap" Margin="22,4,0,0" Text="{local:Str Set.ExtDesc}"
+                                       AutomationProperties.AutomationId="Settings.ExternalDocument.Description"/>
+                            <TextBlock TextWrapping="Wrap" Margin="22,4,0,0" Text="{local:Str Set.ExtSimpleNote}" Foreground="{StaticResource ErrorBrush}"
+                                       AutomationProperties.AutomationId="Settings.ExternalDocument.SimpleNote">
+                                <TextBlock.Style>
+                                    <Style TargetType="TextBlock" BasedOn="{StaticResource Subtle}">
+                                        <Setter Property="Visibility" Value="Collapsed"/>
+                                        <Style.Triggers>
+                                            <MultiDataTrigger>
+                                                <MultiDataTrigger.Conditions>
+                                                    <Condition Binding="{Binding IsSimpleMode}" Value="True"/>
+                                                    <Condition Binding="{Binding EnableExternalDocumentExport}" Value="True"/>
+                                                </MultiDataTrigger.Conditions>
+                                                <Setter Property="Visibility" Value="Visible"/>
+                                            </MultiDataTrigger>
+                                        </Style.Triggers>
+                                    </Style>
+                                </TextBlock.Style>
+                            </TextBlock>
+                        </StackPanel>
+                    </Expander>
+                    <Grid>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="260"/>
+                            <ColumnDefinition Width="*"/>
+                        </Grid.ColumnDefinitions>
+                        <Grid.RowDefinitions>
+                            <RowDefinition/>
+                            <RowDefinition/>
+                            <RowDefinition/>
+                        </Grid.RowDefinitions>
+                        <TextBlock Style="{StaticResource Label}" Text="短縮登録の既定の残し秒数"/>
+                        <TextBox Grid.Column="1" Style="{StaticResource Num}" Text="{Binding DefaultShortenKeepSeconds}"/>
+                        <TextBlock Grid.Row="1" Style="{StaticResource Label}" Text="Shift+矢印キーで移動する秒数"/>
+                        <TextBox Grid.Row="1" Grid.Column="1" Style="{StaticResource Num}" Text="{Binding JumpSeconds}"/>
+                        <TextBlock Grid.Row="2" Style="{StaticResource Label}" Text="AI の回答言語（{{LANGUAGE}}）" Visibility="{Binding IsFullMode, Converter={StaticResource BoolToVisibility}}"/>
+                        <TextBox Grid.Row="2" Grid.Column="1" Width="160" HorizontalAlignment="Left" Text="{Binding Language}" Visibility="{Binding IsFullMode, Converter={StaticResource BoolToVisibility}}"/>
+                    </Grid>
+                    <TextBlock Text="{Binding AboutText}" Style="{StaticResource Subtle}" Margin="0,24,0,0"/>
+                </StackPanel>
+            </TabItem>
+        </TabControl>
+    </DockPanel>
+</Window>

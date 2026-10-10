@@ -1,0 +1,233 @@
+<?xml version="1.0" encoding="utf-8"?>
+<root>
+  <!-- 画面に表示する文字列（日本語。既定の言語）。v1.13 で変更・新設した主画面とプロジェクト一覧の文言だけを持つ。キーは Loc.Get / Loc.Format / XAML の {local:Str キー}。英語を足すときは同じキーの Strings.en.resx を作る。 -->
+  <resheader name="resmimetype"><value>text/microsoft-resx</value></resheader>
+  <resheader name="version"><value>2.0</value></resheader>
+  <resheader name="reader"><value>System.Resources.ResXResourceReader, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value></resheader>
+  <resheader name="writer"><value>System.Resources.ResXResourceWriter, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value></resheader>
+  <data name="Toolbar.Project" xml:space="preserve"><value>プロジェクト</value></data>
+  <data name="Toolbar.Project.Tip" xml:space="preserve"><value>録画・編集の一覧を開きます（開く・新しい編集・複製・削除・エクスポート / インポート）</value></data>
+  <data name="Toolbar.Save" xml:space="preserve"><value>保存</value></data>
+  <data name="Toolbar.Save.Tip" xml:space="preserve"><value>プロジェクトを保存します [Ctrl+S]</value></data>
+  <data name="Toolbar.Undo" xml:space="preserve"><value>↶ 元に戻す</value></data>
+  <data name="Toolbar.Redo" xml:space="preserve"><value>↷ やり直し</value></data>
+  <data name="Toolbar.Export" xml:space="preserve"><value>書き出し ▾</value></data>
+  <data name="Toolbar.Export.Tip" xml:space="preserve"><value>動画（MP4）・GIF・画像・文書作成用データの書き出し</value></data>
+  <data name="Export.Mp4" xml:space="preserve"><value>動画（MP4）…</value></data>
+  <data name="Export.Mp4.Tip" xml:space="preserve"><value>カット・字幕・図形を反映した MP4 を書き出します</value></data>
+  <data name="Export.Gif" xml:space="preserve"><value>GIF（Animated GIF）…</value></data>
+  <data name="Export.Gif.Tip" xml:space="preserve"><value>カット・字幕・図形を反映した Animated GIF を書き出します</value></data>
+  <data name="Export.Images" xml:space="preserve"><value>画像（手順書画像）…</value></data>
+  <data name="Export.Tejunsho" xml:space="preserve"><value>文書作成用データを書き出す…</value></data>
+  <data name="Export.Tejunsho.Tip" xml:space="preserve"><value>画像（images）と説明データ（capture-metadata.json・meta.json）を書き出します。Word 文書の生成には、別途対応するツールやスキルが必要です</value></data>
+  <data name="Welcome.Title" xml:space="preserve"><value>操作マニュアル用の動画を作りましょう</value></data>
+  <data name="Welcome.Record" xml:space="preserve"><value>● 録画する</value></data>
+  <data name="Welcome.Record.Tip" xml:space="preserve"><value>画面（範囲・ウィンドウ・モニター）を録画して、編集を始めます</value></data>
+  <data name="Welcome.OpenVideo" xml:space="preserve"><value>動画を開く</value></data>
+  <data name="Welcome.OpenVideo.Tip" xml:space="preserve"><value>手元の動画ファイル（MP4 など）を選んで、編集を始めます</value></data>
+  <data name="Welcome.Drop" xml:space="preserve"><value>動画ファイルをこの画面へドラッグ＆ドロップしても開けます。</value></data>
+  <data name="Welcome.FFmpegNote" xml:space="preserve"><value>MP4（H.264 / AAC）推奨。FFmpeg / ffprobe は別途インストールが必要です。</value></data>
+  <data name="Welcome.Recent" xml:space="preserve"><value>最近のプロジェクト</value></data>
+  <data name="Welcome.RecentEmpty" xml:space="preserve"><value>最近のプロジェクトはまだありません。録画するか、動画を開いて始めてください。</value></data>
+  <data name="Welcome.RecentOpen.Tip" xml:space="preserve"><value>このプロジェクトを開いて、続きから編集します</value></data>
+  <data name="Welcome.AllProjects" xml:space="preserve"><value>プロジェクト一覧…</value></data>
+  <data name="Welcome.OpenFile" xml:space="preserve"><value>プロジェクトファイルを開く…</value></data>
+  <data name="Workspace.Video" xml:space="preserve"><value>動画編集</value></data>
+  <data name="Workspace.Video.Tip" xml:space="preserve"><value>カット・字幕・図形を編集して、動画を書き出します</value></data>
+  <data name="Workspace.Images" xml:space="preserve"><value>画像作成</value></data>
+  <data name="Workspace.Images.Tip" xml:space="preserve"><value>動画の好きな位置から手順書用の画像を作ります（全機能モード）。動画編集のデータは変わりません</value></data>
+  <data name="Flow.Source" xml:space="preserve"><value>素材</value></data>
+  <data name="Flow.Cut" xml:space="preserve"><value>カット</value></data>
+  <data name="Flow.SubtitleShape" xml:space="preserve"><value>字幕・図形</value></data>
+  <data name="Flow.ImageAdd" xml:space="preserve"><value>画像追加</value></data>
+  <data name="Flow.CaptionAnnotation" xml:space="preserve"><value>キャプション・注釈</value></data>
+  <data name="Flow.Export" xml:space="preserve"><value>書き出し</value></data>
+  <data name="Flow.Automation" xml:space="preserve"><value>作業の流れ（現在: {0}）</value></data>
+  <data name="Guide.StartNew" xml:space="preserve"><value>録画するか、動画を開いて始めてください。</value></data>
+  <data name="Guide.CutEditing" xml:space="preserve"><value>不要な部分を指定してください。終わったら［字幕・図形へ進む］を押します。カットが不要な場合も、そのまま進めます。</value></data>
+  <data name="Guide.SubtitleEditing" xml:space="preserve"><value>字幕を手動で追加するか、［Geminiで字幕を作る］で作成できます。字幕や図形を付けない場合は、そのまま［書き出し］できます。</value></data>
+  <data name="Guide.SubtitlesImported" xml:space="preserve"><value>取り込んだ字幕を再生して確認し、文章や表示時間を調整してください。</value></data>
+  <data name="Guide.ImageCreation" xml:space="preserve"><value>動画の位置を選んで［この位置を画像に追加］を押し、キャプションや注釈を整えて書き出します。</value></data>
+  <data name="Phase.ConfirmCuts" xml:space="preserve"><value>字幕・図形へ進む →</value></data>
+  <data name="Phase.ConfirmCuts.Tip" xml:space="preserve"><value>カット（削除・短縮）を確定し、編集後の動画に字幕・図形を付ける段階へ進みます（確認あり。カットが無くても進めます）</value></data>
+  <data name="Phase.ReviewCuts" xml:space="preserve"><value>カットを見直す…</value></data>
+  <data name="Phase.ReviewCuts.Tip" xml:space="preserve"><value>カットを変更します。現在の編集を残して別の編集でやり直すか、字幕・図形を破棄して戻るかを選べます（確認あり）</value></data>
+  <data name="Menu.ConfirmCuts" xml:space="preserve"><value>字幕・図形へ進む（カットを確定）</value></data>
+  <data name="Menu.ReviewCuts" xml:space="preserve"><value>カットを見直す…</value></data>
+  <data name="Menu.RestartKeeping" xml:space="preserve"><value>現在の編集を残して、カットからやり直す…</value></data>
+  <data name="Cut.Title" xml:space="preserve"><value>カット</value></data>
+  <data name="Cut.Start" xml:space="preserve"><value>開始位置 [I]</value></data>
+  <data name="Cut.Start.Tip" xml:space="preserve"><value>現在位置をカット開始位置にする</value></data>
+  <data name="Cut.End" xml:space="preserve"><value>終了位置 [O]</value></data>
+  <data name="Cut.End.Tip" xml:space="preserve"><value>現在位置をカット終了位置にする</value></data>
+  <data name="Cut.Remove" xml:space="preserve"><value>この区間を削除 [R]</value></data>
+  <data name="Cut.Remove.Tip" xml:space="preserve"><value>指定した開始～終了の区間を、削除するカットとして登録します</value></data>
+  <data name="Cut.Shorten" xml:space="preserve"><value>短縮 ▾</value></data>
+  <data name="Cut.Shorten.Tip" xml:space="preserve"><value>指定した区間を短くします。残す秒数を確認して登録します（キー S は、いまの秒数でそのまま登録します）</value></data>
+  <data name="Cut.ShortenKeep" xml:space="preserve"><value>区間の先頭から残す秒数</value></data>
+  <data name="Cut.ShortenKeep.Tip" xml:space="preserve"><value>短縮する区間で、先頭から残す秒数</value></data>
+  <data name="Cut.Unit" xml:space="preserve"><value>秒</value></data>
+  <data name="Cut.ShortenRegister" xml:space="preserve"><value>短縮を登録</value></data>
+  <data name="Cut.ShortenRegister.Tip" xml:space="preserve"><value>指定した区間を、上の秒数だけ残す短縮として登録します</value></data>
+  <data name="Cut.ClearRange" xml:space="preserve"><value>範囲指定を解除</value></data>
+  <data name="Cut.ClearRange.Tip" xml:space="preserve"><value>指定中の開始・終了位置を解除します。登録済みのカット区間は削除されません。</value></data>
+  <data name="Cut.Analyze" xml:space="preserve"><value>自動解析</value></data>
+  <data name="Cut.Analyze.Tip" xml:space="preserve"><value>静止・無音・画面変化から不要部分の候補を探します。候補は自動では確定せず、［解析候補］から採用できます。</value></data>
+  <data name="Sub.Title" xml:space="preserve"><value>字幕・図形</value></data>
+  <data name="Sub.Start" xml:space="preserve"><value>表示開始 [I]</value></data>
+  <data name="Sub.Start.Tip" xml:space="preserve"><value>現在位置を、字幕・図形を表示する開始位置にする</value></data>
+  <data name="Sub.End" xml:space="preserve"><value>表示終了 [O]</value></data>
+  <data name="Sub.End.Tip" xml:space="preserve"><value>現在位置を、字幕・図形を表示する終了位置にする</value></data>
+  <data name="Sub.Add" xml:space="preserve"><value>字幕を追加 [T]</value></data>
+  <data name="Sub.Add.Tip" xml:space="preserve"><value>開始・終了（未指定なら現在位置から 3 秒）で字幕を追加します</value></data>
+  <data name="Sub.Gemini" xml:space="preserve"><value>Geminiで字幕を作る…</value></data>
+  <data name="Sub.Gemini.Tip" xml:space="preserve"><value>字幕なしの動画を作り、Gemini に字幕（SRT）を作らせて取り込みます（手動でコピー＆貼り付け）</value></data>
+  <data name="Sub.AddShape" xml:space="preserve"><value>図形を追加 [G]</value></data>
+  <data name="Sub.AddShape.Tip" xml:space="preserve"><value>四角・矢印・直線・文字・モザイクを動画に入れます（表示する時間は開始・終了、または画面に出ている字幕と同じ時間）</value></data>
+  <data name="Sub.ClearRange" xml:space="preserve"><value>範囲指定を解除</value></data>
+  <data name="Sub.ClearRange.Tip" xml:space="preserve"><value>指定中の表示開始・終了位置を解除します。追加済みの字幕・図形は削除されません。</value></data>
+  <data name="Sub.ListHint" xml:space="preserve"><value>時刻は編集後（カット適用後）の動画の時刻です。MP4 と GIF の両方に同じ字幕を焼き込みます。字幕の行をダブルクリックすると、ダイアログでも編集できます。</value></data>
+  <data name="Shapes.ListHint" xml:space="preserve"><value>1 回の編集で描いた図形を、同じ表示時間でまとめて 1 行にしています。時刻は編集後（カット適用後）の動画の時刻です。図形は画面の動きについて行きません。ダブルクリックで編集。</value></data>
+  <data name="Cand.Hint" xml:space="preserve"><value>ローカル解析・AI の結果は「候補」です。採用するまで書き出しには反映されません。ダブルクリックで開始位置へ移動します。</value></data>
+  <data name="Img.ListHint" xml:space="preserve"><value>ファイル名は「連番_キャプション.拡張子」です。キャプションは直接編集できます（Enter / フォーカス移動で確定）。</value></data>
+  <data name="SubEdit.Header" xml:space="preserve"><value>選択中の字幕</value></data>
+  <data name="SubEdit.None" xml:space="preserve"><value>一覧で字幕を選ぶと、ここで文章・時刻・位置・サイズを編集できます。</value></data>
+  <data name="SubEdit.Text" xml:space="preserve"><value>文章</value></data>
+  <data name="SubEdit.Start" xml:space="preserve"><value>開始</value></data>
+  <data name="SubEdit.End" xml:space="preserve"><value>終了</value></data>
+  <data name="SubEdit.Time.Tip" xml:space="preserve"><value>編集後（カット適用後）の動画の時刻です。HH:MM:SS.mmm のほか、1:23.4 などでも入力できます</value></data>
+  <data name="SubEdit.Apply" xml:space="preserve"><value>変更を反映</value></data>
+  <data name="SubEdit.Apply.Tip" xml:space="preserve"><value>文章・時刻の変更を反映します（元に戻す: Ctrl+Z）。入力欄を離れたときにも反映します</value></data>
+  <data name="SubEdit.Revert" xml:space="preserve"><value>入力を戻す</value></data>
+  <data name="SubEdit.Revert.Tip" xml:space="preserve"><value>反映していない入力を捨てて、字幕の現在の内容に戻します</value></data>
+  <data name="SubEdit.Pending" xml:space="preserve"><value>未反映の入力があります。</value></data>
+  <data name="SubEdit.Position" xml:space="preserve"><value>表示位置</value></data>
+  <data name="SubEdit.PosTop" xml:space="preserve"><value>上</value></data>
+  <data name="SubEdit.PosMiddle" xml:space="preserve"><value>中</value></data>
+  <data name="SubEdit.PosBottom" xml:space="preserve"><value>下</value></data>
+  <data name="SubEdit.Size" xml:space="preserve"><value>文字サイズ</value></data>
+  <data name="SubEdit.Offset" xml:space="preserve"><value>上下の位置調整</value></data>
+  <data name="SubEdit.CommonHeader" xml:space="preserve"><value>全字幕に共通の設定</value></data>
+  <data name="SubEdit.Appearance" xml:space="preserve"><value>字幕の見た目…</value></data>
+  <data name="SubEdit.Appearance.Tip" xml:space="preserve"><value>フォント・色・上下の余白・新しい字幕の初期値を設定します（すべての字幕に共通。設定画面の字幕タブ）</value></data>
+  <data name="SubEdit.CommonHint" xml:space="preserve"><value>フォント・色・余白などは、すべての字幕に共通です。選択中の字幕だけが変わる設定ではありません。</value></data>
+  <data name="SubEdit.CannotApply" xml:space="preserve"><value>入力を反映できませんでした。{0}</value></data>
+  <data name="SubEdit.DiscardConfirm" xml:space="preserve"><value>入力を反映できません。{0}
+
+［OK］: この入力を破棄して、別の字幕を選びます。
+［キャンセル］: いまの字幕に留まり、入力を直します。</value></data>
+  <data name="SubEdit.DiscardTitle" xml:space="preserve"><value>未反映の字幕の入力</value></data>
+  <data name="SubEdit.Applied" xml:space="preserve"><value>字幕を変更しました（元に戻す: Ctrl+Z）。</value></data>
+  <data name="Pane.Cuts" xml:space="preserve"><value>カット区間</value></data>
+  <data name="Pane.Candidates" xml:space="preserve"><value>解析候補</value></data>
+  <data name="Pane.Info" xml:space="preserve"><value>詳細</value></data>
+  <data name="Pane.Subtitles" xml:space="preserve"><value>字幕</value></data>
+  <data name="Pane.Shapes" xml:space="preserve"><value>図形</value></data>
+  <data name="Pane.Images" xml:space="preserve"><value>画像</value></data>
+  <data name="Pane.Switcher" xml:space="preserve"><value>一覧の切り替え</value></data>
+  <data name="Empty.Cuts" xml:space="preserve"><value>カット区間はまだありません。再生位置で［開始位置］と［終了位置］を指定し、［この区間を削除］または［短縮］で登録します。カットが不要な場合は、そのまま［字幕・図形へ進む］を押せます。</value></data>
+  <data name="Empty.Subtitles" xml:space="preserve"><value>字幕はまだありません。［字幕を追加］で手動で入れるか、［Geminiで字幕を作る］で作成できます。字幕なしで書き出すこともできます。</value></data>
+  <data name="Empty.Shapes" xml:space="preserve"><value>図形はまだありません。必要な場合は［図形を追加］で、矢印・四角・文字・モザイクなどを入れられます。</value></data>
+  <data name="Empty.Captures" xml:space="preserve"><value>画像はまだありません。動画の再生位置を選び、［この位置を画像に追加］を押すと、画像として登録されます。</value></data>
+  <data name="Empty.CandNotRun" xml:space="preserve"><value>まだ解析していません。［自動解析］を押すと、静止・無音・画面変化から不要部分の候補を探します。</value></data>
+  <data name="Empty.CandNone" xml:space="preserve"><value>解析しましたが、候補は見つかりませんでした。カットは手動で指定できます。</value></data>
+  <data name="Empty.CandHandled" xml:space="preserve"><value>未判断の候補はありません（採用済み・却下済みのみです）。［却下・採用済みも表示］で確認できます。</value></data>
+  <data name="Empty.CandFailed" xml:space="preserve"><value>解析に失敗しました。候補がないのではなく、解析できなかった状態です。ログを確認し、もう一度［自動解析］を試してください。</value></data>
+  <data name="Empty.Projects" xml:space="preserve"><value>録画・編集はまだありません。［録画する］か［動画を開く］から始めてください。以前の編集は［既存プロジェクトを開く］、バックアップの zip は［インポート］で取り込めます。</value></data>
+  <data name="Img.Add" xml:space="preserve"><value>この位置を画像に追加 [C]</value></data>
+  <data name="Img.Add.Tip" xml:space="preserve"><value>現在の再生位置を手順書画像として登録します [C]</value></data>
+  <data name="Img.Title" xml:space="preserve"><value>画像作成</value></data>
+  <data name="Status.CapturePoint" xml:space="preserve"><value>画像 No.{0} を追加しました（{1}）。［画像作成］で確認・編集できます。［前後比較］で表示の整ったフレームを選べます。</value></data>
+  <data name="Status.CutLocked" xml:space="preserve"><value>字幕・図形の編集中のため、カットを変更できません。［カットを見直す…］を押してください（現在の編集を残してやり直すか、字幕・図形を破棄して戻るかを選べます）。</value></data>
+  <data name="PL.Record" xml:space="preserve"><value>● 録画する</value></data>
+  <data name="PL.Record.Tip" xml:space="preserve"><value>画面を録画して、新しい録画のフォルダーを作ります</value></data>
+  <data name="PL.OpenVideo" xml:space="preserve"><value>動画を開く…</value></data>
+  <data name="PL.OpenVideo.Tip" xml:space="preserve"><value>保存先の外にある動画を選び、プロジェクトのフォルダーへ移動して開きます</value></data>
+  <data name="PL.OpenProjectFile" xml:space="preserve"><value>既存プロジェクトを開く…</value></data>
+  <data name="PL.OpenProjectFile.Tip" xml:space="preserve"><value>プロジェクトファイル（.mvsproj.json）を選んで開きます</value></data>
+  <data name="PL.Open" xml:space="preserve"><value>選択した編集を開く</value></data>
+  <data name="PL.Open.Tip" xml:space="preserve"><value>編集を開きます。録画を選んだ場合は、最後に更新した編集（編集が無ければ動画）を開きます [Enter / ダブルクリック]</value></data>
+  <data name="PL.Import" xml:space="preserve"><value>インポート…</value></data>
+  <data name="PL.Import.Tip" xml:space="preserve"><value>エクスポートした zip を保存先に取り込みます</value></data>
+  <data name="PL.More" xml:space="preserve"><value>その他 ▾</value></data>
+  <data name="PL.More.Tip" xml:space="preserve"><value>新しい編集・複製・名前の変更・エクスポート・削除などの管理操作</value></data>
+  <data name="PL.NewEdit" xml:space="preserve"><value>新しい編集</value></data>
+  <data name="PL.NewEdit.Tip" xml:space="preserve"><value>同じ録画から、何も引き継がない新しい編集を作ります</value></data>
+  <data name="PL.Duplicate" xml:space="preserve"><value>複製</value></data>
+  <data name="PL.Duplicate.Tip" xml:space="preserve"><value>カット・字幕・図形・画像をすべて引き継いで、別の編集を作ります</value></data>
+  <data name="PL.DuplicateFromCuts" xml:space="preserve"><value>カットからやり直す複製</value></data>
+  <data name="PL.DuplicateFromCuts.Tip" xml:space="preserve"><value>カットだけ引き継ぎ、カット編集の段階から始める編集を作ります（元の編集は残ります）</value></data>
+  <data name="PL.Rename" xml:space="preserve"><value>名前の変更</value></data>
+  <data name="PL.Rename.Tip" xml:space="preserve"><value>編集の名前を変えます（録画のフォルダーの名前は変えません）</value></data>
+  <data name="PL.OpenFolder" xml:space="preserve"><value>フォルダーを開く</value></data>
+  <data name="PL.OpenFolder.Tip" xml:space="preserve"><value>エクスプローラーで開きます（完成した動画のコピーなど）</value></data>
+  <data name="PL.Export" xml:space="preserve"><value>エクスポート…</value></data>
+  <data name="PL.Export.Tip" xml:space="preserve"><value>選んだ録画（元の動画とすべての編集）を zip にまとめます（バックアップ）</value></data>
+  <data name="PL.ExportDelete" xml:space="preserve"><value>エクスポートして削除…</value></data>
+  <data name="PL.ExportDelete.Tip" xml:space="preserve"><value>zip にまとめ、読み直して確認できたら録画のフォルダーをごみ箱へ移します</value></data>
+  <data name="PL.Delete" xml:space="preserve"><value>削除（ごみ箱へ）…</value></data>
+  <data name="PL.Delete.Tip" xml:space="preserve"><value>選んだ録画・編集をごみ箱へ移します（複数選べます）</value></data>
+  <data name="Mode.Tip" xml:space="preserve"><value>画像作成・AI 連携を使うには、［設定］→［操作・その他］で全機能モードにします。文書作成用の書き出しは、さらに［詳細・外部連携］で有効にします</value></data>
+  <data name="Set.ModeFull" xml:space="preserve"><value>全機能モード（簡易モードの機能に加えて、画像作成・AI 連携）</value></data>
+  <data name="Set.ModeDesc" xml:space="preserve"><value>簡易モードでは、画像作成・AI 連携のメニューやボタンを隠します。プロジェクトに登録した画像はそのまま残り、全機能モードに戻すと使えます。OK（保存）で切り替わります。</value></data>
+  <data name="Set.ExtHeader" xml:space="preserve"><value>詳細・外部連携</value></data>
+  <data name="Set.ExtCheck" xml:space="preserve"><value>外部ツール向けの文書作成用書き出しを有効にする</value></data>
+  <data name="Set.ExtDesc" xml:space="preserve"><value>画像と説明データを出力します。Word文書の生成には、別途対応するツールやスキルが必要です。書き出しは全機能モードで利用できます。</value></data>
+  <data name="Set.ExtSimpleNote" xml:space="preserve"><value>いまは簡易モードのため、文書作成用の書き出しは使えません（この設定は保持されます。全機能モードにすると使えます）。</value></data>
+  <data name="Doc.PurposeLabel" xml:space="preserve"><value>文書作成用の依頼文（文書作成用データを書き出した完了画面でコピー）</value></data>
+  <data name="Doc.DirtyOffTitle" xml:space="preserve"><value>文書作成用の依頼文</value></data>
+  <data name="Doc.DirtyOff" xml:space="preserve"><value>文書作成用の依頼文に、保存していない変更があります。外部文書連携を無効にすると、この用途は表示されなくなります。
+
+［はい］変更を保存してから無効にする
+［いいえ］変更を破棄して無効にする
+［キャンセル］無効にしない</value></data>
+  <data name="Doc.ExportTitle" xml:space="preserve"><value>文書作成用データの書き出し</value></data>
+  <data name="Doc.ExportWhat" xml:space="preserve"><value>次のフォルダーに文書作成用データを書き出します（画像は images フォルダー、ほかに capture-metadata.json と meta.json）。</value></data>
+  <data name="Doc.PickFolder" xml:space="preserve"><value>文書作成用データの出力先フォルダー</value></data>
+  <data name="Doc.DoneTitle" xml:space="preserve"><value>文書作成用データの書き出し - 完了</value></data>
+  <data name="Doc.DoneInfo" xml:space="preserve"><value>このフォルダーの画像と説明データ（capture-metadata.json・meta.json）を、対応するツールやスキル（例: Claude Code の tejunsho-gui-docx）に渡すと、Word などの文書を作れます。このアプリが文書を生成するわけではありません。</value></data>
+  <data name="Toolbar.Title" xml:space="preserve"><value>タイトル…</value></data>
+  <data name="Toolbar.Title.On" xml:space="preserve"><value>✓ タイトルあり</value></data>
+  <data name="Toolbar.Title.Tip" xml:space="preserve"><value>動画の冒頭に、黒い背景のタイトルを付けます（文章・表示秒数・フェード）</value></data>
+  <data name="Toolbar.Title.TipOn" xml:space="preserve"><value>タイトル: {0}
+表示 {1} 秒 / フェード{2}
+クリックして編集します</value></data>
+  <data name="Title.Window" xml:space="preserve"><value>動画のタイトル</value></data>
+  <data name="Title.Intro" xml:space="preserve"><value>動画の冒頭に、黒い背景のタイトルを付けます。字幕・図形・カットの時刻は変わりません（完成動画の先頭にタイトルの秒数が足されます）。</value></data>
+  <data name="Title.Text" xml:space="preserve"><value>タイトルの文章</value></data>
+  <data name="Title.Hint" xml:space="preserve"><value>空にするとタイトルなしです。Enter で改行、Ctrl+Enter で決定。最大 2 行（文字は白・太字で、画面の上から約 1/3 の位置に中央揃えで表示します）。</value></data>
+  <data name="Title.Seconds" xml:space="preserve"><value>表示時間</value></data>
+  <data name="Title.SecondsUnit" xml:space="preserve"><value>秒</value></data>
+  <data name="Title.Fade" xml:space="preserve"><value>本編の始まりをフェードインする（0.3 秒）</value></data>
+  <data name="Title.Fade.Tip" xml:space="preserve"><value>タイトルの後、本編が進みながら黒から徐々に明るくなります。完成動画の長さは変わりません。音声は変えません。</value></data>
+  <data name="Title.FadeOn" xml:space="preserve"><value>あり</value></data>
+  <data name="Title.FadeOff" xml:space="preserve"><value>なし</value></data>
+  <data name="Title.Preview" xml:space="preserve"><value>完成動画の最初の画面（プレビュー）</value></data>
+  <data name="Status.TitleSet" xml:space="preserve"><value>タイトルを設定しました（表示 {0} 秒）。</value></data>
+  <data name="Status.TitleRemoved" xml:space="preserve"><value>タイトルを外しました。</value></data>
+  <data name="Title.Clear" xml:space="preserve"><value>クリア</value></data>
+  <data name="Title.Clear.Tip" xml:space="preserve"><value>文章を消します。［OK］を押すとタイトルなしになります（［キャンセル］なら元のままです）</value></data>
+  <data name="Title.Font" xml:space="preserve"><value>フォント</value></data>
+  <data name="Title.FontSize" xml:space="preserve"><value>文字サイズ</value></data>
+  <data name="Title.FontSize.Tip" xml:space="preserve"><value>動画の高さ 1080px のときの文字の大きさ（px）。実際の大きさは動画の高さに比例します</value></data>
+  <data name="Title.FontLoading" xml:space="preserve"><value>フォントの一覧を読み込んでいます…</value></data>
+  <data name="Title.Capacity" xml:space="preserve"><value>1 行に全角で約 {0} 文字、最大 2 行まで入ります。</value></data>
+  <!-- 録画: 範囲の向き・縦横比の固定（v1.16） -->
+  <data name="Recorder.Size" xml:space="preserve"><value>サイズ</value></data>
+  <data name="Recorder.SizeFormat" xml:space="preserve"><value>{0}×{1}</value></data>
+  <data name="Recorder.SizeFree" xml:space="preserve"><value>自由サイズ</value></data>
+  <data name="Recorder.SizePreset.Tip" xml:space="preserve"><value>今の枠の中心を保ってこの大きさにし、縦横比を固定します。枠をドラッグして拡大・縮小しても比率は保たれます。もう一度押すとこの大きさに戻ります。</value></data>
+  <data name="Recorder.SizeFree.Tip" xml:space="preserve"><value>今の枠の位置と大きさのまま、縦横比の固定を解除します。幅・高さを自由に変えられます。</value></data>
+  <data name="Recorder.Orientation" xml:space="preserve"><value>向き</value></data>
+  <data name="Recorder.Orientation.Tip" xml:space="preserve"><value>横（16:9）と縦（9:16）を切り替えます。今の枠の幅と高さを入れ替え、すぐに枠へ反映します。規格サイズを選んでいるときだけ使えます。</value></data>
+  <data name="Recorder.Landscape" xml:space="preserve"><value>横</value></data>
+  <data name="Recorder.Portrait" xml:space="preserve"><value>縦</value></data>
+  <data name="Recorder.AspectLandscape" xml:space="preserve"><value>横16:9</value></data>
+  <data name="Recorder.AspectPortrait" xml:space="preserve"><value>縦9:16</value></data>
+  <data name="Recorder.FrameLocked" xml:space="preserve"><value>{0}×{1}・{2}</value></data>
+  <data name="Recorder.FrameFree" xml:space="preserve"><value>{0}×{1}・自由サイズ</value></data>
+  <data name="Recorder.RegionHelp" xml:space="preserve"><value>画面の赤い枠の内側を録画します。枠の中央の ✥ か上のつまみをドラッグで移動（大きさはそのまま）、辺・角のドラッグで大きさを変えられます。規格サイズを選んでいる間は、縦横比を保って拡大・縮小します。枠の外側は暗く表示され、録画されません。</value></data>
+  <data name="Recorder.Status.FreeSize" xml:space="preserve"><value>縦横比の固定を解除しました。枠の辺・角をドラッグして自由に大きさを変えられます。</value></data>
+  <data name="Recorder.Status.PresetShrunk" xml:space="preserve"><value>モニターに収まらないため、縦横比を保って {0}×{1} にしました。</value></data>
+  <data name="Recorder.Status.RotateShrunk" xml:space="preserve"><value>向きを変えるとモニターに収まらないため、縦横比を保って {0}×{1} にしました。</value></data>
+</root>

@@ -1,0 +1,100 @@
+<Window x:Class="ManualVideoStudio.Views.ProjectListWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:local="clr-namespace:ManualVideoStudio"
+        Style="{StaticResource AppWindow}" Title="プロジェクト一覧 - Manual Video Studio"
+        Width="820" Height="620" MinWidth="640" MinHeight="420" WindowStartupLocation="CenterOwner" ShowInTaskbar="False"
+        PreviewKeyDown="Window_PreviewKeyDown">
+    <DockPanel Margin="14">
+        <!-- 始め方（録画する・動画を開く・既存プロジェクトを開く） -->
+        <WrapPanel DockPanel.Dock="Top" Margin="0,0,0,10">
+            <Button Style="{StaticResource AccentButton}" Command="{Binding StartRecordingCommand}" MinWidth="120" Content="{local:Str PL.Record}"
+                    ToolTip="{local:Str PL.Record.Tip}" AutomationProperties.AutomationId="PL.Record"/>
+            <Button Content="{local:Str PL.OpenVideo}" Command="{Binding OpenVideoDialogCommand}" ToolTip="{local:Str PL.OpenVideo.Tip}" AutomationProperties.AutomationId="PL.OpenVideo"/>
+            <Button Content="{local:Str PL.OpenProjectFile}" Command="{Binding OpenProjectDialogCommand}" ToolTip="{local:Str PL.OpenProjectFile.Tip}" AutomationProperties.AutomationId="PL.OpenProjectFile"/>
+        </WrapPanel>
+
+        <!-- 検索・更新 -->
+        <DockPanel DockPanel.Dock="Top" Margin="0,0,0,6">
+            <Button DockPanel.Dock="Right" Content="最新の情報に更新" Command="{Binding RefreshCommand}"
+                    ToolTip="保存先のフォルダーを調べ直して一覧を作り直します（エクスプローラーでフォルダーを消した・移した後など）"/>
+            <TextBlock Text="検索" VerticalAlignment="Center" Margin="0,0,6,0"/>
+            <TextBox x:Name="SearchBox" Text="{Binding SearchText, UpdateSourceTrigger=PropertyChanged}" Width="260" HorizontalAlignment="Left"
+                     VerticalContentAlignment="Center" AutomationProperties.Name="検索" ToolTip="録画・編集の名前で絞り込みます"/>
+        </DockPanel>
+
+        <!-- 下部: 操作ボタン・設定 -->
+        <StackPanel DockPanel.Dock="Bottom" Margin="0,8,0,0">
+            <WrapPanel>
+                <Button Style="{StaticResource AccentButton}" MinWidth="130" Content="{local:Str PL.Open}" Command="{Binding OpenCommand}"
+                        ToolTip="{local:Str PL.Open.Tip}" AutomationProperties.AutomationId="PL.Open"/>
+                <Button Content="{local:Str PL.Import}" Command="{Binding ImportCommand}" ToolTip="{local:Str PL.Import.Tip}" AutomationProperties.AutomationId="PL.Import"/>
+                <!-- 管理操作は［その他］へまとめる。一覧が空のときは出さない -->
+                <Menu Background="Transparent" VerticalAlignment="Center" Visibility="{Binding HasRows, Converter={StaticResource BoolToVisibility}}">
+                    <MenuItem Header="{local:Str PL.More}" ToolTip="{local:Str PL.More.Tip}" Padding="12,5" BorderBrush="#D0D0D0" BorderThickness="1" Background="#FBFBFB"
+                              AutomationProperties.AutomationId="PL.More">
+                        <MenuItem Header="{local:Str PL.NewEdit}" Command="{Binding NewEditCommand}" ToolTip="{local:Str PL.NewEdit.Tip}" AutomationProperties.AutomationId="PL.NewEdit"/>
+                        <MenuItem Header="{local:Str PL.Duplicate}" Command="{Binding DuplicateCommand}" ToolTip="{local:Str PL.Duplicate.Tip}" AutomationProperties.AutomationId="PL.Duplicate"/>
+                        <MenuItem Header="{local:Str PL.DuplicateFromCuts}" Command="{Binding DuplicateFromCutsCommand}" ToolTip="{local:Str PL.DuplicateFromCuts.Tip}" AutomationProperties.AutomationId="PL.DuplicateFromCuts"/>
+                        <MenuItem Header="{local:Str PL.Rename}" Command="{Binding RenameCommand}" ToolTip="{local:Str PL.Rename.Tip}" AutomationProperties.AutomationId="PL.Rename"/>
+                        <MenuItem Header="{local:Str PL.OpenFolder}" Command="{Binding OpenFolderCommand}" ToolTip="{local:Str PL.OpenFolder.Tip}" AutomationProperties.AutomationId="PL.OpenFolder"/>
+                        <Separator/>
+                        <MenuItem Header="{local:Str PL.Export}" Command="{Binding ExportCommand}" ToolTip="{local:Str PL.Export.Tip}" AutomationProperties.AutomationId="PL.Export"/>
+                        <MenuItem Header="{local:Str PL.ExportDelete}" Command="{Binding ExportAndDeleteCommand}" ToolTip="{local:Str PL.ExportDelete.Tip}" AutomationProperties.AutomationId="PL.ExportDelete"/>
+                        <Separator/>
+                        <MenuItem Header="{local:Str PL.Delete}" Command="{Binding DeleteCommand}" ToolTip="{local:Str PL.Delete.Tip}" Foreground="{StaticResource ErrorBrush}"
+                                  AutomationProperties.AutomationId="PL.Delete"/>
+                    </MenuItem>
+                </Menu>
+            </WrapPanel>
+            <DockPanel Margin="0,10,0,0">
+                <Button DockPanel.Dock="Right" Content="閉じる" MinWidth="90" IsCancel="True" Command="{Binding CloseWindowCommand}"/>
+                <CheckBox Content="起動時にこの画面を表示する" IsChecked="{Binding ShowOnStartup}" VerticalAlignment="Center"/>
+            </DockPanel>
+            <TextBlock Text="{Binding StatusText}" Style="{StaticResource Subtle}" FontSize="11" Margin="0,6,0,0" TextTrimming="CharacterEllipsis" ToolTip="{Binding StatusText}"/>
+            <TextBlock Text="{Binding RootText}" Style="{StaticResource Subtle}" FontSize="11" TextTrimming="CharacterEllipsis" ToolTip="{Binding RootText}"/>
+        </StackPanel>
+
+        <!-- 一覧 -->
+        <Grid>
+            <ListView x:Name="List" ItemsSource="{Binding Rows}" SelectionMode="Extended" AutomationProperties.Name="プロジェクト一覧"
+                      SelectionChanged="List_SelectionChanged" MouseDoubleClick="List_MouseDoubleClick"
+                      ScrollViewer.HorizontalScrollBarVisibility="Disabled">
+                <ListView.ItemContainerStyle>
+                    <Style TargetType="ListViewItem">
+                        <Setter Property="AutomationProperties.Name" Value="{Binding AutomationName}"/>
+                        <Setter Property="HorizontalContentAlignment" Value="Stretch"/>
+                        <Setter Property="Padding" Value="4,3"/>
+                    </Style>
+                </ListView.ItemContainerStyle>
+                <ListView.ItemTemplate>
+                    <DataTemplate>
+                        <DockPanel>
+                            <TextBlock DockPanel.Dock="Right" Text="{Binding DateText}" Foreground="{StaticResource SubtleTextBrush}" Margin="12,0,4,0"/>
+                            <TextBlock TextTrimming="CharacterEllipsis">
+                                <TextBlock.Style>
+                                    <Style TargetType="TextBlock">
+                                        <Setter Property="Margin" Value="24,0,0,0"/>
+                                        <Style.Triggers>
+                                            <DataTrigger Binding="{Binding IsRecording}" Value="True">
+                                                <Setter Property="Margin" Value="0"/>
+                                                <Setter Property="FontWeight" Value="SemiBold"/>
+                                            </DataTrigger>
+                                        </Style.Triggers>
+                                    </Style>
+                                </TextBlock.Style>
+                                <Run Text="{Binding ProblemMark, Mode=OneWay}" Foreground="#B45309"/><Run Text="{Binding Name, Mode=OneWay}"/><Run Text="{Binding Note, Mode=OneWay}" Foreground="{StaticResource SubtleTextBrush}"/><Run Text="{Binding ProblemText, Mode=OneWay}" Foreground="#B45309"/>
+                            </TextBlock>
+                        </DockPanel>
+                    </DataTemplate>
+                </ListView.ItemTemplate>
+            </ListView>
+            <TextBlock Text="{local:Str Empty.Projects}" Style="{StaticResource Subtle}" FontSize="14" AutomationProperties.AutomationId="PL.Empty"
+                       HorizontalAlignment="Center" VerticalAlignment="Center" TextAlignment="Center" TextWrapping="Wrap" Margin="30" IsHitTestVisible="False">
+                <TextBlock.Visibility>
+                    <Binding Path="HasRows" Converter="{StaticResource BoolToVisibility}" ConverterParameter="Invert"/>
+                </TextBlock.Visibility>
+            </TextBlock>
+        </Grid>
+    </DockPanel>
+</Window>

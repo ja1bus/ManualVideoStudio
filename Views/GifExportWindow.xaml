@@ -1,0 +1,40 @@
+<Window x:Class="ManualVideoStudio.Views.GifExportWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Style="{StaticResource AppWindow}" Title="Animated GIF の書き出し"
+        Width="500" SizeToContent="Height" ResizeMode="NoResize" WindowStartupLocation="CenterOwner" ShowInTaskbar="False">
+    <StackPanel Margin="16">
+        <TextBlock Text="品質" Style="{StaticResource SectionTitle}"/>
+        <ItemsControl ItemsSource="{Binding Presets}">
+            <ItemsControl.ItemTemplate>
+                <DataTemplate>
+                    <RadioButton GroupName="Quality" Margin="2,3" AutomationProperties.Name="{Binding Label}"
+                                 Checked="Preset_Checked" Tag="{Binding Quality}" Loaded="Preset_Loaded">
+                        <StackPanel>
+                            <TextBlock Text="{Binding Label}" FontWeight="SemiBold"/>
+                            <TextBlock Text="{Binding Description}" Style="{StaticResource Subtle}" FontSize="11"/>
+                        </StackPanel>
+                    </RadioButton>
+                </DataTemplate>
+            </ItemsControl.ItemTemplate>
+        </ItemsControl>
+        <Border Background="{StaticResource InfoBackgroundBrush}" CornerRadius="4" Padding="8,6" Margin="0,8,0,0">
+            <StackPanel>
+                <TextBlock Text="{Binding SizeText}"/>
+                <TextBlock Text="{Binding DurationText}"/>
+                <TextBlock Text="{Binding SubtitleText}"/>
+                <TextBlock Text="{Binding AudioText}" Visibility="{Binding AudioText, Converter={StaticResource EmptyToCollapsed}}"/>
+            </StackPanel>
+        </Border>
+        <Border Background="{StaticResource WarningBackgroundBrush}" CornerRadius="4" Padding="8,6" Margin="0,6,0,0"
+                Visibility="{Binding IsLong, Converter={StaticResource BoolToVisibility}}">
+            <TextBlock Text="{Binding LongWarning}" TextWrapping="Wrap"/>
+        </Border>
+        <TextBlock Style="{StaticResource Subtle}" FontSize="11" Margin="0,8,0,0"
+                   Text="GIF は短い操作説明（数秒～数十秒）向けです。カット・字幕は MP4 の書き出しと同じ内容を使います。"/>
+        <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,12,0,0">
+            <Button Content="書き出し..." Style="{StaticResource AccentButton}" MinWidth="110" IsDefault="True" Command="{Binding OkCommand}" AutomationProperties.Name="書き出し"/>
+            <Button Content="キャンセル" MinWidth="90" IsCancel="True" Command="{Binding CancelCommand}"/>
+        </StackPanel>
+    </StackPanel>
+</Window>
