@@ -38,6 +38,8 @@ public interface IWindowService
     bool ChooseGifQuality(GifExportViewModel vm);
     /// <summary>動画タイトルの編集画面（v1.15、モーダル）。OK で反映したら true。</summary>
     bool EditTitle(TitleEditViewModel vm);
+    /// <summary>バージョン情報（v1.17.0、モーダル）。</summary>
+    void ShowAbout(AboutViewModel vm);
     /// <summary>取り消しにくい操作の確認（ボタンに操作名を出す。既定はキャンセル）。</summary>
     bool ConfirmDanger(string title, string message, string okLabel, string cancelLabel);
     /// <summary>録画画面を開く（主画面は最小化・無効化し、閉じたら戻す）。録画して閉じた場合は結果、それ以外は null。</summary>
@@ -91,6 +93,8 @@ public sealed class WindowService(IServiceProvider services) : IWindowService
         }
         var vm = services.GetRequiredService<AiAssistViewModel>();
         _aiWindow = new AiAssistWindow { DataContext = vm, Owner = Application.Current.MainWindow };
+        var aiWindow = _aiWindow;
+        vm.CloseRequested += () => aiWindow.Close();
         _aiWindow.Closed += (_, _) => _aiWindow = null;
         _aiWindow.Show();
     }
@@ -145,6 +149,8 @@ public sealed class WindowService(IServiceProvider services) : IWindowService
         vm.CloseRequested += ok => w.DialogResult = ok;
         return w.ShowDialog() == true;
     }
+
+    public void ShowAbout(AboutViewModel vm) => new AboutWindow { DataContext = vm, Owner = Owner }.ShowDialog();
 
     public bool ConfirmDanger(string title, string message, string okLabel, string cancelLabel)
         => new ConfirmDangerWindow(title, message, okLabel, cancelLabel) { Owner = Owner }.ShowDialog() == true;

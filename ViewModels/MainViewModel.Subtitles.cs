@@ -120,6 +120,7 @@ public sealed partial class MainViewModel
 
     partial void OnSelectedSubtitleItemChanged(SubtitleItem? value)
     {
+        SelectedSubtitleIds = value is null ? [] : [value.Id];
         // 未反映の入力を反映できず、利用者が「留まる」を選んだ場合は、選択を元の字幕へ戻す（v1.13）。
         if (_revertTo is { } back)
         {
@@ -212,7 +213,7 @@ public sealed partial class MainViewModel
         var pending = PendingCandidateCount;
         var message = "カットを確定して字幕編集へ進みます。" + Environment.NewLine + Environment.NewLine
             + $"編集後の動画の長さ: {TimeFormat.Format(Editor.OutputDuration)}（カット区間 {Editor.Project.CutSegments.Count} 件）" + Environment.NewLine
-            + "字幕編集中はカット（削除・短縮区間）を変更できません。字幕を追加した後にカットを変更する場合は、字幕・図形を付け直す必要があります（現在の編集を残して別の編集を作ることもできます）。";
+            + "字幕編集中はカット（削除する区間）を変更できません。字幕を追加した後にカットを変更する場合は、字幕・図形を付け直す必要があります（現在の編集を残して別の編集を作ることもできます）。";
         if (pending > 0) message += Environment.NewLine + Environment.NewLine + $"未判断のカット候補が {pending} 件あります（候補は採用しない限り反映されません）。";
         // プロジェクトファイルがまだ無い（録画・動画から開いて一度も保存していない）場合は、進むときに保存する（v1.10）。
         var unsaved = ProjectPath is null;
@@ -332,16 +333,6 @@ public sealed partial class MainViewModel
     }
 
     [RelayCommand]
-    private void EditSubtitle(SubtitleItem? item)
-    {
-        if (Editor is null || item is null) return;
-        if (!IsSubtitlePhase) return;
-        PauseIfPlaying();
-        var vm = SubtitleEditViewModel.ForExisting(Editor, item.Model, () => CurrentOutputTime);
-        if (_windows.EditSubtitle(vm)) StatusMessage = "字幕を変更しました（元に戻す: Ctrl+Z）。";
-    }
-
-    [RelayCommand]
     private void DeleteSubtitles(IList? items)
     {
         if (Editor is null || items is null || items.Count == 0 || !IsSubtitlePhase) return;
@@ -396,7 +387,6 @@ public sealed partial class MainViewModel
         RestartFromCutsKeepingCurrentCommand.NotifyCanExecuteChanged();
         AddSubtitleCommand.NotifyCanExecuteChanged();
         AddRemoveCutCommand.NotifyCanExecuteChanged();
-        AddShortenCutCommand.NotifyCanExecuteChanged();
     }
 
     /// <summary>再生位置の字幕をプレビューに出す（削除される位置では出さない）。</summary>
@@ -429,13 +419,15 @@ public sealed partial class MainViewModel
     }
 
     /// <summary>
-    /// 字幕編集中の再生で、削除される部分に入ったら次に残る位置へ飛ばす（出力動画と同じ流れで確認できるように）。
-    /// 飛ばした場合は true。
+    /// 字幕編集中、またはカット編集中に［カットを反映して再生］を選んでいるとき（v1.17.0）、および試し再生・つなぎ目の再生中は、
+    /// 再生で削除される部分に入ったら次に残る位置へ飛ばす（出力動画と同じ流れで確認できるように）。
+    /// 確定カットの削除部分と短縮で残さない部分だけが対象で、未採用の候補は飛ばさない（試し再生を除く）。飛ばした場合は true。
     /// </summary>
     private bool SkipRemovedWhilePlaying(double sourceTime)
     {
-        if (!IsSubtitlePhase || _player is not { IsPlaying: true } player) return false;
-        var keep = KeepRanges;
+        if (_player is not { IsPlaying: true } player) return false;
+        var (active, keep) = PlaybackSkipPlan();
+        if (!active) return false;
         if (!EditTimelineCalculator.IsRemoved(sourceTime, keep)) return false;
         if (EditTimelineCalculator.NextKeepStart(sourceTime, keep) is { } next)
         {

@@ -48,6 +48,7 @@ public sealed partial class MainViewModel
         CollectionSync.Sync(ShapeItems, Project?.ShapeGroups ?? [], i => i.Id, m => m.Id,
             m => new ShapeGroupItem(m), (item, m) => item.Update(m));
         OnPropertyChanged(nameof(TimelineShapes));
+        LoadShapeDraft(force: false);
         AddShapesCommand.NotifyCanExecuteChanged();
         // 図形の中身が変わっても同じまとまりのため、プレビューを描き直させる。
         UpdateCurrentShapes(force: true);

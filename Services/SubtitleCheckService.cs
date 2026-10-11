@@ -1,6 +1,7 @@
 using System.IO;
 using System.Windows.Media;
 using ManualVideoStudio.Core.Export;
+using ManualVideoStudio.Core.Persistence;
 using ManualVideoStudio.Core.Models;
 using ManualVideoStudio.ViewModels;
 using Microsoft.Extensions.Logging;
@@ -33,7 +34,7 @@ public sealed class SubtitleCheckService(SubtitleSampleRenderer renderer, FFmpeg
         var video = context.VideoPath is { } v && File.Exists(v) ? v : null;
         var (w, h) = video is null || context.Width <= 0 || context.Height <= 0 ? (1280, 720) : (context.Width, context.Height);
         // 拡張子なしの一時ファイル（中身は PNG。暗号化される拡張子を避ける）。
-        var dir = Path.Combine(Path.GetTempPath(), "ManualVideoStudio");
+        var dir = Path.Combine(AppTemp.Root, "work");
         Directory.CreateDirectory(dir);
         var output = Path.Combine(dir, $"subsample-{Guid.NewGuid():N}");
         try

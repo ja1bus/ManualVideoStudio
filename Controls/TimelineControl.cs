@@ -13,6 +13,8 @@ namespace ManualVideoStudio.Controls;
 /// モザイクを含むまとまりは斜線付き）」「手順書画像レーン（緑）」を描く。確定編集と候補は別レーンで区別する。
 /// 字幕編集中（カット確定済み）はカットのトラックに斜線と「カット確定済み」を重ねる。
 /// 操作: クリック・ドラッグでシーク、Ctrl+ホイールで拡大縮小、ホイールで左右移動（拡大時）、ダブルクリックで全体表示。
+/// 確定カット・候補をクリックすると、シークに加えて対応する項目を通知する（<see cref="ItemClicked"/>。一覧の行を選ぶ。v1.17.0）。
+/// 一覧で選択中のカット・候補は枠線で強調し、拡大表示で画面の外にあれば見える位置へ移動する。
 /// </summary>
 public sealed class TimelineControl : FrameworkElement
 {
@@ -46,6 +48,8 @@ public sealed class TimelineControl : FrameworkElement
     private static readonly Pen MarkPen = Freeze(new Pen(new SolidColorBrush(Color.FromRgb(0xCA, 0x8A, 0x04)), 1.5));
     private static readonly Pen TickPen = Freeze(new Pen(new SolidColorBrush(Color.FromRgb(0xB0, 0xB7, 0xC0)), 1));
     private static readonly Pen CapturePen = Freeze(new Pen(CaptureBrush, 1.5));
+    private static readonly Pen SelectOuterPen = Freeze(new Pen(new SolidColorBrush(Color.FromRgb(0x11, 0x18, 0x27)), 3));
+    private static readonly Pen SelectInnerPen = Freeze(new Pen(Brushes.White, 1.2));
     private static readonly Typeface Face = new("Segoe UI");
 
     private double _viewStart;
@@ -73,6 +77,10 @@ public sealed class TimelineControl : FrameworkElement
     public static readonly DependencyProperty MarkInProperty = Reg<double?>(nameof(MarkIn), null);
     public static readonly DependencyProperty MarkOutProperty = Reg<double?>(nameof(MarkOut), null);
     public static readonly DependencyProperty RevisionProperty = Reg(nameof(Revision), 0);
+    public static readonly DependencyProperty SelectedCutIdsProperty = Reg<IEnumerable?>(nameof(SelectedCutIds), null);
+    public static readonly DependencyProperty SelectedCandidateIdsProperty = Reg<IEnumerable?>(nameof(SelectedCandidateIds), null);
+    public static readonly DependencyProperty SelectedSubtitleIdsProperty = Reg<IEnumerable?>(nameof(SelectedSubtitleIds), null);
+    public static readonly DependencyProperty SelectedShapeIdsProperty = Reg<IEnumerable?>(nameof(SelectedShapeIds), null);
     public static readonly DependencyProperty HoverTextProperty = DependencyProperty.Register(nameof(HoverText), typeof(string), typeof(TimelineControl), new PropertyMetadata(""));
 
     public double Duration { get => (double)GetValue(DurationProperty); set => SetValue(DurationProperty, value); }
@@ -91,11 +99,22 @@ public sealed class TimelineControl : FrameworkElement
     public double? MarkOut { get => (double?)GetValue(MarkOutProperty); set => SetValue(MarkOutProperty, value); }
     /// <summary>編集のたびに ViewModel が増やす値。コレクションの中身の変化で再描画させる。</summary>
     public int Revision { get => (int)GetValue(RevisionProperty); set => SetValue(RevisionProperty, value); }
+    /// <summary>一覧で選択中の確定カットの Id（枠線で強調する）。</summary>
+    public IEnumerable? SelectedCutIds { get => (IEnumerable?)GetValue(SelectedCutIdsProperty); set => SetValue(SelectedCutIdsProperty, value); }
+    /// <summary>一覧で選択中の候補の Id（枠線で強調する）。</summary>
+    public IEnumerable? SelectedCandidateIds { get => (IEnumerable?)GetValue(SelectedCandidateIdsProperty); set => SetValue(SelectedCandidateIdsProperty, value); }
+    /// <summary>一覧で選択中の字幕の Id（枠線で強調する）。</summary>
+    public IEnumerable? SelectedSubtitleIds { get => (IEnumerable?)GetValue(SelectedSubtitleIdsProperty); set => SetValue(SelectedSubtitleIdsProperty, value); }
+    /// <summary>一覧で選択中の図形の Id（枠線で強調する）。</summary>
+    public IEnumerable? SelectedShapeIds { get => (IEnumerable?)GetValue(SelectedShapeIdsProperty); set => SetValue(SelectedShapeIdsProperty, value); }
     /// <summary>マウス位置の時刻と要素の説明（下部の表示用）。</summary>
     public string HoverText { get => (string)GetValue(HoverTextProperty); set => SetValue(HoverTextProperty, value); }
 
     /// <summary>クリック・ドラッグでシーク要求。</summary>
     public event EventHandler<double>? SeekRequested;
+
+    /// <summary>確定カット（赤・橙）または候補（青・紫）をクリックした。Ctrl+クリックは選択への追加・解除。</summary>
+    public event EventHandler<TimelineItemClickedEventArgs>? ItemClicked;
 
     private static DependencyProperty Reg<T>(string name, T defaultValue)
         => DependencyProperty.Register(name, typeof(T), typeof(TimelineControl),
@@ -106,6 +125,8 @@ public sealed class TimelineControl : FrameworkElement
         var t = (TimelineControl)d;
         if (e.Property == DurationProperty) t.ResetZoom();
         else if (e.Property == CurrentTimeProperty) t.FollowPlayhead();
+        else if (e.Property == SelectedCutIdsProperty || e.Property == SelectedCandidateIdsProperty
+                 || e.Property == SelectedSubtitleIdsProperty || e.Property == SelectedShapeIdsProperty) t.EnsureSelectionVisible();
     }
 
     private static T Freeze<T>(T f) where T : Freezable
@@ -139,6 +160,76 @@ public sealed class TimelineControl : FrameworkElement
         }
     }
 
+    /// <summary>選択中の項目が拡大表示の範囲の外なら、見える位置へ寄せる（再生位置は動かさない）。</summary>
+    private void EnsureSelectionVisible()
+    {
+        if (_viewLength <= 0 || _viewLength >= Duration) return;
+        var ranges = new List<(double Start, double End)>();
+        var cutIds = Ids(SelectedCutIds);
+        var candIds = Ids(SelectedCandidateIds);
+        ranges.AddRange(Items<CutSegment>(Segments).Where(s => cutIds.Contains(s.Id)).Select(s => (s.Start, s.End)));
+        ranges.AddRange(Items<CutCandidate>(Candidates).Where(c => candIds.Contains(c.Id)).Select(c => (c.Start, c.End)));
+        var subIds = Ids(SelectedSubtitleIds);
+        var shapeIds = Ids(SelectedShapeIds);
+        foreach (var sub in Items<ViewModels.SubtitleTimelineItem>(Subtitles).Where(x => subIds.Contains(x.Id))) ranges.AddRange(sub.SourceRanges.Select(r => (r.Start, r.End)));
+        foreach (var shape in Items<ViewModels.ShapeTimelineItem>(Shapes).Where(x => shapeIds.Contains(x.Id))) ranges.AddRange(shape.SourceRanges.Select(r => (r.Start, r.End)));
+        if (ranges.Count == 0) return;
+        var first = ranges.OrderBy(r => r.Start).First();
+        var viewEnd = _viewStart + _viewLength;
+        if (first.End >= _viewStart && first.Start <= viewEnd) return;
+        _viewStart = Math.Clamp(first.Start - _viewLength * 0.1, 0, Math.Max(0, Duration - _viewLength));
+        InvalidateVisual();
+    }
+
+    private static HashSet<string> Ids(IEnumerable? source) => source?.OfType<string>().ToHashSet() ?? [];
+
+    /// <summary>クリック位置の確定カット・候補。重なる場合は短いものを先にし、選択中のものがあれば次のもの（繰り返しクリックで切り替え）。</summary>
+    private (ViewModels.ListKind Kind, string Id)? HitItem(double t, double y)
+    {
+        // 端のわずかなずれでも選べるよう、2px 分の時間を許容する。
+        var tol = 2 / TrackWidth * ViewLength;
+        if (y >= CandidateTop && y < TrackTop)
+        {
+            var selected = Ids(SelectedCandidateIds);
+            var hits = Items<CutCandidate>(Candidates).Where(c => c.Status != CandidateStatus.Accepted && c.Start - tol <= t && t <= c.End + tol)
+                .OrderBy(c => c.Duration).ThenBy(c => c.Start).ToList();
+            if (hits.Count == 0) return null;
+            var pick = hits.FirstOrDefault(c => !selected.Contains(c.Id)) ?? hits[0];
+            if (hits.Count > 1 && selected.Count == 1 && selected.Contains(hits[0].Id)) pick = hits[1];
+            return (ViewModels.ListKind.Candidates, pick.Id);
+        }
+        if (y >= SubtitleTop && y < SubtitleTop + SubtitleHeight)
+        {
+            var selected = Ids(SelectedSubtitleIds);
+            var hits = Items<ViewModels.SubtitleTimelineItem>(Subtitles).Where(x => x.SourceRanges.Any(r => r.Start - tol <= t && t <= r.End + tol))
+                .OrderBy(x => x.SourceRanges.Sum(r => r.Duration)).ToList();
+            if (hits.Count == 0) return null;
+            var pick = hits.FirstOrDefault(x => !selected.Contains(x.Id)) ?? hits[0];
+            if (hits.Count > 1 && selected.Count == 1 && selected.Contains(hits[0].Id)) pick = hits[1];
+            return (ViewModels.ListKind.Subtitles, pick.Id);
+        }
+        if (y >= ShapeTop && y < ShapeTop + ShapeHeight)
+        {
+            var selected = Ids(SelectedShapeIds);
+            var hits = Items<ViewModels.ShapeTimelineItem>(Shapes).Where(x => x.SourceRanges.Any(r => r.Start - tol <= t && t <= r.End + tol))
+                .OrderBy(x => x.SourceRanges.Sum(r => r.Duration)).ToList();
+            if (hits.Count == 0) return null;
+            var pick = hits.FirstOrDefault(x => !selected.Contains(x.Id)) ?? hits[0];
+            if (hits.Count > 1 && selected.Count == 1 && selected.Contains(hits[0].Id)) pick = hits[1];
+            return (ViewModels.ListKind.Shapes, pick.Id);
+        }
+        if (y >= TrackTop && y < TrackTop + TrackHeight)
+        {
+            var selected = Ids(SelectedCutIds);
+            var hits = Items<CutSegment>(Segments).Where(s => s.Start - tol <= t && t <= s.End + tol).OrderBy(s => s.Duration).ThenBy(s => s.Start).ToList();
+            if (hits.Count == 0) return null;
+            var pick = hits.FirstOrDefault(s => !selected.Contains(s.Id)) ?? hits[0];
+            if (hits.Count > 1 && selected.Count == 1 && selected.Contains(hits[0].Id)) pick = hits[1];
+            return (ViewModels.ListKind.Cuts, pick.Id);
+        }
+        return null;
+    }
+
     protected override void OnMouseWheel(MouseWheelEventArgs e)
     {
         if (Duration <= 0) return;
@@ -166,7 +257,11 @@ public sealed class TimelineControl : FrameworkElement
         if (e.ClickCount == 2) { ResetZoom(); return; }
         _dragging = true;
         CaptureMouse();
-        SeekRequested?.Invoke(this, T(e.GetPosition(this).X));
+        var pos = e.GetPosition(this);
+        var time = T(pos.X);
+        SeekRequested?.Invoke(this, time);
+        if (HitItem(time, pos.Y) is { } hit)
+            ItemClicked?.Invoke(this, new TimelineItemClickedEventArgs(hit.Kind, hit.Id, Keyboard.Modifiers.HasFlag(ModifierKeys.Control)));
         e.Handled = true;
     }
 
@@ -263,6 +358,16 @@ public sealed class TimelineControl : FrameworkElement
             dc.Pop();
         }
 
+        // 一覧で選択中のカット・候補を枠線で強調する（ズーム・スクロール中も、見えている範囲に描く）。
+        var selCuts = Ids(SelectedCutIds);
+        var selCands = Ids(SelectedCandidateIds);
+        if (selCuts.Count > 0)
+            foreach (var s in Items<CutSegment>(Segments).Where(s => selCuts.Contains(s.Id) && s.End >= _viewStart && s.Start <= viewEnd))
+                DrawSelection(dc, new Rect(X(s.Start), TrackTop, Math.Max(3, X(s.End) - X(s.Start)), TrackHeight));
+        if (selCands.Count > 0)
+            foreach (var c in Items<CutCandidate>(Candidates).Where(c => selCands.Contains(c.Id) && c.End >= _viewStart && c.Start <= viewEnd))
+                DrawSelection(dc, new Rect(X(c.Start), CandidateTop, Math.Max(3, X(c.End) - X(c.Start)), CandidateHeight));
+
         // カット範囲の指定中（開始・終了）
         if (MarkIn is not null || MarkOut is not null)
         {
@@ -328,6 +433,18 @@ public sealed class TimelineControl : FrameworkElement
             }
         }
 
+        // 一覧で選択中の字幕・図形を枠線で強調する。
+        var selSubs = Ids(SelectedSubtitleIds);
+        var selShapes = Ids(SelectedShapeIds);
+        if (selSubs.Count > 0)
+            foreach (var sub in Items<ViewModels.SubtitleTimelineItem>(Subtitles).Where(x => selSubs.Contains(x.Id)))
+                foreach (var r in sub.SourceRanges.Where(r => r.End >= _viewStart && r.Start <= viewEnd))
+                    DrawSelection(dc, new Rect(X(r.Start), SubtitleTop + 1, Math.Max(3, X(r.End) - X(r.Start)), SubtitleHeight - 2));
+        if (selShapes.Count > 0)
+            foreach (var shape in Items<ViewModels.ShapeTimelineItem>(Shapes).Where(x => selShapes.Contains(x.Id)))
+                foreach (var r in shape.SourceRanges.Where(r => r.End >= _viewStart && r.Start <= viewEnd))
+                    DrawSelection(dc, new Rect(X(r.Start), ShapeTop + 1, Math.Max(3, X(r.End) - X(r.Start)), ShapeHeight - 2));
+
         // 手順書画像ポイント
         foreach (var p in Items<CapturePoint>(Captures))
         {
@@ -364,6 +481,13 @@ public sealed class TimelineControl : FrameworkElement
             DrawText(dc, $"拡大表示中 {TimeFormat.FormatShort(_viewStart)}～{TimeFormat.FormatShort(viewEnd)}（ダブルクリックで全体）", w - 330, CaptureTop + 6, 10);
     }
 
+    private static void DrawSelection(DrawingContext dc, Rect r)
+    {
+        r.Inflate(1.5, 1.5);
+        dc.DrawRoundedRectangle(null, SelectOuterPen, r, 3, 3);
+        dc.DrawRoundedRectangle(null, SelectInnerPen, r, 3, 3);
+    }
+
     private void DrawRuler(DrawingContext dc, double viewEnd, double dpi)
     {
         double[] steps = [0.1, 0.2, 0.5, 1, 2, 5, 10, 15, 30, 60, 120, 300, 600, 900, 1800, 3600];
@@ -385,4 +509,13 @@ public sealed class TimelineControl : FrameworkElement
             VisualTreeHelper.GetDpi(this).PixelsPerDip);
         dc.DrawText(ft, new Point(x, y));
     }
+}
+
+/// <summary>タイムラインで確定カット・候補をクリックしたときの内容。</summary>
+public sealed class TimelineItemClickedEventArgs(ViewModels.ListKind kind, string id, bool additive) : EventArgs
+{
+    public ViewModels.ListKind Kind { get; } = kind;
+    public string Id { get; } = id;
+    /// <summary>Ctrl+クリック（選択への追加・解除）。</summary>
+    public bool Additive { get; } = additive;
 }

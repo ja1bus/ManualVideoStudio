@@ -287,7 +287,8 @@ public static class DefaultPromptTemplates
     public const string CutAnalysis = """
         あなたは Windows 操作マニュアル動画の編集アシスタントです。
         添付した動画「{{VIDEO_FILENAME}}」（長さ {{VIDEO_DURATION}}）を最初から最後まで確認し、
-        視聴者にとって不要な部分、または短くした方がよい部分の候補を挙げてください。
+        視聴者にとって不要な部分（削除してよい区間）の候補を挙げてください。
+        長い待ち時間などは、結果を確認するのに必要な最初の数秒を残し、それ以降の区間だけを候補にしてください。
         最終的に削除するかどうかは人間が判断します。迷う箇所は confidence を低くして候補に含めてください。
 
         ## 候補にするもの
@@ -298,7 +299,7 @@ public static class DefaultPromptTemplates
         - 同じ画面を必要以上に長く表示している部分
         - 本筋の手順と関係のない操作
 
-        ## できるだけ残すもの（候補にしない、または shorten で一部を残す）
+        ## できるだけ残すもの（候補にしない。待ち時間は必要な最初の数秒を残して、それ以降だけを候補にする）
         - 操作した結果を確認するのに必要な時間
         - 字幕・キャプションを読むのに必要な時間
         - 手順の理解に必要な画面
@@ -309,8 +310,7 @@ public static class DefaultPromptTemplates
 
         ## 出力形式
         - start / end は動画の先頭からの時刻を "HH:MM:SS.mmm" 形式で書く
-        - action は "remove"（完全に削除）または "shorten"（先頭の keep_seconds 秒だけ残して短縮）
-        - shorten の場合は keep_seconds（残す秒数）を必ず書く。remove の場合は 0
+        - action は常に "remove"（その区間を削除する）
         - confidence は 0.0～1.0（削除してよい確からしさ）
         - reason は{{LANGUAGE}}で、なぜ不要と判断したかを簡潔に書く
         - 次の形式の JSON のみを返すこと
@@ -320,8 +320,7 @@ public static class DefaultPromptTemplates
             {
               "start": "00:01:20.200",
               "end": "00:01:27.800",
-              "action": "shorten",
-              "keep_seconds": 1.5,
+              "action": "remove",
               "confidence": 0.91,
               "reason": "操作完了後に長い待機時間がある"
             }
@@ -335,7 +334,7 @@ public static class DefaultPromptTemplates
         編集後の長さは {{EDITED_DURATION}} です。
 
         ## 現在の編集案（時刻は元動画の先頭から）
-        - action が "remove" の区間は削除、"shorten" の区間は先頭の keep_seconds 秒だけ残します
+        - action が "remove" の区間は削除します（古い編集に "shorten" がある場合は、先頭の keep_seconds 秒だけ残します）
         {{CUT_SEGMENTS}}
 
         ## 手順書用の画像位置（参考。これらの画面は必要な場面です）
@@ -363,7 +362,6 @@ public static class DefaultPromptTemplates
               "start": "00:02:00.000",
               "end": "00:02:06.500",
               "action": "remove",
-              "keep_seconds": 0,
               "confidence": 0.7,
               "reason": "操作ミスをやり直している"
             }

@@ -53,7 +53,11 @@ public sealed class VideoExportService(IProcessRunner runner, ILogger<VideoExpor
         var total = EditTimelineCalculator.OutputDuration(keep) + (request.Title?.Seconds ?? 0);
 
         var dir = Path.GetDirectoryName(output)!;
-        Directory.CreateDirectory(dir);
+        try { Directory.CreateDirectory(dir); }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or NotSupportedException)
+        {
+            throw new PathStageException("保存先フォルダーの作成", dir, ex.Message, ex);
+        }
         var temp = Path.Combine(dir, Path.GetFileNameWithoutExtension(output) + ".partial" + Path.GetExtension(output));
         using var work = await ExportWorkspace.CreateAsync(request.Subtitles, request.SubtitleStyle,
             EvenSize(request.Metadata.Width), EvenSize(request.Metadata.Height), request.TextMeasurer, ct, request.Shapes,
@@ -85,10 +89,16 @@ public sealed class VideoExportService(IProcessRunner runner, ILogger<VideoExpor
                 },
                 MaxCapturedChars = 400_000,
             }, ct);
-            if (!r.Succeeded || !File.Exists(temp))
-                throw new FFmpegException($"動画の書き出しに失敗しました（終了コード {r.ExitCode}）。", r.ErrorTail(15));
+            if (!r.Succeeded)
+                throw new FFmpegException($"動画の書き出しに失敗しました（終了コード {r.ExitCode}）。{Environment.NewLine}出力先: {temp}", r.ErrorTail(15));
+            if (!File.Exists(temp))
+                throw new PathStageException("FFmpeg の出力ファイルの確認", temp, "FFmpeg は正常終了しましたが、出力ファイルが見つかりません（保存先が外部のプロセスから別の場所に見えている可能性があります）。");
 
-            File.Move(temp, output, overwrite: true);
+            try { File.Move(temp, output, overwrite: true); }
+            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+            {
+                throw new PathStageException("一時ファイルから完成名への移動", output, $"{ex.Message}（一時ファイル: {temp}）", ex);
+            }
             succeeded = true;
             _logger.LogInformation("Export done: {Output} ({Elapsed:0.0}s)", output, r.Elapsed.TotalSeconds);
             return new VideoExportResult(output, total, r.Elapsed);

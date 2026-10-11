@@ -1,5 +1,6 @@
 using System.IO;
 using CommunityToolkit.Mvvm.Input;
+using ManualVideoStudio.Core.Export;
 using ManualVideoStudio.Core.Models;
 using ManualVideoStudio.Core.Persistence;
 using Microsoft.Extensions.Logging;
@@ -23,8 +24,18 @@ public sealed partial class MainViewModel
     {
         if (Editor is null || _geminiCaption is null || !IsSubtitlePhase) return;
         PauseIfPlaying();
+        // 依頼用動画はプロジェクトフォルダーに作るため、未保存なら先に保存する（保存できなければ中止）。
+        if (ProjectPath is null)
+        {
+            var firstSave = ProjectFolders.FirstSavePath(VideoPath, Settings.Recording.ResolveOutputDirectory());
+            if (!Save(saveAs: false, firstSave))
+            {
+                StatusMessage = "プロジェクトを保存できなかったため、字幕依頼用動画の準備画面を開きませんでした（動画はプロジェクトフォルダーに作るため、先に保存が必要です）。";
+                return;
+            }
+        }
         var name = ProjectFolders.DefaultOutputBaseName(VideoPath, ProjectPath);
-        var vm = new GeminiCaptionViewModel(Editor, CaptionRequest, _geminiCaption, name);
+        var vm = new GeminiCaptionViewModel(Editor, CaptionRequest, _geminiCaption, name, CaptionRequestStore.ProjectLocation(ProjectPath));
         vm.Imported += message =>
         {
             SelectedTabIndex = TabSubtitles;

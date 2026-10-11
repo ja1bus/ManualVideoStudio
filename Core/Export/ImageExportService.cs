@@ -121,7 +121,7 @@ public sealed partial class ImageExportService(IFrameExtractionService frames, I
     {
         // モザイクを焼き込まずに出力すると機微情報が残るため、描画手段が無い場合は書き出しを止める。
         if (renderer is null) throw new InvalidOperationException($"No.{item.Point.Sequence} の注釈を画像へ反映できません（描画機能がありません）。");
-        var dir = Path.Combine(Path.GetTempPath(), "ManualVideoStudio");
+        var dir = Path.Combine(AppTemp.Root, "work");
         System.IO.Directory.CreateDirectory(dir);
         // 切り出した元画像は読み直すため拡張子を付けない（v1.4.2。.png は置いた瞬間に暗号化される環境がある）。
         var basePath = Path.Combine(dir, $"base-{Guid.NewGuid():N}");

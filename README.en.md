@@ -41,7 +41,7 @@ This GitHub repository does not distribute executables (binaries).
 3. Cut the parts you do not need, confirm the cuts, and add subtitles, shapes and a title.
 4. Export MP4 or Animated GIF from the export menu.
 
-See the user guide (Japanese) for details. It can also be opened from Help (F1) in the app.
+See the user guide (Japanese) for details. Help (F1) in the app opens the web version. Help > About (at the bottom) shows the version, the MIT License and its full text.
 
 - User guide: https://www.iwanaga.net/manualvideostudio/manual/
 
@@ -87,14 +87,14 @@ dotnet publish ManualVideoStudio.csproj -c Release -p:PublishProfile=FrameworkDe
 | `Core/` | UI-independent logic (`net8.0`): FFmpeg argument building and output parsing; editing of cuts, subtitles (ASS), shapes and titles; recording state; GIF; parsing AI answers; saving projects and settings |
 | `Imaging/` | Drawing annotations, shapes and titles, and saving images (`net8.0-windows`, WPF rendering) |
 | `Services/` | Dialogs, playback, FFmpeg status, fonts, Recycle Bin, and listing capture targets and microphones (Win32 / Core Audio) |
-| `Resources/` | UI strings (`Strings.resx`, Japanese), icon, and the user guide (`Help/manual.html`, embedded in the exe) |
+| `Resources/` | UI strings (`Strings.resx`, Japanese) and the icon |
 | `Tests/` | Unit tests (xUnit; no FFmpeg needed) |
 | `IntegrationTests/` | Integration tests with a real FFmpeg (xUnit) |
 | `tools/icon-source.png`, `Resources/icon.ico` | App icon (`pwsh -File tools/make-icon.ps1` creates `icon.ico` from `icon-source.png`) |
 
-The tooling that builds the Microsoft Store package (MSIX) and the installer is not included in this repository. The `ManualVideoStudioMsix` condition in `ManualVideoStudio.csproj` is for the Store version. `Resources/Help/manual.html` is generated from the user guide's manuscript; the manuscript and the generator are not included.
+The tooling that builds the Microsoft Store package (MSIX) and the installer is not included in this repository. The `ManualVideoStudioMsix` condition in `ManualVideoStudio.csproj` is for the Store version. The user guide is the web version (URL above); it is not embedded in the exe (since v1.17.0).
 
-Settings are saved to `%AppData%\ManualVideoStudio\settings.json`, and the cache and logs to `%LocalAppData%\ManualVideoStudio\`.
+Settings are saved to `%AppData%\ManualVideoStudio\settings.json`, and the cache and logs to `%LocalAppData%\ManualVideoStudio\` (the Microsoft Store version uses the actual location under `%LocalAppData%\Packages\<package family name>\LocalCache\`, because Windows redirects the writes of a packaged app). The video prepared for Gemini subtitles is created in the `caption-requests\` folder inside the project folder.
 
 Source comments and UI strings are written in Japanese. References such as "仕様書" or "仕様書 §N" (specification, section N) in comments point to the internal development specification, which is not included in this repository.
 

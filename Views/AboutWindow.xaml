@@ -1,0 +1,21 @@
+<Window x:Class="ManualVideoStudio.Views.AboutWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:local="clr-namespace:ManualVideoStudio"
+        Style="{StaticResource AppWindow}" Title="{local:Str About.Title}"
+        Width="520" SizeToContent="Height" ResizeMode="NoResize" WindowStartupLocation="CenterOwner" ShowInTaskbar="False"
+        AutomationProperties.AutomationId="About.Window">
+    <StackPanel Margin="18">
+        <TextBlock Text="{Binding VersionText}" FontSize="18" FontWeight="SemiBold" AutomationProperties.AutomationId="About.Version"/>
+        <TextBlock Text="{Binding LicenseText}" Style="{StaticResource Subtle}" TextWrapping="Wrap" Margin="0,10,0,0" AutomationProperties.AutomationId="About.License"/>
+        <WrapPanel Margin="0,12,0,0">
+            <Button Content="{local:Str About.OpenRepository}" Command="{Binding OpenRepositoryCommand}" ToolTip="{Binding RepositoryUrl}" AutomationProperties.AutomationId="About.Repository"/>
+            <Button Content="{local:Str About.ShowLicense}" Command="{Binding ShowLicenseCommand}" AutomationProperties.AutomationId="About.ShowLicense"/>
+            <Button Content="{local:Str About.OpenNotices}" Command="{Binding OpenNoticesCommand}" AutomationProperties.AutomationId="About.OpenNotices"/>
+        </WrapPanel>
+        <DockPanel Margin="0,16,0,0">
+            <Button DockPanel.Dock="Right" Content="{local:Str About.Close}" IsCancel="True" IsDefault="True" MinWidth="90" Click="Close_Click" AutomationProperties.AutomationId="About.Close"/>
+            <TextBlock/>
+        </DockPanel>
+    </StackPanel>
+</Window>

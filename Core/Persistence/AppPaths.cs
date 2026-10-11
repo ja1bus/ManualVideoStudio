@@ -8,11 +8,26 @@ public sealed class AppPaths
 {
     public const string AppName = "ManualVideoStudio";
 
-    public AppPaths(string? roamingRoot = null, string? localRoot = null)
+    /// <summary>
+    /// 起動中のアプリの保存場所（v1.17.0）。<c>App</c> が起動時に、Store 版（パッケージ）なら実際の保存先を設定する。
+    /// 設定前・テストでは通常の保存場所。
+    /// </summary>
+    public static AppPaths Current { get; set; } = new();
+
+    public AppPaths(string? roamingRoot = null, string? localRoot = null, string? packageFamilyName = null)
     {
         SettingsDirectory = roamingRoot ?? Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), AppName);
         LocalDirectory = localRoot ?? Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), AppName);
+        PackageFamilyName = packageFamilyName;
     }
+
+    /// <summary>
+    /// Store 版（MSIX パッケージ）のパッケージファミリ名。通常版は null。
+    /// Store 版では %LOCALAPPDATA% などへの書き込みがパッケージ専用の場所へ振り替えられ、ブラウザー・エクスプローラーなど
+    /// パッケージの外のプロセスからは通常のパスで見えないため、実際の保存先のパスを使う（<see cref="SettingsDirectory"/> / <see cref="LocalDirectory"/>）。
+    /// </summary>
+    public string? PackageFamilyName { get; }
+    public bool IsPackaged => PackageFamilyName is not null;
 
     public string SettingsDirectory { get; }
     public string LocalDirectory { get; }
@@ -20,9 +35,19 @@ public sealed class AppPaths
     public string PromptTemplatesFile => Path.Combine(SettingsDirectory, "prompt-templates.json");
     public string LogDirectory => Path.Combine(LocalDirectory, "logs");
     public string CacheDirectory => Path.Combine(LocalDirectory, "cache");
-    /// <summary>字幕依頼用動画（Gemini へ添付する字幕なしの動画。v1.12）の保存場所。キャッシュ（cache\）の自動整理の対象外。</summary>
-    public string CaptionRequestDirectory => Path.Combine(LocalDirectory, "caption-requests");
+    /// <summary>FFmpeg と受け渡す一時ファイル（フィルタースクリプト・字幕・図形画像など）の置き場（<see cref="AppTemp"/>）。</summary>
+    public string TempDirectory => Path.Combine(LocalDirectory, "tmp");
+    /// <summary>同梱の取扱説明書（オフライン用）の書き出し先。</summary>
+    public string HelpDirectory => Path.Combine(LocalDirectory, "help");
+    /// <summary>
+    /// 字幕依頼用動画（Gemini へ添付する字幕なしの動画。v1.12）の保存場所のうち、プロジェクトフォルダーを使えないとき（未保存の編集）の置き場。
+    /// プロジェクトを保存済みなら、プロジェクトフォルダーの中の <see cref="CaptionRequestFolderName"/> を使う（v1.17.0）。
+    /// </summary>
+    public string CaptionRequestDirectory => Path.Combine(LocalDirectory, CaptionRequestFolderName);
     public string CrashLogFile => Path.Combine(LocalDirectory, "error.log");
+
+    /// <summary>字幕依頼用動画を置くフォルダー名（プロジェクトフォルダーの中・保存先の下）。</summary>
+    public const string CaptionRequestFolderName = "caption-requests";
 }
 
 /// <summary>

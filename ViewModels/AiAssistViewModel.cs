@@ -64,7 +64,7 @@ public sealed partial class CutRowViewModel(AiCutRow row) : ObservableObject
     public AiCutRow Row { get; } = row;
     public string StartText => Row.IsValid || Row.Start > 0 ? TimeFormat.Format(Row.Start) : "-";
     public string EndText => Row.IsValid || Row.End > 0 ? TimeFormat.Format(Row.End) : "-";
-    public string ActionText => Row.Action == SegmentAction.Shorten ? $"短縮（{Row.KeepSeconds:0.0#} 秒残す）" : Row.Action == SegmentAction.Remove ? "削除" : "-";
+    public string ActionText => Row.Action == SegmentAction.Remove ? "カット（削除）" : "-";
     public string ConfidenceText => Row.Confidence.ToString("0%");
     public string Reason => Row.Reason;
     public string Note => Row.Note;
@@ -92,7 +92,7 @@ public sealed partial class AiAssistViewModel : ObservableObject
     public static IReadOnlyList<Choice<AiPurpose>> PurposeChoices { get; } =
     [
         new(AiPurpose.CaptureCaption, "手順書画像のキャプション生成（CaptureCaption）"),
-        new(AiPurpose.CutAnalysis, "不要・短縮候補の解析（CutAnalysis）"),
+        new(AiPurpose.CutAnalysis, "不要区間（カットする区間）の解析（CutAnalysis）"),
         new(AiPurpose.CutReview, "現在の編集案のレビュー（CutReview）"),
     ];
 
@@ -116,11 +116,15 @@ public sealed partial class AiAssistViewModel : ObservableObject
         _dialogs = dialogs;
         _shell = shell;
         _logger = logger;
+        // 解析候補の［AI に聞く］からは「不要区間の解析」で開く。簡易モードも同じ。
+        var start = main.TakePendingAiPurpose() ?? (main.IsSimpleMode ? AiPurpose.CutAnalysis : (AiPurpose?)null);
+        if (start is { } p) _purpose = p;
         GeneratePrompt();
         RefreshHistory();
     }
 
-    public IReadOnlyList<Choice<AiPurpose>> Purposes => PurposeChoices;
+    /// <summary>選べる用途。簡易モードでは「不要区間の解析」だけ（v1.17.0）。</summary>
+    public IReadOnlyList<Choice<AiPurpose>> Purposes => _main.IsSimpleMode ? PurposeChoices.Where(c => c.Value == AiPurpose.CutAnalysis).ToList() : PurposeChoices;
     public string VideoPath => _main.VideoPath;
     public string VideoFileName => Path.GetFileName(_main.VideoPath);
 
@@ -134,6 +138,11 @@ public sealed partial class AiAssistViewModel : ObservableObject
     [ObservableProperty] private bool _hasResult;
     [ObservableProperty] private string _copyMessage = "";
     [ObservableProperty] private AiHistoryEntry? _selectedHistory;
+    /// <summary>［クリップボードから貼り付け］の結果（成功した文字数、または失敗の理由）。</summary>
+    [ObservableProperty] private string _pasteMessage = "";
+
+    /// <summary>［閉じる］［取り込んで閉じる］で画面を閉じる要求（閉じるだけでは、未取り込みの回答は反映しない）。</summary>
+    public event Action? CloseRequested;
 
     public ObservableCollection<CaptionRowViewModel> CaptionRows { get; } = [];
     public ObservableCollection<CutRowViewModel> CutRows { get; } = [];
@@ -147,7 +156,7 @@ public sealed partial class AiAssistViewModel : ObservableObject
     public string StepText => Purpose switch
     {
         AiPurpose.CaptureCaption => "手順書画像ごとの時刻（id）を渡し、画像の前後の操作も見てキャプションと手順書の操作文を作ってもらいます。取り込むのはキャプションと操作文だけで、画像の時刻は変わりません。",
-        AiPurpose.CutAnalysis => "動画全体を見て、不要・短縮した方がよい区間を挙げてもらいます。取り込んだ結果は「AI 候補」になり、採用するまで編集には反映されません。",
+        AiPurpose.CutAnalysis => "動画全体を見て、不要な（カットする）区間を挙げてもらいます。取り込んだ結果は「AI 候補」になり、採用するまで編集には反映されません。",
         _ => "現在の確定編集をレビューしてもらいます。指摘は一覧に表示され、追加の提案区間は「AI 候補」として取り込めます。",
     };
 
@@ -223,7 +232,34 @@ public sealed partial class AiAssistViewModel : ObservableObject
     private void ClearResponse()
     {
         ResponseText = "";
+        PasteMessage = "";
         ClearResult();
+    }
+
+    /// <summary>
+    /// ［クリップボードから貼り付け］: 回答欄の内容をクリップボードの文字列に<b>置き換える</b>（追記しない）。
+    /// クリップボードが空・読み取れないときは、回答欄を変えず理由を示す。貼り付けただけでは解析も取り込みもしない。
+    /// </summary>
+    [RelayCommand]
+    private void PasteFromClipboard()
+    {
+        if (!_clipboard.TryGetText(out var text) || string.IsNullOrWhiteSpace(text))
+        {
+            PasteMessage = "クリップボードに文字列がありません（空、または他のアプリが使用中です）。Gemini の回答をコピーしてから押してください。回答欄はそのままです。";
+            return;
+        }
+        ResponseText = text;
+        PasteMessage = $"クリップボードの内容で回答欄を置き換えました（{text.Length:N0} 文字）。続けて［解析］を押してください。";
+    }
+
+    /// <summary>
+    /// 回答欄が書き換えられたら、前の解析結果は取り込めなくする（貼り付け → 解析 → 確認 → 取り込み の順を保つ）。
+    /// </summary>
+    partial void OnResponseTextChanged(string value)
+    {
+        if (!HasResult && CaptionRows.Count == 0 && CutRows.Count == 0 && ReviewRows.Count == 0) return;
+        ClearResult();
+        ParseMessage = "回答欄が書き換えられたため、前の解析結果は取り込めなくなりました。もう一度［解析］を押してください。";
     }
 
     private void ClearResult()
@@ -330,17 +366,30 @@ public sealed partial class AiAssistViewModel : ObservableObject
         foreach (var r in _pendingCuts) CutRows.Add(r);
     }
 
+    /// <summary>［取り込む］: 取り込んで、この画面は開いたままにする（履歴などを続けて見られる）。</summary>
     [RelayCommand]
-    private void Import()
+    private void Import() => ImportCore();
+
+    /// <summary>［取り込んで閉じる］: 取り込みに成功したときだけ閉じる。対象が 0 件・エラーなら画面を残す。</summary>
+    [RelayCommand]
+    private void ImportAndClose()
+    {
+        if (ImportCore()) CloseRequested?.Invoke();
+    }
+
+    [RelayCommand]
+    private void Close() => CloseRequested?.Invoke();
+
+    private bool ImportCore()
     {
         var editor = _main.Editor;
-        if (editor is null || !HasResult || _entry is null) return;
+        if (editor is null || !HasResult || _entry is null) return false;
         string summary;
         string json;
         if (Purpose == AiPurpose.CaptureCaption)
         {
             var selected = CaptionRows.Where(r => r.Include && r.CanImport).ToList();
-            if (selected.Count == 0) { ErrorMessage = "取り込む行がありません。"; return; }
+            if (selected.Count == 0) { ErrorMessage = "取り込む行がありません。"; return false; }
             var items = selected.Select(r => (r.Id, r.NewCaption.ReplaceLineEndings(" ").Trim(),
                 string.IsNullOrWhiteSpace(r.NewStepText) ? null : CaptureText.Line(r.NewStepText))).ToList();
             var n = editor.ApplyCaptions(items, CaptionSource.Ai, "AI キャプションの取り込み");
@@ -351,13 +400,16 @@ public sealed partial class AiAssistViewModel : ObservableObject
         else
         {
             var selected = _pendingCuts.Where(r => r.Include && r.IsValid).Select(r => r.Row).ToList();
-            if (selected.Count == 0) { ErrorMessage = "取り込む候補がありません。"; return; }
+            if (selected.Count == 0) { ErrorMessage = "取り込む候補がありません。"; return false; }
             var candidates = AiCutImporter.ToCandidates(selected, _entry.Id);
+            var replacedBefore = editor.Project.CutCandidates.Count(c => c.Source == SegmentSource.Ai && c.Status != CandidateStatus.Accepted);
             if (Purpose == AiPurpose.CutAnalysis)
                 editor.ReplaceCandidates(SegmentSource.Ai, candidates, "AI 候補の取り込み");
             else
                 editor.AddCandidates(candidates, "AI レビュー候補の取り込み");
-            summary = $"AI 候補 {candidates.Count} 件を取り込みました（未判断。採用するまで編集に反映されません）。";
+            var replaced = Purpose == AiPurpose.CutAnalysis ? replacedBefore : 0;
+            summary = $"AI 候補 {candidates.Count} 件を取り込みました（未判断。採用するまで編集に反映されません）。"
+                + (replaced > 0 ? $"未採用の AI 候補 {replaced} 件は新しい結果に置き換わりました（採用済みの記録と確定カットは残っています）。" : "");
             json = JsonSerializer.Serialize(candidates, JsonDefaults.Options);
             _main.SelectedTabIndex = MainViewModel.TabCandidates;
         }
@@ -369,6 +421,7 @@ public sealed partial class AiAssistViewModel : ObservableObject
         ParseMessage = summary + "（元に戻す: 主画面で Ctrl+Z）";
         _main.StatusMessage = summary;
         HasResult = false;
+        return true;
     }
 
     private void RefreshHistory()

@@ -49,7 +49,7 @@
   <data name="Guide.SubtitlesImported" xml:space="preserve"><value>取り込んだ字幕を再生して確認し、文章や表示時間を調整してください。</value></data>
   <data name="Guide.ImageCreation" xml:space="preserve"><value>動画の位置を選んで［この位置を画像に追加］を押し、キャプションや注釈を整えて書き出します。</value></data>
   <data name="Phase.ConfirmCuts" xml:space="preserve"><value>字幕・図形へ進む →</value></data>
-  <data name="Phase.ConfirmCuts.Tip" xml:space="preserve"><value>カット（削除・短縮）を確定し、編集後の動画に字幕・図形を付ける段階へ進みます（確認あり。カットが無くても進めます）</value></data>
+  <data name="Phase.ConfirmCuts.Tip" xml:space="preserve"><value>カット（削除する区間）を確定し、編集後の動画に字幕・図形を付ける段階へ進みます</value></data>
   <data name="Phase.ReviewCuts" xml:space="preserve"><value>カットを見直す…</value></data>
   <data name="Phase.ReviewCuts.Tip" xml:space="preserve"><value>カットを変更します。現在の編集を残して別の編集でやり直すか、字幕・図形を破棄して戻るかを選べます（確認あり）</value></data>
   <data name="Menu.ConfirmCuts" xml:space="preserve"><value>字幕・図形へ進む（カットを確定）</value></data>
@@ -60,17 +60,10 @@
   <data name="Cut.Start.Tip" xml:space="preserve"><value>現在位置をカット開始位置にする</value></data>
   <data name="Cut.End" xml:space="preserve"><value>終了位置 [O]</value></data>
   <data name="Cut.End.Tip" xml:space="preserve"><value>現在位置をカット終了位置にする</value></data>
-  <data name="Cut.Remove" xml:space="preserve"><value>この区間を削除 [R]</value></data>
-  <data name="Cut.Remove.Tip" xml:space="preserve"><value>指定した開始～終了の区間を、削除するカットとして登録します</value></data>
-  <data name="Cut.Shorten" xml:space="preserve"><value>短縮 ▾</value></data>
-  <data name="Cut.Shorten.Tip" xml:space="preserve"><value>指定した区間を短くします。残す秒数を確認して登録します（キー S は、いまの秒数でそのまま登録します）</value></data>
-  <data name="Cut.ShortenKeep" xml:space="preserve"><value>区間の先頭から残す秒数</value></data>
-  <data name="Cut.ShortenKeep.Tip" xml:space="preserve"><value>短縮する区間で、先頭から残す秒数</value></data>
-  <data name="Cut.Unit" xml:space="preserve"><value>秒</value></data>
-  <data name="Cut.ShortenRegister" xml:space="preserve"><value>短縮を登録</value></data>
-  <data name="Cut.ShortenRegister.Tip" xml:space="preserve"><value>指定した区間を、上の秒数だけ残す短縮として登録します</value></data>
-  <data name="Cut.ClearRange" xml:space="preserve"><value>範囲指定を解除</value></data>
-  <data name="Cut.ClearRange.Tip" xml:space="preserve"><value>指定中の開始・終了位置を解除します。登録済みのカット区間は削除されません。</value></data>
+  <data name="Cut.Remove" xml:space="preserve"><value>この区間をカットする [R]</value></data>
+  <data name="Cut.Remove.Tip" xml:space="preserve"><value>指定した開始～終了の区間を、動画から削除するカットとして登録します。すでに確定したカットと重なる（接する）ときは、そのカットも含めて 1 つにまとめます（登録前の指定を取り消す場合は［開始・終了の指定を取り消す］）</value></data>
+  <data name="Cut.ClearRange" xml:space="preserve"><value>指定を取り消す</value></data>
+  <data name="Cut.ClearRange.Tip" xml:space="preserve"><value>登録前の開始・終了の指定を取り消します（開始だけを指定した状態でも取り消せます）。すでに登録したカット区間は取り消されません（右の［カット区間］で「選択したカットを取り消す」を使います）。キー: Esc</value></data>
   <data name="Cut.Analyze" xml:space="preserve"><value>自動解析</value></data>
   <data name="Cut.Analyze.Tip" xml:space="preserve"><value>静止・無音・画面変化から不要部分の候補を探します。候補は自動では確定せず、［解析候補］から採用できます。</value></data>
   <data name="Sub.Title" xml:space="preserve"><value>字幕・図形</value></data>
@@ -84,11 +77,11 @@
   <data name="Sub.Gemini.Tip" xml:space="preserve"><value>字幕なしの動画を作り、Gemini に字幕（SRT）を作らせて取り込みます（手動でコピー＆貼り付け）</value></data>
   <data name="Sub.AddShape" xml:space="preserve"><value>図形を追加 [G]</value></data>
   <data name="Sub.AddShape.Tip" xml:space="preserve"><value>四角・矢印・直線・文字・モザイクを動画に入れます（表示する時間は開始・終了、または画面に出ている字幕と同じ時間）</value></data>
-  <data name="Sub.ClearRange" xml:space="preserve"><value>範囲指定を解除</value></data>
-  <data name="Sub.ClearRange.Tip" xml:space="preserve"><value>指定中の表示開始・終了位置を解除します。追加済みの字幕・図形は削除されません。</value></data>
-  <data name="Sub.ListHint" xml:space="preserve"><value>時刻は編集後（カット適用後）の動画の時刻です。MP4 と GIF の両方に同じ字幕を焼き込みます。字幕の行をダブルクリックすると、ダイアログでも編集できます。</value></data>
-  <data name="Shapes.ListHint" xml:space="preserve"><value>1 回の編集で描いた図形を、同じ表示時間でまとめて 1 行にしています。時刻は編集後（カット適用後）の動画の時刻です。図形は画面の動きについて行きません。ダブルクリックで編集。</value></data>
-  <data name="Cand.Hint" xml:space="preserve"><value>ローカル解析・AI の結果は「候補」です。採用するまで書き出しには反映されません。ダブルクリックで開始位置へ移動します。</value></data>
+  <data name="Sub.ClearRange" xml:space="preserve"><value>指定を取り消す</value></data>
+  <data name="Sub.ClearRange.Tip" xml:space="preserve"><value>指定中の字幕の開始・終了位置を取り消します（開始だけを指定した状態でも取り消せます）。登録済みの字幕は削除されません。キー: Esc</value></data>
+  <data name="Sub.ListHint" xml:space="preserve"><value>時刻は編集後（カット適用後）の動画の時刻です。MP4 と GIF の両方に同じ字幕を焼き込みます。字幕の行を選ぶか、タイムラインの字幕をクリックすると、下の「選択中の字幕」で編集できます（ダブルクリックでその字幕の位置へ移動）。</value></data>
+  <data name="Shapes.ListHint" xml:space="preserve"><value>1 回の編集で描いた図形を、同じ表示時間でまとめて 1 行にしています。時刻は編集後（カット適用後）の動画の時刻です。図形は画面の動きについて行きません。図形の行を選ぶか、タイムラインの図形をクリックすると、下の「選択中の図形」で表示する時間を直せます。描き直しは一覧の下の［図形再編集］（ダブルクリックはその図形の位置へ移動）。</value></data>
+  <data name="Cand.Hint" xml:space="preserve"><value>候補は、「カットする」で確定するまで書き出しに反映されません。AI の方が精度が高いので、まず［AI に聞く］をおすすめします。信頼度は目安で、削除してよい確率ではありません。</value></data>
   <data name="Img.ListHint" xml:space="preserve"><value>ファイル名は「連番_キャプション.拡張子」です。キャプションは直接編集できます（Enter / フォーカス移動で確定）。</value></data>
   <data name="SubEdit.Header" xml:space="preserve"><value>選択中の字幕</value></data>
   <data name="SubEdit.None" xml:space="preserve"><value>一覧で字幕を選ぶと、ここで文章・時刻・位置・サイズを編集できます。</value></data>
@@ -125,12 +118,12 @@
   <data name="Pane.Shapes" xml:space="preserve"><value>図形</value></data>
   <data name="Pane.Images" xml:space="preserve"><value>画像</value></data>
   <data name="Pane.Switcher" xml:space="preserve"><value>一覧の切り替え</value></data>
-  <data name="Empty.Cuts" xml:space="preserve"><value>カット区間はまだありません。再生位置で［開始位置］と［終了位置］を指定し、［この区間を削除］または［短縮］で登録します。カットが不要な場合は、そのまま［字幕・図形へ進む］を押せます。</value></data>
+  <data name="Empty.Cuts" xml:space="preserve"><value>カット区間はまだありません。再生位置で［開始位置］と［終了位置］を指定し、［この区間をカットする］で登録します。カットが不要な場合は、そのまま［字幕・図形へ進む］を押せます。</value></data>
   <data name="Empty.Subtitles" xml:space="preserve"><value>字幕はまだありません。［字幕を追加］で手動で入れるか、［Geminiで字幕を作る］で作成できます。字幕なしで書き出すこともできます。</value></data>
   <data name="Empty.Shapes" xml:space="preserve"><value>図形はまだありません。必要な場合は［図形を追加］で、矢印・四角・文字・モザイクなどを入れられます。</value></data>
   <data name="Empty.Captures" xml:space="preserve"><value>画像はまだありません。動画の再生位置を選び、［この位置を画像に追加］を押すと、画像として登録されます。</value></data>
-  <data name="Empty.CandNotRun" xml:space="preserve"><value>まだ解析していません。［自動解析］を押すと、静止・無音・画面変化から不要部分の候補を探します。</value></data>
-  <data name="Empty.CandNone" xml:space="preserve"><value>解析しましたが、候補は見つかりませんでした。カットは手動で指定できます。</value></data>
+  <data name="Empty.CandNotRun" xml:space="preserve"><value>まだ候補がありません。［AI に聞く…］か［簡易解析］で、不要な部分の候補を探します。</value></data>
+  <data name="Empty.CandNone" xml:space="preserve"><value>候補は見つかりませんでした。カットは手動で指定できます。</value></data>
   <data name="Empty.CandHandled" xml:space="preserve"><value>未判断の候補はありません（採用済み・却下済みのみです）。［却下・採用済みも表示］で確認できます。</value></data>
   <data name="Empty.CandFailed" xml:space="preserve"><value>解析に失敗しました。候補がないのではなく、解析できなかった状態です。ログを確認し、もう一度［自動解析］を試してください。</value></data>
   <data name="Empty.Projects" xml:space="preserve"><value>録画・編集はまだありません。［録画する］か［動画を開く］から始めてください。以前の編集は［既存プロジェクトを開く］、バックアップの zip は［インポート］で取り込めます。</value></data>
@@ -230,4 +223,120 @@
   <data name="Recorder.Status.FreeSize" xml:space="preserve"><value>縦横比の固定を解除しました。枠の辺・角をドラッグして自由に大きさを変えられます。</value></data>
   <data name="Recorder.Status.PresetShrunk" xml:space="preserve"><value>モニターに収まらないため、縦横比を保って {0}×{1} にしました。</value></data>
   <data name="Recorder.Status.RotateShrunk" xml:space="preserve"><value>向きを変えるとモニターに収まらないため、縦横比を保って {0}×{1} にしました。</value></data>
+  <data name="Cut.ClearIn" xml:space="preserve"><value>×</value></data>
+  <data name="Cut.ClearIn.Tip" xml:space="preserve"><value>開始位置の指定だけを取り消します（終了位置の指定は残ります）</value></data>
+  <data name="Cut.ClearOut" xml:space="preserve"><value>×</value></data>
+  <data name="Cut.ClearOut.Tip" xml:space="preserve"><value>終了位置の指定だけを取り消します（開始位置の指定は残ります）</value></data>
+  <data name="Cut.List.Undo" xml:space="preserve"><value>選択したカットを取り消す</value></data>
+  <data name="Cut.List.Undo.Tip" xml:space="preserve"><value>選択したカット区間を、一覧から取り消します（動画は元のまま。元に戻す: Ctrl+Z）。候補から採用した区間なら、その候補は未判断に戻ります</value></data>
+  <data name="Cut.List.Edit" xml:space="preserve"><value>編集...</value></data>
+  <data name="Cut.List.Seek" xml:space="preserve"><value>開始位置へ移動</value></data>
+  <data name="Preview.Applied.Tip" xml:space="preserve"><value>オンにすると、確定したカット部分を飛ばして再生します（未採用の候補は飛ばしません）。書き出し時のクロスフェードや音声のつなぎ目は再現しません（飛ばす位置で映像・音が一瞬途切れることがあります）</value></data>
+  <data name="Preview.Stop" xml:space="preserve"><value>終了</value></data>
+  <data name="Preview.AppliedOn" xml:space="preserve"><value>再生でカットを反映します（確定カットの削除部分を飛ばします。未採用の候補は飛ばしません）。</value></data>
+  <data name="Preview.OriginalOn" xml:space="preserve"><value>再生は元動画のままです（カットを反映しません）。</value></data>
+  <data name="Preview.Finished" xml:space="preserve"><value>試し再生を終えました（プロジェクトは変更していません）。</value></data>
+  <data name="Preview.NothingKept" xml:space="preserve"><value>すべての区間が削除されるため、再生する部分がありません。</value></data>
+  <data name="Preview.TrialPendingOnly" xml:space="preserve"><value>試し再生は、未判断の候補で使えます。</value></data>
+  <data name="Preview.TrialNotApplicable" xml:space="preserve"><value>この候補は採用できないため、試せません: {0}</value></data>
+  <data name="Preview.TrialBanner" xml:space="preserve"><value>試し再生中: 候補 {0}～{1} を「{2}」で採用した場合（仮の再生です。採用・保存はされていません）</value></data>
+  <data name="Cand.Run" xml:space="preserve"><value>簡易解析</value></data>
+  <data name="Cand.Run.Tip" xml:space="preserve"><value>FFmpeg の静止・無音の検出で候補を探します（精度は AI より低めです）。未採用のローカル候補は新しい結果に置き換わり、採用済みの記録と確定カットは残ります。設定は［ツール］→［設定］→［自動解析］</value></data>
+  <data name="Cand.Filter.Label" xml:space="preserve"><value>絞り込み:</value></data>
+  <data name="Cand.Filter.AllSources" xml:space="preserve"><value>AI・ローカル</value></data>
+  <data name="Cand.Filter.Local" xml:space="preserve"><value>ローカル</value></data>
+  <data name="Cand.Filter.Ai" xml:space="preserve"><value>AI</value></data>
+  <data name="Cand.Filter.AllKinds" xml:space="preserve"><value>すべての種類</value></data>
+  <data name="Cand.Filter.FreezeSilence" xml:space="preserve"><value>静止＋無音</value></data>
+  <data name="Cand.Filter.Freeze" xml:space="preserve"><value>静止のみ</value></data>
+  <data name="Cand.Filter.Silence" xml:space="preserve"><value>無音のみ</value></data>
+  <data name="Cand.Filter.AiKind" xml:space="preserve"><value>AI（種類なし）</value></data>
+  <data name="Cand.ShowAll" xml:space="preserve"><value>却下・採用済みも表示</value></data>
+  <data name="Cand.CountText" xml:space="preserve"><value>{0} 件を表示（全 {1} 件・未判断 {2} 件）</value></data>
+  <data name="Cand.SelectAll" xml:space="preserve"><value>表示中をすべて選択</value></data>
+  <data name="Cand.SelectAll.Tip" xml:space="preserve"><value>一覧に表示している候補（採用済みを除く）をすべて選びます（絞り込みで隠れている候補は含みません）。そのあと、まとめてカット・却下できます</value></data>
+  <data name="Cand.SelectionHelp" xml:space="preserve"><value>選び方: Ctrl+クリックで追加、Shift+クリックで範囲を選べます。選ぶと、ここに件数と短くなる時間が出ます。</value></data>
+  <data name="Cand.SelectionNoPending" xml:space="preserve"><value>選択 {0} 件（未判断の候補がないため、採用・却下の対象はありません）。</value></data>
+  <data name="Cand.SelectionSummary" xml:space="preserve"><value>選択 {0} 件（未判断 {1} 件）。提案どおりに登録すると {2} 件が確定カットになり、約 {3} 秒短くなります。</value></data>
+  <data name="Cand.SelectionSummarySkipped" xml:space="preserve"><value>選択 {0} 件（未判断 {1} 件）。提案どおりに登録できるのは {2} 件で、約 {3} 秒短くなります。重なりなどで登録できない候補が {4} 件あります。</value></data>
+  <data name="Cand.Dismiss" xml:space="preserve"><value>却下</value></data>
+  <data name="Cand.Dismiss.Tip" xml:space="preserve"><value>選んだ候補を「カットしない」と記録します（書き出しには影響しません）。一覧の［未判断］からは消え、［表示］を［却下］にして行を選ぶと、このボタンが［未判断に戻す］に変わって戻せます。処理したら、次の未判断の候補を選びます</value></data>
+  <data name="Cand.Restore" xml:space="preserve"><value>未判断に戻す</value></data>
+  <data name="Cand.Restore.Tip" xml:space="preserve"><value>却下した候補を、未判断に戻します（採用済みの候補には使えません）</value></data>
+  <data name="Cand.Trial" xml:space="preserve"><value>▶ 試す</value></data>
+  <data name="Cand.Trial.Tip" xml:space="preserve"><value>選んだ候補をカットした場合の、つなぎ目の前後 3 秒ずつを仮に再生します（プロジェクトも元に戻す履歴も変えません）</value></data>
+  <data name="Cand.Clear.Local.Button" xml:space="preserve"><value>未採用のローカル候補を削除</value></data>
+  <data name="Cand.Clear.Local.Tip" xml:space="preserve"><value>ローカル解析の候補のうち、未判断と却下のものを削除します。採用済みの記録と、登録済みのカット区間は残ります（カットの取消は、［カット区間］の「選択したカットを取り消す」）。元に戻す: Ctrl+Z</value></data>
+  <data name="Cand.Clear.Ai.Button" xml:space="preserve"><value>未採用の AI 候補を削除</value></data>
+  <data name="Cand.Clear.Ai.Tip" xml:space="preserve"><value>AI の候補のうち、未判断と却下のものを削除します。採用済みの記録と、登録済みのカット区間は残ります。元に戻す: Ctrl+Z</value></data>
+  <data name="Cand.KeepInvalid" xml:space="preserve"><value>「先頭に残す秒数」を 0 より大きい数値で入力してください。</value></data>
+  <data name="Cand.NothingSelected" xml:space="preserve"><value>未判断の候補を選んでください（採用済み・却下済みは対象外です）。</value></data>
+  <data name="Cand.NoneApplicable" xml:space="preserve"><value>カットできる候補がありません。</value></data>
+  <data name="Cand.BatchConfirmTitle" xml:space="preserve"><value>候補をまとめて登録</value></data>
+  <data name="Cand.BatchConfirm" xml:space="preserve"><value>選んだ未判断の候補 {0} 件をカット（削除）します。確定できるのは {1} 件で、約 {2} 秒短くなります。{3}元に戻す（Ctrl+Z）は 1 回で全件が戻ります。{3}{3}確定しますか？</value></data>
+  <data name="Cand.BatchConfirmSkipped" xml:space="preserve"><value>登録できない候補が {0} 件あります（登録しません）:</value></data>
+  <data name="Cand.Accepted" xml:space="preserve"><value>{0} 件の候補をカットしました（約 {1} 秒短縮）。</value></data>
+  <data name="Cand.AcceptedSkipped" xml:space="preserve"><value>登録できなかった候補が {0} 件あります。</value></data>
+  <data name="Cand.SkippedHeader" xml:space="preserve"><value>登録できなかった候補が {0} 件あります（そのまま未判断に残しています）:</value></data>
+  <data name="Cand.SkippedMore" xml:space="preserve"><value>…ほか {0} 件</value></data>
+  <data name="Cand.DismissNothing" xml:space="preserve"><value>却下できる未判断の候補が選ばれていません。</value></data>
+  <data name="Cand.RestoreNothing" xml:space="preserve"><value>未判断に戻せる却下済みの候補が選ばれていません。</value></data>
+  <data name="Cand.Dismissed" xml:space="preserve"><value>候補 {0} 件を却下しました（書き出しには影響しません。元に戻す: Ctrl+Z）。</value></data>
+  <data name="Cand.Restored" xml:space="preserve"><value>候補 {0} 件を未判断に戻しました。</value></data>
+  <data name="Cand.NoNext" xml:space="preserve"><value>次の未判断の候補はありません。</value></data>
+  <data name="Cand.NoNextItem" xml:space="preserve"><value>次の項目はありません。</value></data>
+  <data name="Cand.NoPrevItem" xml:space="preserve"><value>前の項目はありません。</value></data>
+  <data name="Cand.Clear.Local" xml:space="preserve"><value>ローカル解析</value></data>
+  <data name="Cand.Clear.Ai" xml:space="preserve"><value>AI</value></data>
+  <data name="Cand.Clear.None" xml:space="preserve"><value>削除する未採用の{0}の候補はありません（採用済みの記録 {1} 件と、登録済みのカットは残っています）。</value></data>
+  <data name="Cand.Clear.Done" xml:space="preserve"><value>未採用の{0}の候補 {1} 件を削除しました。採用済みの記録 {2} 件と、登録済みのカットは残っています（元に戻す: Ctrl+Z）。</value></data>
+  <data name="Cand.Replaced" xml:space="preserve"><value>未採用の{0}の候補 {1} 件を新しい結果に置き換えました（採用済みの記録と確定カットは残っています）。</value></data>
+  <data name="Cut.Status.ClearedBoth" xml:space="preserve"><value>開始・終了の指定を取り消しました（登録済みのカットは変わりません）。</value></data>
+  <data name="Cut.Status.ClearedOne" xml:space="preserve"><value>開始または終了の指定を取り消しました（登録済みのカットは変わりません）。</value></data>
+  <data name="Cut.Status.ClearedIn" xml:space="preserve"><value>開始位置の指定を取り消しました。</value></data>
+  <data name="Cut.Status.ClearedOut" xml:space="preserve"><value>終了位置の指定を取り消しました。</value></data>
+  <data name="Cut.Status.Undone" xml:space="preserve"><value>カットを {0} 件取り消しました（元に戻す: Ctrl+Z）。候補から採用していた {1} 件は未判断に戻りました。</value></data>
+  <data name="About.License" xml:space="preserve"><value>ja1bus が作成した部分は MIT License で提供しています（ソースコードは公開リポジトリで公開）。同梱・内包する第三者のソフトウェア（.NET、NuGet パッケージ）は、それぞれのライセンスに従います。FFmpeg は含まれていません。</value></data>
+  <data name="About.OpenRepository" xml:space="preserve"><value>公開リポジトリを開く</value></data>
+  <data name="About.ShowLicense" xml:space="preserve"><value>MIT License の全文を表示</value></data>
+  <data name="About.OpenNotices" xml:space="preserve"><value>第三者のソフトウェアの表記を開く</value></data>
+  <data name="About.LicenseTitle" xml:space="preserve"><value>MIT License</value></data>
+  <data name="About.LicenseUnreadable" xml:space="preserve"><value>LICENSE（MIT License の全文）を読み込めませんでした。次のファイルを確認してください。</value></data>
+  <data name="About.NoticesUnreadable" xml:space="preserve"><value>THIRD-PARTY-NOTICES.md（第三者のソフトウェアの表記）を開けませんでした。次のファイルを確認してください。</value></data>
+  <data name="About.RepositoryFailed" xml:space="preserve"><value>公開リポジトリを開けませんでした。ブラウザーで次のアドレスを開いてください。</value></data>
+  <data name="Cand.AskAi" xml:space="preserve"><value>AI に聞く…</value></data>
+  <data name="Cand.AskAi.Tip" xml:space="preserve"><value>Gemini に動画を見せて、カットする区間の候補を作ってもらいます（手動で動画を添付し、回答を貼り付けます）。精度は簡易解析より高めです</value></data>
+  <data name="Cand.More" xml:space="preserve"><value>⋯</value></data>
+  <data name="Cand.More.Tip" xml:space="preserve"><value>その他（却下した候補の表示・未判断に戻す・候補だけを消す）</value></data>
+  <data name="Cand.Cut" xml:space="preserve"><value>カットする</value></data>
+  <data name="Cand.Cut.Tip" xml:space="preserve"><value>選んだ候補の区間を、動画から削除するカットとして確定します。すでに確定したカットと重なる（接する）ときは、そのカットも含めて 1 つにまとめます。複数選ぶと、件数と短くなる時間を確認してから、まとめて確定します（元に戻す: Ctrl+Z で 1 回）。却下した候補も、そのままカットにできます。確定したら、次の未判断の候補を選びます</value></data>
+  <data name="Preview.Toggle" xml:space="preserve"><value>カットをスキップ</value></data>
+  <data name="Help.About" xml:space="preserve"><value>バージョン情報...</value></data>
+  <data name="About.Title" xml:space="preserve"><value>Manual Video Studio について</value></data>
+  <data name="About.Close" xml:space="preserve"><value>閉じる</value></data>
+  <data name="Seek.PrevCut.Tip" xml:space="preserve"><value>前のカット位置（確定したカットの開始）へ移動します</value></data>
+  <data name="Seek.NextCut.Tip" xml:space="preserve"><value>次のカット位置（確定したカットの開始）へ移動します</value></data>
+  <data name="Seek.NoPrevCut" xml:space="preserve"><value>前のカット位置はありません。</value></data>
+  <data name="Seek.NoNextCut" xml:space="preserve"><value>次のカット位置はありません。</value></data>
+  <data name="Cand.View.Label" xml:space="preserve"><value>表示:</value></data>
+  <data name="Cand.View.Tip" xml:space="preserve"><value>一覧に出す候補の状態です。却下した候補は［却下］で見られ、選ぶと［未判断に戻す］ができます。［すべて］には採用済みの記録も出ます</value></data>
+  <data name="Cand.View.Pending" xml:space="preserve"><value>未判断</value></data>
+  <data name="Cand.View.Dismissed" xml:space="preserve"><value>却下</value></data>
+  <data name="Cand.View.All" xml:space="preserve"><value>すべて</value></data>
+  <data name="Cand.AcceptedMerged" xml:space="preserve"><value>既存のカットとまとめたもの {0} 件。</value></data>
+  <data name="Legacy.ShortenTitle" xml:space="preserve"><value>古い「短縮」を変換しました</value></data>
+  <data name="Legacy.ShortenConverted" xml:space="preserve"><value>このプロジェクトには、古い版の「短縮」（区間の先頭を残して、後ろを削除する）が {0} 件ありました。短縮の機能はなくなったため、「先頭を残した後ろの区間を削除するカット」に変換しました。再生・書き出しの結果は変わりません。保存すると、この形で残ります。</value></data>
+  <data name="Cand.Filter.SourceLabel" xml:space="preserve"><value>出所:</value></data>
+  <data name="SubEdit.FromCurrent" xml:space="preserve"><value>現在位置</value></data>
+  <data name="SubEdit.FromCurrent.Tip" xml:space="preserve"><value>いまの再生位置（編集後の時刻）を入力欄に入れます。［変更を反映］で確定します</value></data>
+  <data name="ShapeEdit.Header" xml:space="preserve"><value>選択中の図形</value></data>
+  <data name="ShapeEdit.None" xml:space="preserve"><value>一覧かタイムラインで図形を 1 つ選ぶと、ここで表示する時間（編集後の動画の時刻）を直せます。</value></data>
+  <data name="ShapeEdit.Edit" xml:space="preserve"><value>図形を編集...</value></data>
+  <data name="ShapeEdit.Applied" xml:space="preserve"><value>図形の表示する時間を変更しました（元に戻す: Ctrl+Z）。</value></data>
+  <data name="ShapeEdit.DiscardTitle" xml:space="preserve"><value>未反映の図形の入力</value></data>
+  <data name="ShapeEdit.DiscardConfirm" xml:space="preserve"><value>入力を反映できません。{0}
+
+［OK］: この入力を破棄して、別の図形を選びます。
+［キャンセル］: いまの図形に留まり、入力を直します。</value></data>
+  <data name="Cand.Find.Label" xml:space="preserve"><value>候補を探す:</value></data>
 </root>

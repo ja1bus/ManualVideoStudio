@@ -26,6 +26,10 @@ public sealed partial class MainViewModel
     private bool _revertingSelection;
     private SubtitleItem? _revertTo;
 
+    /// <summary>［現在位置］: 選択中の字幕の開始（終了）の入力欄を、いまの再生位置（編集後の時刻）にする。［反映］で確定する。</summary>
+    [RelayCommand] private void SubtitleDraftStartFromCurrent() => SubtitleDraftStart = TimeFormat.Format(CurrentOutputTime);
+    [RelayCommand] private void SubtitleDraftEndFromCurrent() => SubtitleDraftEnd = TimeFormat.Format(CurrentOutputTime);
+
     partial void OnSubtitleDraftTextChanged(string value) => OnPropertyChanged(nameof(HasSubtitleDraft));
     partial void OnSubtitleDraftStartChanged(string value) => OnPropertyChanged(nameof(HasSubtitleDraft));
     partial void OnSubtitleDraftEndChanged(string value) => OnPropertyChanged(nameof(HasSubtitleDraft));
@@ -94,6 +98,7 @@ public sealed partial class MainViewModel
     /// <summary>保存・書き出し・プロジェクトの切り替えの前に、入力中の字幕を反映する（反映できなければエラーを出して false）。</summary>
     private bool FlushSubtitleDraft()
     {
+        if (!FlushShapeDraft()) return false; // 入力中の図形の時間も同じ扱い（v1.17.0）
         if (!HasSubtitleDraft) return true;
         if (TryApplySubtitleDraft(out var error)) return true;
         SubtitleDraftError = Loc.Format("SubEdit.CannotApply", error);

@@ -24,6 +24,8 @@ public partial class MainWindow : Window
         DataContext = vm;
         vm.AttachPlayer(new MediaElementPlayer(Media));
         Timeline.SeekRequested += (_, t) => vm.SeekTo(t);
+        Timeline.ItemClicked += (_, e) => vm.OnTimelineItemClicked(e.Kind, e.Id, e.Additive);
+        vm.ListSelectionRequested += OnListSelectionRequested;
         RestorePlacement();
     }
 
@@ -75,12 +77,11 @@ public partial class MainWindow : Window
             case Key.End: Execute(_vm.SeekEndCommand, e); break;
             case Key.I: Execute(_vm.SetMarkInCommand, e); break;
             case Key.O: Execute(_vm.SetMarkOutCommand, e); break;
-            case Key.R or Key.S when _vm.IsCutLocked:
+            case Key.R when _vm.IsCutLocked:
                 _vm.StatusMessage = Loc.Get("Status.CutLocked");
                 e.Handled = true;
                 break;
             case Key.R: Execute(_vm.AddRemoveCutCommand, e); break;
-            case Key.S: Execute(_vm.AddShortenCutCommand, e); break;
             case Key.T: Execute(_vm.AddSubtitleCommand, e); break;
             case Key.G: Execute(_vm.AddShapesCommand, e); break;
             case Key.C: Execute(_vm.AddCaptureCommand, e); break;
@@ -100,15 +101,6 @@ public partial class MainWindow : Window
     private void CommitFocusedCaption()
     {
         if (Keyboard.FocusedElement is TextBox { DataContext: CapturePointItem item } tb) _vm.CommitCaption(item, tb.Text);
-    }
-
-    private void JumpBox_KeyDown(object sender, KeyEventArgs e)
-    {
-        if (e.Key != Key.Enter) return;
-        _vm.GoToTimeCommand.Execute(null);
-        // 移動できたら（入力欄が空になる）入力欄から抜け、続けて Space で再生できるようにする（v1.6.2）。
-        if (string.IsNullOrEmpty(_vm.JumpText)) FocusWindow();
-        e.Handled = true;
     }
 
     // ---------------- キーボードのフォーカス ----------------
@@ -228,12 +220,56 @@ public partial class MainWindow : Window
 
     private void SubtitleGrid_MouseDoubleClick(object sender, MouseButtonEventArgs e)
     {
-        if (SubtitleGrid.SelectedItem is SubtitleItem item) _vm.EditSubtitleCommand.Execute(item);
+        // ダブルクリックは、その字幕の開始位置へ移動する（編集は右の「選択中の字幕」の欄）。
+        if (SubtitleGrid.SelectedItem is SubtitleItem item) _vm.SeekToSubtitleCommand.Execute(item);
     }
 
     private void ShapeGrid_MouseDoubleClick(object sender, MouseButtonEventArgs e)
     {
-        if (ShapeGrid.SelectedItem is ShapeGroupItem item) _vm.EditShapesCommand.Execute(item);
+        // ダブルクリックは、その図形の開始位置へ移動する（字幕と同じ。時間は「選択中の図形」の欄、描き直しは一覧の下の［図形再編集］）。
+        if (ShapeGrid.SelectedItem is ShapeGroupItem item) _vm.SeekToShapesCommand.Execute(item);
+    }
+
+    // ---------------- 一覧とタイムラインの選択の連動（v1.17.0） ----------------
+
+    /// <summary>プログラムから行を選んでいる間は、選択の変更を ViewModel へ二重に通知しない（通知しても同じ内容）。</summary>
+    private void CutGrid_SelectionChanged(object sender, SelectionChangedEventArgs e)
+        => _vm.SetSelectedCuts(CutGrid.SelectedItems.OfType<CutSegmentItem>().Select(i => i.Id));
+
+    private void CandidateGrid_SelectionChanged(object sender, SelectionChangedEventArgs e)
+        => _vm.SetSelectedCandidates(CandidateGrid.SelectedItems.OfType<CandidateItem>().Select(i => i.Id));
+
+    /// <summary>タイムラインのクリック・次へ進む操作で、対応する一覧の行を選んで見える位置へスクロールする（再生位置は動かさない）。</summary>
+    private void OnListSelectionRequested(ListKind kind, IReadOnlyList<string> ids)
+    {
+        // 一覧のタブが表示されてから選ぶ。
+        Dispatcher.BeginInvoke(() =>
+        {
+            if (kind == ListKind.Cuts) SelectRows(CutGrid, _vm.CutItems.Where(i => ids.Contains(i.Id)));
+            else if (kind == ListKind.Subtitles) SelectRows(SubtitleGrid, _vm.SubtitleItems.Where(i => ids.Contains(i.Id)));
+            else if (kind == ListKind.Shapes) SelectRows(ShapeGrid, _vm.ShapeItems.Where(i => ids.Contains(i.Id)));
+            else SelectRows(CandidateGrid, _vm.CandidateItems.Where(i => ids.Contains(i.Id)));
+        }, DispatcherPriority.Background);
+    }
+
+    private static void SelectRows(DataGrid grid, IEnumerable<object> rows)
+    {
+        var list = rows.ToList();
+        if (list.Count == 0) return;
+        grid.SelectedItems.Clear();
+        foreach (var row in list) grid.SelectedItems.Add(row);
+        grid.ScrollIntoView(list[0]);
+    }
+
+    private void ShapeGrid_SelectionChanged(object sender, SelectionChangedEventArgs e)
+        => _vm.SetSelectedShapes(ShapeGrid.SelectedItems.OfType<ShapeGroupItem>().Select(i => i.Id));
+
+    private void SelectAllPendingCandidates_Click(object sender, RoutedEventArgs e)
+    {
+        // 一覧に表示している未判断だけを選ぶ（絞り込みで隠れている行は選ばない）。
+        CandidateGrid.SelectedItems.Clear();
+        foreach (var item in _vm.CandidateItems.Where(i => i.Model.Status != Core.Models.CandidateStatus.Accepted)) CandidateGrid.SelectedItems.Add(item);
+        CandidateGrid.Focus();
     }
 
     private void CandidateGrid_MouseDoubleClick(object sender, MouseButtonEventArgs e)
@@ -270,8 +306,7 @@ public partial class MainWindow : Window
             Shift+← / →  設定の秒数だけ戻る / 進む（既定 1 秒）
             Home / End   先頭 / 末尾へ
             I / O        カット開始 / 終了位置を設定（字幕編集中は字幕の開始 / 終了）
-            R            削除区間として登録（カット編集中のみ）
-            S            短縮区間として登録（カット編集中のみ）
+            R            この区間をカット（カット編集中のみ）
             T            字幕を追加（字幕編集中のみ）
             G            図形を追加（四角・矢印・直線・文字・モザイク。字幕編集中のみ）
             Esc          カット位置の指定を解除（入力欄ではフォーカスを外す）
@@ -279,7 +314,7 @@ public partial class MainWindow : Window
             Ctrl+Z / Y   元に戻す / やり直し
             Ctrl+S       プロジェクトを保存（Shift で名前を付けて保存）
             Ctrl+O       動画を開く（Shift でプロジェクトを開く）
-            F1           取扱説明書を開く
+            F1           取扱説明書（Web 版）を開く
 
             録画中（録画画面を開いている間、どのアプリからでも）:
             Ctrl+Shift+F9  録画開始 / 停止

@@ -23,7 +23,8 @@ public partial class App : Application
 {
     private ServiceProvider? _services;
     private ILogger<App>? _logger;
-    private readonly AppPaths _paths = new();
+    // Store 版は、振り替えられる前の実際の保存場所を使う（外部のブラウザー・エクスプローラー・FFmpeg と同じパスで扱うため）。
+    private readonly AppPaths _paths = PackageIdentity.CreatePaths();
 
     protected override void OnStartup(StartupEventArgs e)
     {
@@ -36,10 +37,18 @@ public partial class App : Application
             args.SetObserved();
         };
 
+        AppPaths.Current = _paths;
+        var migrated = PackageIdentity.MigrateLegacySettings(_paths);
+        var tempError = AppTemp.Configure(_paths.TempDirectory);
+
         ProjectService.AppVersion = typeof(App).Assembly.GetName().Version?.ToString(3) ?? "1.0.0";
         _services = ConfigureServices();
         _logger = _services.GetRequiredService<ILogger<App>>();
         _logger.LogInformation("Start ManualVideoStudio {Version}", ProjectService.AppVersion);
+        _logger.LogInformation("Storage: {Kind}, settings={Settings}, local={Local}, temp={Temp}",
+            _paths.IsPackaged ? "Store package " + _paths.PackageFamilyName : "standard", _paths.SettingsDirectory, _paths.LocalDirectory, AppTemp.Root);
+        if (migrated.Count > 0) _logger.LogInformation("Migrated settings into the package storage: {Files}", string.Join(", ", migrated));
+        if (tempError is not null) _logger.LogWarning("Temp folder unavailable, using the OS temp folder: {Error}", tempError);
 
         _services.GetRequiredService<ISettingsService>().Load();
         // 字幕のフォント一覧（選択肢と幅の測定に使う）は数秒かかるので裏で読み始める。
@@ -49,6 +58,8 @@ public partial class App : Application
         var cleanupLogger = _logger;
         _ = Task.Run(() =>
         {
+            try { AppTemp.CleanupOld(TimeSpan.FromDays(1)); }
+            catch (Exception ex) { cleanupLogger.LogWarning(ex, "Temp cleanup failed"); }
             try { FrameCacheCleaner.Cleanup(cache, FrameCacheCleaner.DefaultMaxAge, FrameCacheCleaner.DefaultMaxBytes, logger: cleanupLogger); }
             catch (Exception ex) { cleanupLogger.LogWarning(ex, "Cache cleanup failed"); }
         });

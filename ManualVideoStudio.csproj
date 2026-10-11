@@ -7,7 +7,7 @@
     <Nullable>enable</Nullable>
     <RootNamespace>ManualVideoStudio</RootNamespace>
     <AssemblyName>ManualVideoStudio</AssemblyName>
-    <Version>1.16.1</Version>
+    <Version>1.17.1</Version>
     <!-- 画面の文言は Resources/Strings.resx（日本語。既定の言語）。英語対応では同じキーの Strings.en.resx を足す（v1.13）。 -->
     <NeutralLanguage>ja</NeutralLanguage>
     <ApplicationIcon>Resources/icon.ico</ApplicationIcon>
@@ -33,9 +33,17 @@
     <PackageReference Include="Microsoft.Extensions.DependencyInjection" Version="8.0.1" />
     <PackageReference Include="Microsoft.Extensions.Logging" Version="8.0.1" />
   </ItemGroup>
-  <ItemGroup>
-    <!-- 取扱説明書（ヘルプ）。exe に埋め込み、［ヘルプ］で %LOCALAPPDATA% に書き出してブラウザーで開く。 -->
-    <EmbeddedResource Include="Resources/Help/manual.html" LogicalName="ManualVideoStudio.Help.manual.html" />
+  <!--
+    ライセンス表記（v1.17.0）。MIT License の全文と第三者のソフトウェアの表記を、配布物（Inno Setup のインストール先・MSIX）の exe と同じフォルダーへ入れる。
+    scripts では public-repo/ にある原本、公開リポジトリではルートにある同名のファイルを使う（公開リポジトリのビルドが public-repo/ に依存しないように）。
+  -->
+  <ItemGroup Condition="Exists('public-repo/LICENSE')">
+    <None Update="public-repo/LICENSE" Link="LICENSE" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
+    <None Update="public-repo/THIRD-PARTY-NOTICES.md" Link="THIRD-PARTY-NOTICES.md" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
+  </ItemGroup>
+  <ItemGroup Condition="!Exists('public-repo/LICENSE') And Exists('LICENSE')">
+    <None Update="LICENSE" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
+    <None Update="THIRD-PARTY-NOTICES.md" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="Core/ManualVideoStudio.Core.csproj" />

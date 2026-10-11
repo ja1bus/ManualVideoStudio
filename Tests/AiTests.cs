@@ -324,6 +324,10 @@ public class AiCutImporterTests
         };
         var rows = AiCutImporter.Validate(parsed, 120, 1.5);
         Assert.True(rows[0].IsValid);
+        // 古い shorten は、先頭を残して以降を削除する区間に変換する（v1.17.0）。
+        Assert.Equal(SegmentAction.Remove, rows[0].Action);
+        Assert.Equal(81.7, rows[0].Start, 3);
+        Assert.Contains(rows[0].Warnings, w => w.Contains("変換"));
         Assert.True(rows[1].IsValid);
         Assert.Equal(0.91, rows[1].Confidence, 3);
         Assert.False(rows[2].IsValid);
@@ -331,7 +335,8 @@ public class AiCutImporterTests
         Assert.False(rows[4].IsValid);
         Assert.True(rows[5].IsValid);
         Assert.Equal(120, rows[5].End);
-        Assert.Equal(1.5, rows[5].KeepSeconds);
+        Assert.Equal(119.5, rows[5].Start, 3);
+        Assert.Equal(SegmentAction.Remove, rows[5].Action);
 
         var cands = AiCutImporter.ToCandidates(rows, "hist1");
         Assert.Equal(3, cands.Count);

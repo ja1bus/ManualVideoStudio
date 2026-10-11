@@ -226,13 +226,19 @@ public class ProjectEditorTests
     }
 
     [Fact]
-    public void AcceptOverlappingCandidateFails()
+    public void AcceptOverlappingCandidateMergesWithTheExistingCut()
     {
         var ed = new ProjectEditor(TestProjects.Create());
         ed.AddCut(10, 20, SegmentAction.Remove, 0);
         var cand = new CutCandidate { Start = 15, End = 25, SuggestedAction = SegmentAction.Remove };
         ed.AddCandidates([cand], "AI");
-        Assert.False(ed.AcceptCandidate(cand.Id).Success);
+        Assert.True(ed.AcceptCandidate(cand.Id).Success);
+        Assert.Equal(CandidateStatus.Accepted, ed.Project.CutCandidates[0].Status);
+        var cut = Assert.Single(ed.Project.CutSegments);   // 既存のカットも含めて 1 つにまとめる
+        Assert.Equal((10, 25), (cut.Start, cut.End));
+        Assert.Equal(cut.Id, ed.Project.CutCandidates[0].AcceptedSegmentId);
+        ed.Undo();
+        Assert.Equal((10, 20), (ed.Project.CutSegments[0].Start, ed.Project.CutSegments[0].End));
         Assert.Equal(CandidateStatus.Pending, ed.Project.CutCandidates[0].Status);
     }
 

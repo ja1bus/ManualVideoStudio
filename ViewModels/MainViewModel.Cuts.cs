@@ -12,22 +12,21 @@ namespace ManualVideoStudio.ViewModels;
 public sealed partial class MainViewModel
 {
     [ObservableProperty]
-    [NotifyPropertyChangedFor(nameof(MarkInText), nameof(MarkRangeText), nameof(SubtitleMarkInText))]
-    [NotifyCanExecuteChangedFor(nameof(AddRemoveCutCommand), nameof(AddShortenCutCommand))]
+    [NotifyPropertyChangedFor(nameof(MarkInText), nameof(MarkRangeText), nameof(SubtitleMarkInText), nameof(HasMarkIn), nameof(MarkInTip))]
+    [NotifyCanExecuteChangedFor(nameof(AddRemoveCutCommand), nameof(ClearMarksCommand), nameof(ClearMarkInCommand), nameof(ClearMarkOutCommand))]
     private double? _markIn;
 
     [ObservableProperty]
-    [NotifyPropertyChangedFor(nameof(MarkOutText), nameof(MarkRangeText), nameof(SubtitleMarkOutText))]
-    [NotifyCanExecuteChangedFor(nameof(AddRemoveCutCommand), nameof(AddShortenCutCommand))]
+    [NotifyPropertyChangedFor(nameof(MarkOutText), nameof(MarkRangeText), nameof(SubtitleMarkOutText), nameof(HasMarkOut), nameof(MarkOutTip))]
+    [NotifyCanExecuteChangedFor(nameof(AddRemoveCutCommand), nameof(ClearMarksCommand), nameof(ClearMarkInCommand), nameof(ClearMarkOutCommand))]
     private double? _markOut;
 
-    [ObservableProperty] private string _shortenKeepText;
+    /// <summary>開始・終了を指定中か（ボタンの強調表示に使う。時刻の文字は出さず、ツールチップに出す）。</summary>
+    public bool HasMarkIn => MarkIn is not null;
+    public bool HasMarkOut => MarkOut is not null;
 
-    /// <summary>［短縮］の詳細（残す秒数と［短縮を登録］）を開いているか（v1.13）。</summary>
-    [ObservableProperty] private bool _isShortenDetailOpen;
-
-    [RelayCommand]
-    private void ToggleShortenDetail() => IsShortenDetailOpen = !IsShortenDetailOpen;
+    public string MarkInTip => Loc.Get(IsSubtitlePhase ? "Sub.Start.Tip" : "Cut.Start.Tip") + (MarkIn is null ? "" : $"（指定中: {(IsSubtitlePhase ? SubtitleMarkInText : MarkInText)}）");
+    public string MarkOutTip => Loc.Get(IsSubtitlePhase ? "Sub.End.Tip" : "Cut.End.Tip") + (MarkOut is null ? "" : $"（指定中: {(IsSubtitlePhase ? SubtitleMarkOutText : MarkOutText)}）");
 
     public string MarkInText => MarkIn is { } t ? TimeFormat.FormatShort(t) : "--:--.---";
     public string MarkOutText => MarkOut is { } t ? TimeFormat.FormatShort(t) : "--:--.---";
@@ -63,39 +62,52 @@ public sealed partial class MainViewModel
             : $"カット終了位置: {TimeFormat.Format(CurrentTime)}";
     }
 
-    [RelayCommand]
+    private bool HasMarks() => MarkIn is not null || MarkOut is not null;
+
+    /// <summary>
+    /// 登録前の開始・終了の指定を取り消す（開始だけの指定でも取り消せる）。登録済みのカット（右の［カット区間］）は取り消さない。
+    /// Esc（入力欄にフォーカスが無いとき）も同じ。
+    /// </summary>
+    [RelayCommand(CanExecute = nameof(HasMarks))]
     private void ClearMarks()
     {
+        bool both = MarkIn is not null && MarkOut is not null;
         MarkIn = null;
         MarkOut = null;
+        StatusMessage = Loc.Get(both ? "Cut.Status.ClearedBoth" : "Cut.Status.ClearedOne");
+    }
+
+    [RelayCommand(CanExecute = nameof(HasMarkIn))]
+    private void ClearMarkIn()
+    {
+        if (MarkIn is null) return;
+        MarkIn = null;
+        StatusMessage = Loc.Get("Cut.Status.ClearedIn");
+    }
+
+    [RelayCommand(CanExecute = nameof(HasMarkOut))]
+    private void ClearMarkOut()
+    {
+        if (MarkOut is null) return;
+        MarkOut = null;
+        StatusMessage = Loc.Get("Cut.Status.ClearedOut");
     }
 
     [RelayCommand(CanExecute = nameof(CanAddCut))]
-    private void AddRemoveCut() => AddCut(SegmentAction.Remove);
-
-    [RelayCommand(CanExecute = nameof(CanAddCut))]
-    private void AddShortenCut() => AddCut(SegmentAction.Shorten);
-
-    private void AddCut(SegmentAction action)
+    private void AddRemoveCut()
     {
         if (GuardCutLocked()) return;
         if (Editor is null || MarkIn is not { } start || MarkOut is not { } end) return;
-        double keep = 0;
-        if (action == SegmentAction.Shorten && !double.TryParse(ShortenKeepText, NumberStyles.Float, CultureInfo.InvariantCulture, out keep))
-        {
-            _dialogs.ShowWarning("短縮で残す秒数を数値で入力してください。");
-            return;
-        }
-        var (result, seg) = Editor.AddCut(start, end, action, keep);
+        var (result, seg) = Editor.AddCut(start, end, SegmentAction.Remove, 0);
         if (!result.Success)
         {
             _dialogs.ShowWarning(result.Message, "区間を登録できません");
             return;
         }
-        ClearMarks();
-        IsShortenDetailOpen = false;
+        MarkIn = null;
+        MarkOut = null;
         SelectedTabIndex = TabCuts;
-        StatusMessage = $"{(action == SegmentAction.Shorten ? "短縮" : "削除")}区間を登録しました: {TimeFormat.FormatShort(seg!.Start)}～{TimeFormat.FormatShort(seg.End)}";
+        StatusMessage = $"カット（削除）区間を登録しました: {TimeFormat.FormatShort(seg!.Start)}～{TimeFormat.FormatShort(seg.End)}" + (result.Message.Length > 0 ? " " + result.Message : "");
     }
 
     [RelayCommand]
@@ -103,15 +115,17 @@ public sealed partial class MainViewModel
     {
         if (Editor is null || item is null || GuardCutLocked()) return;
         var vm = new CutEditViewModel(Editor, item.Model, () => CurrentTime);
-        if (_windows.EditCut(vm)) StatusMessage = "区間を変更しました。";
+        if (_windows.EditCut(vm)) StatusMessage = vm.ResultMessage.Length > 0 ? vm.ResultMessage : "区間を変更しました。";
     }
 
     [RelayCommand]
     private void DeleteCuts(IList? items)
     {
         if (Editor is null || items is null || items.Count == 0 || GuardCutLocked()) return;
-        foreach (var item in items.OfType<CutSegmentItem>().ToList()) Editor.RemoveCut(item.Id);
-        StatusMessage = "区間を削除しました（元に戻す: Ctrl+Z）。";
+        var targets = items.OfType<CutSegmentItem>().ToList();
+        int revived = Editor.Project.CutCandidates.Count(c => c.AcceptedSegmentId is { } id && targets.Any(t => t.Id == id));
+        foreach (var item in targets) Editor.RemoveCut(item.Id);
+        StatusMessage = Loc.Format("Cut.Status.Undone", targets.Count, revived);
     }
 
     [RelayCommand]
@@ -130,58 +144,6 @@ public sealed partial class MainViewModel
         if (item is null) return;
         PauseIfPlaying();
         SeekTo(item.Model.Start);
-    }
-
-    /// <summary>候補の採用。parameter の mode: "suggested"（提案どおり）/ "remove" / "shorten"。</summary>
-    private void AcceptCandidates(IList? items, string mode)
-    {
-        if (Editor is null || items is null || items.Count == 0 || GuardCutLocked()) return;
-        double keep = double.TryParse(ShortenKeepText, NumberStyles.Float, CultureInfo.InvariantCulture, out var k) ? k : 1.5;
-        var failures = new List<string>();
-        int ok = 0;
-        foreach (var item in items.OfType<CandidateItem>().Where(i => i.IsPending).ToList())
-        {
-            var r = mode switch
-            {
-                "remove" => Editor.AcceptCandidate(item.Id, SegmentAction.Remove),
-                "shorten" => Editor.AcceptCandidate(item.Id, SegmentAction.Shorten, Math.Min(keep, item.Model.Duration / 2)),
-                _ => Editor.AcceptCandidate(item.Id),
-            };
-            if (r.Success) ok++;
-            else failures.Add($"{item.StartText}～{item.EndText}: {r.Message}");
-        }
-        StatusMessage = $"{ok} 件の候補を確定区間にしました。";
-        if (failures.Count > 0) _dialogs.ShowWarning("採用できなかった候補があります。" + Environment.NewLine + string.Join(Environment.NewLine, failures));
-    }
-
-    [RelayCommand] private void AcceptCandidatesSuggested(IList? items) => AcceptCandidates(items, "suggested");
-    [RelayCommand] private void AcceptCandidatesAsRemove(IList? items) => AcceptCandidates(items, "remove");
-    [RelayCommand] private void AcceptCandidatesAsShorten(IList? items) => AcceptCandidates(items, "shorten");
-
-    [RelayCommand]
-    private void DismissCandidates(IList? items)
-    {
-        if (Editor is null || items is null) return;
-        foreach (var item in items.OfType<CandidateItem>().Where(i => i.IsPending).ToList())
-            Editor.SetCandidateStatus(item.Id, CandidateStatus.Dismissed);
-    }
-
-    [RelayCommand]
-    private void RestoreCandidates(IList? items)
-    {
-        if (Editor is null || items is null) return;
-        foreach (var item in items.OfType<CandidateItem>().Where(i => i.Model.Status == CandidateStatus.Dismissed).ToList())
-            Editor.SetCandidateStatus(item.Id, CandidateStatus.Pending);
-    }
-
-    [RelayCommand]
-    private void ClearCandidates(string? source)
-    {
-        if (Editor is null) return;
-        var src = source == "ai" ? SegmentSource.Ai : SegmentSource.LocalAnalysis;
-        if (src == SegmentSource.LocalAnalysis) _analysisState = Core.Guidance.AnalysisRunState.NotRun;
-        Editor.ClearCandidates(src);
-        NotifyGuidance();
     }
 
     // ---------------- ローカル自動解析 ----------------
@@ -221,12 +183,14 @@ public sealed partial class MainViewModel
         }
 
         _analysisState = Core.Guidance.AnalysisRunState.Done;
+        var replaced = Editor.Project.CutCandidates.Count(c => c.Source == SegmentSource.LocalAnalysis && c.Status != CandidateStatus.Accepted);
         Editor.ReplaceCandidates(SegmentSource.LocalAnalysis, result.Candidates, "ローカル解析");
         Editor.Project.SceneChanges = result.SceneChanges.ToList();
         Editor.MarkDirty();
         SelectedTabIndex = TabCandidates;
         var fs = result.Candidates.Count(c => c.Kind == CandidateKind.FreezeAndSilence);
-        StatusMessage = $"解析完了（{result.Elapsed.TotalSeconds:0.0} 秒）: 候補 {result.Candidates.Count} 件（静止＋無音 {fs} 件）、静止 {result.Freezes.Count} 区間、無音 {result.Silences.Count} 区間、画面変化 {result.SceneChanges.Count} 箇所。候補は採用するまで編集に反映されません。";
+        StatusMessage = $"解析完了（{result.Elapsed.TotalSeconds:0.0} 秒）: 候補 {result.Candidates.Count} 件（静止＋無音 {fs} 件）、静止 {result.Freezes.Count} 区間、無音 {result.Silences.Count} 区間、画面変化 {result.SceneChanges.Count} 箇所。候補は採用するまで編集に反映されません。"
+            + (replaced > 0 ? " " + Loc.Format("Cand.Replaced", Loc.Get("Cand.Clear.Local"), replaced) : "");
     }
 
     public const int TabCaptures = 0;

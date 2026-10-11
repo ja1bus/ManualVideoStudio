@@ -129,7 +129,8 @@ public sealed partial class CapturePointItem : ObservableObject
     }
 }
 
-public sealed class CutSegmentItem(CutSegment model)
+/// <summary>カット区間一覧の 1 行。編集・元に戻すで行を作り直さず <see cref="Update"/> で更新し、選択とスクロール位置を保つ（v1.17.0）。</summary>
+public sealed class CutSegmentItem(CutSegment model) : ObservableObject
 {
     public CutSegment Model { get; private set; } = model;
     public string Id => Model.Id;
@@ -137,23 +138,28 @@ public sealed class CutSegmentItem(CutSegment model)
     public string EndText => TimeFormat.FormatShort(Model.End);
     public string DurationText => Model.Duration.ToString("0.0#", CultureInfo.InvariantCulture) + " 秒";
     public string ActionText => Model.Action == SegmentAction.Shorten
-        ? string.Create(CultureInfo.InvariantCulture, $"短縮（{Model.KeepSeconds:0.0#} 秒残す）")
+        ? string.Create(CultureInfo.InvariantCulture, $"短縮（先頭 {Model.KeepSeconds:0.0#} 秒を残す）")
         : "削除";
     public string SourceText => Labels.Source(Model.Source);
     public string Reason => Model.Reason;
     public bool IsShorten => Model.Action == SegmentAction.Shorten;
+
+    public void Update(CutSegment model)
+    {
+        Model = model;
+        OnPropertyChanged(string.Empty);
+    }
 }
 
-public sealed class CandidateItem(CutCandidate model)
+public sealed class CandidateItem(CutCandidate model) : ObservableObject
 {
-    public CutCandidate Model { get; } = model;
+    public CutCandidate Model { get; private set; } = model;
     public string Id => Model.Id;
     public string StartText => TimeFormat.FormatShort(Model.Start);
     public string EndText => TimeFormat.FormatShort(Model.End);
     public string DurationText => Model.Duration.ToString("0.0#", CultureInfo.InvariantCulture) + " 秒";
-    public string SuggestionText => Model.SuggestedAction == SegmentAction.Shorten
-        ? string.Create(CultureInfo.InvariantCulture, $"短縮 {Model.KeepSeconds:0.0#} 秒")
-        : "削除";
+    /// <summary>［提案］列。採用すると何が起きるかが分かる文（例: 「先頭 1.5 秒を残す」「全体を削除」）。</summary>
+    public string SuggestionText => SuggestionLabel(Model);
     public string ConfidenceText => Model.Confidence.ToString("0%", CultureInfo.InvariantCulture);
     public string SourceText => Labels.Source(Model.Source);
     public string StatusText => Model.Status switch
@@ -165,6 +171,18 @@ public sealed class CandidateItem(CutCandidate model)
     public string Reason => Model.Reason;
     public bool IsPending => Model.Status == CandidateStatus.Pending;
     public bool IsAi => Model.Source == SegmentSource.Ai;
+
+    /// <summary>［提案］列と説明に使う、提案の動作の文。</summary>
+    public static string SuggestionLabel(CutCandidate c)
+        => c.SuggestedAction == SegmentAction.Shorten
+            ? string.Create(CultureInfo.InvariantCulture, $"先頭 {c.KeepSeconds:0.0#} 秒を残す")
+            : "全体を削除";
+
+    public void Update(CutCandidate model)
+    {
+        Model = model;
+        OnPropertyChanged(string.Empty);
+    }
 }
 
 /// <summary>字幕一覧の 1 行（時刻は編集後の動画基準）。</summary>

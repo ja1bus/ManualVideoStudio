@@ -63,7 +63,6 @@ public sealed partial class MainViewModel : ObservableObject
         _shell = shell;
         _logger = logger;
         FFmpeg = ffmpeg;
-        _shortenKeepText = settings.Current.Ui.DefaultShortenKeepSeconds.ToString("0.0##", System.Globalization.CultureInfo.InvariantCulture);
         // 最初は動画編集（カット区間の一覧）。画像作成（画像の一覧）は全機能モードで［画像作成］を押したときだけ開く（v1.13）。
         _selectedTabIndex = TabCuts;
     }
@@ -82,7 +81,6 @@ public sealed partial class MainViewModel : ObservableObject
     /// <summary>タイムライン再描画のきっかけ（編集のたびに増える）。</summary>
     [ObservableProperty] private int _timelineRevision;
     [ObservableProperty] private int _selectedTabIndex;
-    [ObservableProperty] private bool _showDismissedCandidates;
 
     public bool HasProject => Editor is not null;
 
@@ -333,7 +331,6 @@ public sealed partial class MainViewModel : ObservableObject
         // 開いていた編集の字幕依頼用動画と、回答の取り込み待ちは無効にする（ファイルは確認なしには消さない。v1.12）。
         CaptionRequest.Invalidate();
         _importedSubtitleSignature = null;
-        IsShortenDetailOpen = false;
         if (Editor is not null)
         {
             Editor.Changed -= OnEditorChanged;
@@ -345,6 +342,13 @@ public sealed partial class MainViewModel : ObservableObject
         Editor.History.Changed += OnHistoryChanged;
         ProjectPath = path;
         Editor.MarkSaved();
+        // 古い「短縮」は、先頭を残して後ろを削除するカットに変換する（結果は変わらない。v1.17.0 で短縮を廃止）。
+        var converted = Editor.ConvertLegacyShorten();
+        if (converted > 0)
+        {
+            Editor.MarkDirty();
+            _dialogs.ShowInfo(Loc.Format("Legacy.ShortenConverted", converted), Loc.Get("Legacy.ShortenTitle"));
+        }
         Captures.Clear();
         MarkIn = null;
         MarkOut = null;
@@ -415,8 +419,8 @@ public sealed partial class MainViewModel : ObservableObject
     public bool ConfirmDiscardChanges()
     {
         // 入力中の字幕は先に反映する。反映できない入力は、破棄してよいか確かめる（黙って捨てない。v1.13）。
-        if (HasSubtitleDraft && !FlushSubtitleDraft()
-            && !_dialogs.Confirm(Loc.Format("SubEdit.DiscardConfirm", SubtitleDraftError), Loc.Get("SubEdit.DiscardTitle")))
+        if ((HasSubtitleDraft || HasShapeDraft) && !FlushSubtitleDraft()
+            && !_dialogs.Confirm(Loc.Format("SubEdit.DiscardConfirm", ShapeDraftError.Length > 0 ? ShapeDraftError : SubtitleDraftError), Loc.Get("SubEdit.DiscardTitle")))
             return false;
         if (Editor is null || !Editor.IsDirty) return true;
         var message = "変更が保存されていません。保存しますか？";
@@ -478,6 +482,7 @@ public sealed partial class MainViewModel : ObservableObject
     {
         // カットのやり直しなどで、準備済みの字幕依頼用動画が今の編集と合わなくなったら無効にする（v1.12）。
         CaptionRequest.InvalidateIfStale(Project, IsSubtitlePhase);
+        ClearPreviewState(pause: true); // 編集したら、仮のカットで試していた再生は終える
         RefreshAll();
     }
 
@@ -499,13 +504,11 @@ public sealed partial class MainViewModel : ObservableObject
                 if (item.ThumbnailTime is not { } t || Math.Abs(t - m.SelectedFrameTime) >= 0.001) _ = LoadThumbnailAsync(item);
             });
 
-        CutItems.Clear();
-        foreach (var c in p?.CutSegments ?? []) CutItems.Add(new CutSegmentItem(c));
+        // 行を作り直さず差分で更新し、編集・元に戻すの後も選択とスクロール位置を保つ（v1.17.0）。
+        CollectionSync.Sync(CutItems, p?.CutSegments ?? [], i => i.Id, m => m.Id, m => new CutSegmentItem(m), (item, m) => item.Update(m));
         RefreshSubtitles();
         RefreshShapes();
-        CandidateItems.Clear();
-        foreach (var c in (p?.CutCandidates ?? []).Where(c => ShowDismissedCandidates || c.Status == CandidateStatus.Pending))
-            CandidateItems.Add(new CandidateItem(c));
+        CollectionSync.Sync(CandidateItems, FilteredCandidates(p), i => i.Id, m => m.Id, m => new CandidateItem(m), (item, m) => item.Update(m));
 
         VideoInfo.Clear();
         if (p?.VideoMetadata is { } m)
@@ -539,13 +542,15 @@ public sealed partial class MainViewModel : ObservableObject
         OnPropertyChanged(nameof(Metadata));
         OnPropertyChanged(nameof(VideoPath));
         OnPropertyChanged(nameof(PendingCandidateCount));
+        OnPropertyChanged(nameof(CandidateCountText));
+        OnPropertyChanged(nameof(IsCandidateFiltered));
+        UpdateCandidateSelectionText();
         OnHistoryChanged(null, EventArgs.Empty);
         NotifyGuidance();
     }
 
     private static string Kbps(long bps) => bps > 0 ? $"{bps / 1000.0:0} kbps" : "不明";
 
-    partial void OnShowDismissedCandidatesChanged(bool value) => RefreshAll();
 
     /// <summary>簡易モードでは隠した「画像」タブを選ばせない（v1.11。隠した TabItem が選ばれると中身が見えてしまう）。</summary>
     partial void OnSelectedTabIndexChanged(int value)
@@ -585,11 +590,11 @@ public sealed partial class MainViewModel : ObservableObject
         ExportTejunshoCommand.NotifyCanExecuteChanged();
         RunAnalysisCommand.NotifyCanExecuteChanged();
         ShowAiAssistCommand.NotifyCanExecuteChanged();
+        AskAiForCandidatesCommand.NotifyCanExecuteChanged();
         ShowPromptSettingsCommand.NotifyCanExecuteChanged();
         SetMarkInCommand.NotifyCanExecuteChanged();
         SetMarkOutCommand.NotifyCanExecuteChanged();
         AddRemoveCutCommand.NotifyCanExecuteChanged();
-        AddShortenCutCommand.NotifyCanExecuteChanged();
         ExportGifCommand.NotifyCanExecuteChanged();
         ConfirmCutsCommand.NotifyCanExecuteChanged();
         ReturnToCutEditingCommand.NotifyCanExecuteChanged();
@@ -637,7 +642,6 @@ public sealed partial class MainViewModel : ObservableObject
         // 画面のモードだけでなく、外部文書連携の有効・無効だけが変わった場合も、表示と実行条件を再評価する（v1.14）。
         if (Settings.UiMode != mode || Settings.EnableExternalDocumentExport != external) ApplyUiMode();
         if (Editor is not null) Editor.SubtitleDefaults = Settings.Subtitle.Clone();
-        ShortenKeepText = Settings.Ui.DefaultShortenKeepSeconds.ToString("0.0##", System.Globalization.CultureInfo.InvariantCulture);
         if (r.ApplyOutputToProject && Editor is not null)
         {
             // 出力先フォルダーはプロジェクトごとの記録を優先し、形式・品質だけを反映する。
@@ -658,27 +662,67 @@ public sealed partial class MainViewModel : ObservableObject
         RefreshAll();
     }
 
-    [RelayCommand(CanExecute = nameof(CanUseFullFeatures))]
+    /// <summary>簡易モードでも使える（簡易モードでは「不要区間の解析」だけ。v1.17.0）。</summary>
+    [RelayCommand(CanExecute = nameof(HasProject))]
     private void ShowAiAssist() => _windows.ShowAiAssist();
+
+    /// <summary>次に開く AI 連携画面で最初に選ぶ用途（解析候補の［AI に聞く］から。一度使ったら消える）。</summary>
+    private Core.Models.AiPurpose? _pendingAiPurpose;
+
+    public Core.Models.AiPurpose? TakePendingAiPurpose()
+    {
+        var p = _pendingAiPurpose;
+        _pendingAiPurpose = null;
+        return p;
+    }
+
+    /// <summary>解析候補の［AI に聞く］: AI 連携を「不要区間の解析」で開く。</summary>
+    [RelayCommand(CanExecute = nameof(HasProject))]
+    private void AskAiForCandidates()
+    {
+        PauseIfPlaying();
+        _pendingAiPurpose = Core.Models.AiPurpose.CutAnalysis;
+        _windows.ShowAiAssist();
+    }
 
     /// <summary>起動中のアプリのバージョン（主画面の右下に表示）。</summary>
     public string AppVersionText => "v" + ProjectService.AppVersion;
 
-    /// <summary>取扱説明書（HTML）を既定のブラウザーで開く。</summary>
+    /// <summary>取扱説明書（Web 版。常に最新）を既定のブラウザーで開く。通常版・Store 版とも同じ。F1 も同じ。</summary>
     [RelayCommand]
     private void OpenManual()
     {
         try
         {
-            _shell.OpenUrl(HelpManual.Extract(new AppPaths().LocalDirectory));
+            _shell.OpenUrl(HelpManual.WebUrl);
         }
         catch (Exception ex)
         {
-            _logger.LogWarning(ex, "Failed to open manual");
-            _dialogs.ShowError("取扱説明書を開けませんでした。", ex.Message);
+            _logger.LogWarning(ex, "Failed to open manual: {Url}", HelpManual.WebUrl);
+            _dialogs.ShowError($"取扱説明書を開けませんでした。ブラウザーで次のアドレスを開いてください。{Environment.NewLine}{HelpManual.WebUrl}", ex.Message);
         }
     }
 
+    /// <summary>バージョン情報（［ヘルプ］の一番下）。</summary>
     [RelayCommand]
-    private void OpenLogFolder() => _shell.OpenFolder(new AppPaths().LogDirectory);
+    private void ShowAbout() => _windows.ShowAbout(new AboutViewModel(_dialogs));
+
+    /// <summary>ログフォルダー（Store 版では実際の保存先）を開く。無ければ作る。開けない・ログを保存できないときはその旨を出す。</summary>
+    [RelayCommand]
+    private void OpenLogFolder()
+    {
+        var dir = AppPaths.Current.LogDirectory;
+        try
+        {
+            System.IO.Directory.CreateDirectory(dir);
+        }
+        catch (Exception ex) when (ex is System.IO.IOException or UnauthorizedAccessException)
+        {
+            _dialogs.ShowError($"ログフォルダーを作れませんでした。ログは保存されていません。{Environment.NewLine}{dir}", ex.Message);
+            return;
+        }
+        _shell.OpenFolder(dir);
+        if (Core.Logging.FileLoggerProvider.LastWriteError is { } err)
+            _dialogs.ShowWarning($"ログを保存できていません。{Environment.NewLine}{dir}{Environment.NewLine}{err}");
+    }
 }

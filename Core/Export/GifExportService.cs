@@ -1,6 +1,7 @@
 using System.Text;
 using ManualVideoStudio.Core.Editing;
 using ManualVideoStudio.Core.FFmpeg;
+using ManualVideoStudio.Core.Persistence;
 using ManualVideoStudio.Core.Models;
 using ManualVideoStudio.Core.Subtitles;
 using Microsoft.Extensions.Logging;
@@ -61,7 +62,7 @@ public sealed class GifExportService(IProcessRunner runner, ILogger<GifExportSer
         using var work = await ExportWorkspace.CreateAsync(request.Subtitles, request.SubtitleStyle,
             request.Metadata.Width, request.Metadata.Height, request.TextMeasurer, ct, request.Shapes,
             request.Title, preset.Fps);
-        var palette = Path.Combine(Path.GetTempPath(), $"manualvideostudio-palette-{Guid.NewGuid():N}");
+        var palette = Path.Combine(AppTemp.Root, $"manualvideostudio-palette-{Guid.NewGuid():N}");
         var scripts = new List<string>();
         _logger.LogInformation("GIF export start: {Input} -> {Output}, quality={Quality}, ranges={Count}, subtitles={Subs}",
             input, output, preset.Quality, keep.Count, request.Subtitles.Count);

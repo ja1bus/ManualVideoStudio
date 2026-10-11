@@ -63,20 +63,19 @@ public static class CandidateBuilder
         // 前後に余白を残す（直前の操作結果・直後の操作開始を消さない）。動画の先頭・末尾側は余白不要。
         double start = range.Start <= 0.001 ? 0 : range.Start + settings.EdgeMarginSeconds;
         double end = duration > 0 && range.End >= duration - 0.001 ? duration : range.End - settings.EdgeMarginSeconds;
-        start = Math.Round(start, 3);
+        // 区間の先頭に、結果を確認できる秒数（設定の「先頭に残す秒数」）を残し、それ以降を削除する候補にする（短縮は廃止。v1.17.0）。
+        start = Math.Round(start + settings.ShortenKeepSeconds, 3);
         end = Math.Round(end, 3);
-        double len = end - start;
-        double keep = settings.ShortenKeepSeconds;
-        // 短縮しても 0.5 秒未満しか減らない区間は候補にしない。
-        if (len - keep < 0.5) return;
+        // 削除しても 0.5 秒未満しか減らない区間は候補にしない。
+        if (end - start < 0.5) return;
         if (range.Duration >= 10) confidence = Math.Min(0.95, confidence + 0.05);
 
         list.Add(new CutCandidate
         {
             Start = start,
             End = end,
-            SuggestedAction = SegmentAction.Shorten,
-            KeepSeconds = keep,
+            SuggestedAction = SegmentAction.Remove,
+            KeepSeconds = 0,
             Confidence = Math.Round(confidence, 2),
             Kind = kind,
             Source = SegmentSource.LocalAnalysis,

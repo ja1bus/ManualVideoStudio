@@ -18,7 +18,6 @@ public sealed partial class MainViewModel
     [ObservableProperty] private bool _isPlaying;
     [ObservableProperty] private string _playerError = "";
     [ObservableProperty] private ImageSource? _fallbackFrame;
-    [ObservableProperty] private string _jumpText = "";
 
     public bool IsPlayerFailed => PlayerError.Length > 0;
     public string CurrentTimeText => TimeFormat.Format(CurrentTime);
@@ -61,6 +60,7 @@ public sealed partial class MainViewModel
     private void SetCurrentTimeFromPlayer(double t)
     {
         if (Duration > 0) t = Math.Min(t, Duration);
+        if (StopPreviewIfReached(t)) return;
         if (SkipRemovedWhilePlaying(t)) return;
         CurrentTime = t;
     }
@@ -69,6 +69,7 @@ public sealed partial class MainViewModel
     public void SeekTo(double time)
     {
         if (!HasProject) return;
+        ClearPreviewState(pause: false); // 自分で移動したら、試し再生・つなぎ目の再生は終わり
         time = Math.Clamp(time, 0, Duration > 0 ? Duration : double.MaxValue);
         CurrentTime = Math.Round(time, 3);
         if (_player is { IsOpened: true }) _player.Position = CurrentTime;
@@ -88,6 +89,7 @@ public sealed partial class MainViewModel
         }
         else
         {
+            ClearPreviewState(pause: false);
             if (Duration > 0 && CurrentTime >= Duration - 0.05) SeekTo(0);
             _player.Play();
             IsPlaying = true;
@@ -125,19 +127,28 @@ public sealed partial class MainViewModel
     [RelayCommand] private void SeekStart() { PauseIfPlaying(); SeekTo(0); }
     [RelayCommand] private void SeekEnd() { PauseIfPlaying(); SeekTo(Duration); }
 
+    /// <summary>前のカット位置（確定カットの開始）へ移動する。</summary>
     [RelayCommand]
-    private void GoToTime()
+    private void SeekPrevCut() => SeekToCutBoundary(next: false);
+
+    /// <summary>次のカット位置（確定カットの開始）へ移動する。</summary>
+    [RelayCommand]
+    private void SeekNextCut() => SeekToCutBoundary(next: true);
+
+    private void SeekToCutBoundary(bool next)
     {
-        if (TimeFormat.TryParse(JumpText, out var t))
+        if (Project is null) return;
+        PauseIfPlaying();
+        var starts = Project.CutSegments.Select(c => c.Start).OrderBy(x => x).ToList();
+        double? target = next
+            ? starts.Where(t => t > CurrentTime + 0.01).Cast<double?>().FirstOrDefault()
+            : starts.Where(t => t < CurrentTime - 0.01).Cast<double?>().LastOrDefault();
+        if (target is null)
         {
-            PauseIfPlaying();
-            SeekTo(t);
-            JumpText = "";
+            StatusMessage = Loc.Get(next ? "Seek.NoNextCut" : "Seek.NoPrevCut");
+            return;
         }
-        else
-        {
-            StatusMessage = "時刻は 00:01:23.456 / 1:23.4 / 83.4 のように入力してください。";
-        }
+        SeekTo(target.Value);
     }
 
     /// <summary>プレビュー再生できない動画の代替表示（現在位置の静止画）。連続シーク時は最後の要求だけ反映する。</summary>

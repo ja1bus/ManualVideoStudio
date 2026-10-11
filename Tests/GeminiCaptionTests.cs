@@ -234,6 +234,15 @@ public class CaptionRequestStoreTests : IDisposable
 
     private CaptionRequestStore Store() => new(Path.Combine(_dir, "caption-requests"));
 
+    /// <summary>実在する元動画（準備の前に入力の存在と読み取りを確かめるため）。</summary>
+    private string SourceFile()
+    {
+        Directory.CreateDirectory(_dir);
+        var path = Path.Combine(_dir, "source.mp4");
+        if (!File.Exists(path)) File.WriteAllBytes(path, [1, 2, 3]);
+        return path;
+    }
+
     [Fact]
     public void NewPathIsUniqueAndHasNoEncryptedExtension()
     {
@@ -244,7 +253,7 @@ public class CaptionRequestStoreTests : IDisposable
         var b = s.NewPath("rec:ord", now);
         Assert.NotEqual(a, b);
         Assert.Equal(".mp4", Path.GetExtension(a));
-        Assert.Equal(s.Root, Path.GetDirectoryName(a));
+        Assert.Equal(Path.Combine(Path.GetDirectoryName(s.Root)!, "proj", "caption-requests"), Path.GetDirectoryName(a));
     }
 
     [Fact]
@@ -255,7 +264,7 @@ public class CaptionRequestStoreTests : IDisposable
         File.WriteAllText(mine, "x");
         s.Register(mine);
         // 同じフォルダーの別のファイル・名前が似たファイル・外のファイルは消さない。
-        var other = Path.Combine(s.Root, "other_gemini.mp4");
+        var other = Path.Combine(s.ProjLoc(), "other_gemini.mp4");
         File.WriteAllText(other, "x");
         Directory.CreateDirectory(_dir);
         var outside = Path.Combine(_dir, "outside.mp4");
@@ -269,7 +278,7 @@ public class CaptionRequestStoreTests : IDisposable
         Assert.True(r.Success);
         Assert.False(File.Exists(mine));
         Assert.True(File.Exists(other));
-        Assert.True(Directory.Exists(s.Root));
+        Assert.True(Directory.Exists(s.ProjLoc()));
     }
 
     [Fact]
@@ -342,12 +351,13 @@ public class CaptionRequestStoreTests : IDisposable
         var store = Store();
         var export = new FakeExport();
         var project = TestProjects.Create(60);
+        project.SourceVideo.Path = SourceFile();
         project.CutSegments.Add(new CutSegment { Start = 5, End = 10 });
         project.ShapeGroups.Add(new ShapeGroup { Start = 1, End = 2 });
         project.SubtitleSegments.Add(new SubtitleSegment { Start = 1, End = 2, Text = "既存" });
         var svc = new CaptionRequestService(export, store);
 
-        var v = await svc.PrepareAsync("ffmpeg", 7, project, "rec", null, CancellationToken.None);
+        var v = await svc.PrepareAsync("ffmpeg", 7, project, "rec", store.ProjLoc(), null, CancellationToken.None);
 
         var req = export.Request!;
         Assert.Null(req.Subtitles);       // 既存字幕は焼き込まない
@@ -391,16 +401,17 @@ public class CaptionRequestStoreTests : IDisposable
     {
         var store = Store();
         var project = TestProjects.Create(60);
+        project.SourceVideo.Path = SourceFile();
         var cancel = new FakeExport((r, ct) => throw new OperationCanceledException());
         await Assert.ThrowsAsync<OperationCanceledException>(() =>
-            new CaptionRequestService(cancel, store).PrepareAsync("ffmpeg", 7, project, "rec", null, CancellationToken.None));
+            new CaptionRequestService(cancel, store).PrepareAsync("ffmpeg", 7, project, "rec", store.ProjLoc(), null, CancellationToken.None));
         Assert.False(store.IsManaged(cancel.Request!.OutputPath));
         Assert.False(File.Exists(cancel.Request.OutputPath));
 
         // ffmpeg が成功を返しても、出力ファイルが無い（空の）ものは準備完了にしない。
         var empty = new FakeExport((r, ct) => File.WriteAllBytesAsync(r.OutputPath, [], ct));
-        await Assert.ThrowsAsync<FFmpegException>(() =>
-            new CaptionRequestService(empty, store).PrepareAsync("ffmpeg", 7, project, "rec", null, CancellationToken.None));
+        await Assert.ThrowsAsync<PathStageException>(() =>
+            new CaptionRequestService(empty, store).PrepareAsync("ffmpeg", 7, project, "rec", store.ProjLoc(), null, CancellationToken.None));
         Assert.False(store.IsManaged(empty.Request!.OutputPath));
     }
 
@@ -463,6 +474,7 @@ public class GeminiCaptionViewModelTests : IDisposable
         }
         public bool EditSubtitle(SubtitleEditViewModel vm) => false;
         public bool ChooseGifQuality(GifExportViewModel vm) => false;
+        public void ShowAbout(AboutViewModel vm) { }
         public bool EditTitle(TitleEditViewModel vm) => false;
         public bool ConfirmDanger(string title, string message, string okLabel, string cancelLabel) => false;
         public Task<RecordingOutcome?> ShowRecorderAsync() => Task.FromResult<RecordingOutcome?>(null);
@@ -585,7 +597,7 @@ public class GeminiCaptionViewModelTests : IDisposable
     {
         var r = Create(withVideo: true);
         var path = r.Session.Video!.Path;
-        var bystander = Path.Combine(r.Store.Root, "bystander_gemini.mp4");
+        var bystander = Path.Combine(r.Store.ProjLoc(), "bystander_gemini.mp4");
         File.WriteAllBytes(bystander, new byte[10]);
         r.Vm.ResponseText = Answer;
         r.Vm.ImportCommand.Execute(null);
@@ -872,4 +884,13 @@ public class GeminiCaptionViewModelTests : IDisposable
         reloaded.ResetToDefault(AiPurpose.SubtitleRequest);
         Assert.False(reloaded.IsCustomized(AiPurpose.SubtitleRequest));
     }
+}
+
+/// <summary>テスト用: プロジェクトフォルダー内の保存先に依頼用動画のパスを作る（v1.17.0 でアプリのデータフォルダーへの退避は廃止）。</summary>
+internal static class CaptionRequestStoreTestExtensions
+{
+    public static string ProjLoc(this CaptionRequestStore store) => Path.Combine(Path.GetDirectoryName(store.Root)!, "proj", "caption-requests");
+
+    public static string NewPath(this CaptionRequestStore store, string name, DateTime now)
+        => store.NewPath(store.Resolve(Path.Combine(Path.GetDirectoryName(store.Root)!, "proj", "caption-requests")), name, now);
 }

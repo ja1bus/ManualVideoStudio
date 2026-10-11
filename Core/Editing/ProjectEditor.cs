@@ -26,7 +26,7 @@ public sealed class EditState
 /// プロジェクトに対する編集操作の窓口。すべての変更はここを通し、Undo 用スナップショットと変更通知を行う。
 /// UI 非依存。動画長は VideoMetadata.Duration を使う（未取得なら長さ検証を省略）。
 /// </summary>
-public sealed class ProjectEditor
+public sealed partial class ProjectEditor
 {
     /// <summary>同一時刻とみなす差（秒）。</summary>
     public const double SameTimeTolerance = 0.001;
@@ -158,6 +158,17 @@ public sealed class ProjectEditor
         if (IsCutLocked) return (EditResult.Fail(CutLockedMessage), null);
         start = Math.Round(start, 3);
         end = Math.Round(end, 3);
+        // 既存のカットと重なる（接する）ときは、既存のカットも含めて 1 つのカットにまとめる（v1.17.0）。
+        var touching = FindTouching(Project.CutSegments, start, end);
+        if (touching.Count > 0)
+        {
+            var (ms, me) = Union(start, end, touching);
+            var vm = CutSegmentValidator.Validate(ms, me, SegmentAction.Remove, 0, VideoDuration, Project.CutSegments.Where(c => !touching.Contains(c)));
+            if (!vm.IsValid) return (EditResult.Fail(vm.Message), null);
+            CutSegment? merged = null;
+            Apply($"削除区間の追加（既存 {touching.Count} 件とまとめる）", () => merged = ApplyMerge(start, end, touching, null, source, reason, confidence));
+            return (EditResult.Ok(MergeMessage(touching.Count, merged!.Start, merged.End)), merged);
+        }
         var v = CutSegmentValidator.Validate(start, end, action, keepSeconds, VideoDuration, Project.CutSegments);
         if (!v.IsValid) return (EditResult.Fail(v.Message), null);
         var seg = new CutSegment
@@ -181,6 +192,17 @@ public sealed class ProjectEditor
         if (seg is null) return EditResult.Fail("区間が見つかりません。");
         start = Math.Round(start, 3);
         end = Math.Round(end, 3);
+        // 広げた先で別のカットと重なる（接する）ときは、そのカットも含めて 1 つにまとめる（v1.17.0）。
+        var touching = FindTouching(Project.CutSegments, start, end, id);
+        if (touching.Count > 0)
+        {
+            var (ms, me) = Union(start, end, touching);
+            var vm = CutSegmentValidator.Validate(ms, me, SegmentAction.Remove, 0, VideoDuration, Project.CutSegments.Where(c => c.Id != id && !touching.Contains(c)));
+            if (!vm.IsValid) return EditResult.Fail(vm.Message);
+            CutSegment? merged = null;
+            Apply($"区間の変更（既存 {touching.Count} 件とまとめる）", () => merged = ApplyMerge(start, end, touching, id, seg.Source, seg.Reason, seg.Confidence));
+            return EditResult.Ok(MergeMessage(touching.Count, merged!.Start, merged.End));
+        }
         var v = CutSegmentValidator.Validate(start, end, action, keepSeconds, VideoDuration, Project.CutSegments, id);
         if (!v.IsValid) return EditResult.Fail(v.Message);
         if (seg.Start == start && seg.End == end && seg.Action == action && seg.KeepSeconds == keepSeconds) return EditResult.Ok();
@@ -217,34 +239,16 @@ public sealed class ProjectEditor
 
     // ---------------- CutCandidate ----------------
 
-    /// <summary>候補を確定区間として採用する。action / keepSeconds を省略すると候補の提案値を使う。</summary>
+    /// <summary>候補を確定区間として採用する（既存のカットと重なるときは 1 つにまとめる）。action / keepSeconds を省略すると候補の提案（削除）を使う。</summary>
     public EditResult AcceptCandidate(string candidateId, SegmentAction? action = null, double? keepSeconds = null)
     {
         if (IsCutLocked) return EditResult.Fail(CutLockedMessage);
         var c = Project.CutCandidates.FirstOrDefault(x => x.Id == candidateId);
         if (c is null) return EditResult.Fail("候補が見つかりません。");
         if (c.Status == CandidateStatus.Accepted) return EditResult.Fail("この候補は採用済みです。");
-        var act = action ?? c.SuggestedAction;
-        var keep = act == SegmentAction.Shorten ? keepSeconds ?? c.KeepSeconds : 0;
-        var start = Math.Round(c.Start, 3);
-        var end = Math.Round(Math.Min(c.End, VideoDuration > 0 ? VideoDuration : c.End), 3);
-        var v = CutSegmentValidator.Validate(start, end, act, keep, VideoDuration, Project.CutSegments);
-        if (!v.IsValid) return EditResult.Fail(v.Message);
-
-        Apply("候補の採用", () =>
-        {
-            var seg = new CutSegment
-            {
-                Start = start, End = end, Action = act, KeepSeconds = keep,
-                Source = c.Source, Confidence = c.Confidence, Reason = c.Reason,
-            };
-            Project.CutSegments.Add(seg);
-            SortCuts();
-            var target = Project.CutCandidates.First(x => x.Id == candidateId);
-            target.Status = CandidateStatus.Accepted;
-            target.AcceptedSegmentId = seg.Id;
-        });
-        return EditResult.Ok();
+        var mode = action switch { SegmentAction.Shorten => CandidateAcceptMode.Shorten, SegmentAction.Remove => CandidateAcceptMode.Remove, _ => CandidateAcceptMode.Suggested };
+        var r = AcceptCandidates([candidateId], mode, keepSeconds ?? c.KeepSeconds);
+        return r.Changed ? EditResult.Ok() : EditResult.Fail(r.Plan.Items[0].Reason);
     }
 
     public EditResult SetCandidateStatus(string candidateId, CandidateStatus status)

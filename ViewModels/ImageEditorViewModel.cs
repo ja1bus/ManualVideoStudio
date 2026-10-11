@@ -152,14 +152,6 @@ public sealed partial class ImageEditorViewModel : ObservableObject
         OnPropertyChanged(nameof(WindowTitle));
     }
 
-    /// <summary>［最後まで］: 終了を編集後の動画の最後にする。</summary>
-    [RelayCommand]
-    private void SetEndToLast()
-    {
-        if (_video is null) return;
-        EndText = TimeFormat.Format(_video.OutputDuration);
-        StatusText = "終了を動画の最後にしました。";
-    }
     public string ImageSizeText { get; }
     public IReadOnlyList<double> FontSizes => AnnotationStyle.FontSizes;
 

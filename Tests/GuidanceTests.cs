@@ -394,35 +394,8 @@ public class MainViewModelGuidanceTests
         vm.Editor.SetCandidateStatus(id, CandidateStatus.Dismissed);
         Assert.Equal(CandidateEmptyKind.OnlyHandled, vm.CandidateEmpty);
         Assert.Equal(Text("Empty.CandHandled"), vm.CandidateEmptyText);
-        vm.ShowDismissedCandidates = true;
+        vm.CandidateStatusFilter = 1; // 表示を［却下］に切り替える
         Assert.Equal(CandidateEmptyKind.None, vm.CandidateEmpty);
-    }
-
-    [Fact]
-    public async Task ShortenDetailIsSeparateFromRegistrationAndKeepsDefaults()
-    {
-        var (vm, dialogs, _) = await MainViewModelPhaseTests.OpenAsync();
-        Assert.False(vm.IsShortenDetailOpen);
-        Assert.Equal("1.5", vm.ShortenKeepText);   // 既存の既定値
-        vm.ToggleShortenDetailCommand.Execute(null);
-        Assert.True(vm.IsShortenDetailOpen);
-        vm.ToggleShortenDetailCommand.Execute(null);
-        Assert.False(vm.IsShortenDetailOpen);
-
-        vm.SeekTo(10); vm.SetMarkInCommand.Execute(null);
-        vm.SeekTo(20); vm.SetMarkOutCommand.Execute(null);
-        vm.ToggleShortenDetailCommand.Execute(null);
-        vm.ShortenKeepText = "abc";                      // 入力検証は従来どおり（登録されない）
-        vm.AddShortenCutCommand.Execute(null);
-        Assert.Empty(vm.Project!.CutSegments);
-        Assert.Single(dialogs.Warnings);
-        Assert.True(vm.IsShortenDetailOpen);
-        vm.ShortenKeepText = "2";
-        vm.AddShortenCutCommand.Execute(null);            // ［短縮を登録］= 既存の短縮コマンド
-        Assert.Single(vm.Project.CutSegments);
-        Assert.Equal(SegmentAction.Shorten, vm.Project.CutSegments[0].Action);
-        Assert.Equal(2, vm.Project.CutSegments[0].KeepSeconds);
-        Assert.False(vm.IsShortenDetailOpen);              // 登録したら詳細を閉じる
     }
 
     [Fact]

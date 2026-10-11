@@ -63,8 +63,6 @@ public sealed partial class CutEditViewModel : ObservableObject
         _currentTime = currentTime;
         _startText = TimeFormat.Format(segment.Start);
         _endText = TimeFormat.Format(segment.End);
-        _isShorten = segment.Action == SegmentAction.Shorten;
-        _keepSecondsText = (segment.Action == SegmentAction.Shorten ? segment.KeepSeconds : 1.5).ToString("0.0##", CultureInfo.InvariantCulture);
         Reason = segment.Reason;
         SourceText = Labels.Source(segment.Source);
     }
@@ -73,9 +71,9 @@ public sealed partial class CutEditViewModel : ObservableObject
 
     [ObservableProperty] private string _startText;
     [ObservableProperty] private string _endText;
-    [ObservableProperty] private bool _isShorten;
-    [ObservableProperty] private string _keepSecondsText;
     [ObservableProperty] private string _error = "";
+    /// <summary>変更したあとの結果の案内（別のカットとまとめたときなど）。</summary>
+    public string ResultMessage { get; private set; } = "";
     public string Reason { get; }
     public string SourceText { get; }
 
@@ -87,14 +85,10 @@ public sealed partial class CutEditViewModel : ObservableObject
     {
         if (!TimeFormat.TryParse(StartText, out var s)) { Error = "開始位置を HH:MM:SS.mmm 形式で入力してください。"; return; }
         if (!TimeFormat.TryParse(EndText, out var e)) { Error = "終了位置を HH:MM:SS.mmm 形式で入力してください。"; return; }
-        double keep = 0;
-        if (IsShorten && !double.TryParse(KeepSecondsText, NumberStyles.Float, CultureInfo.InvariantCulture, out keep))
-        {
-            Error = "残す秒数を数値で入力してください。";
-            return;
-        }
-        var r = _editor.UpdateCut(_id, s, e, IsShorten ? SegmentAction.Shorten : SegmentAction.Remove, keep);
+        // 広げた先で別のカットと重なるときは、そのカットも含めて 1 つにまとめる（エラーにしない）。
+        var r = _editor.UpdateCut(_id, s, e, SegmentAction.Remove, 0);
         if (!r.Success) { Error = r.Message; return; }
+        ResultMessage = r.Message;
         CloseRequested?.Invoke(true);
     }
 

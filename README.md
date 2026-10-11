@@ -41,7 +41,7 @@ ManualVideoStudio は、パソコンの操作を録画し、いらない部分�
 3. 不要な部分をカットして確定し、字幕・図形・タイトルを付けます。
 4. ［書き出し ▾］から MP4 または Animated GIF を書き出します。
 
-詳しくは取扱説明書をご覧ください。アプリの［ヘルプ］（F1）からも開けます。
+詳しくは取扱説明書をご覧ください。アプリの［ヘルプ］（F1）からは Web 版が開きます。［ヘルプ］の一番下の［バージョン情報…］に、版・MIT License・ライセンス全文があります。
 
 - 取扱説明書: https://www.iwanaga.net/manualvideostudio/manual/
 
@@ -87,14 +87,14 @@ dotnet publish ManualVideoStudio.csproj -c Release -p:PublishProfile=FrameworkDe
 | `Core/` | UI に依存しない処理（`net8.0`）。FFmpeg の引数生成と出力の解析、カット・字幕（ASS）・図形・タイトルの編集、録画の状態管理、GIF、AI の回答の解析、プロジェクトと設定の保存 |
 | `Imaging/` | 注釈・図形・タイトルの描画と画像の保存（`net8.0-windows`、WPF の描画） |
 | `Services/` | ダイアログ・再生・FFmpeg の状態・フォント・ごみ箱・録画対象とマイクの列挙（Win32 / Core Audio）など |
-| `Resources/` | 画面の文言（`Strings.resx`、日本語）、アイコン、取扱説明書（`Help/manual.html`。exe に埋め込み） |
+| `Resources/` | 画面の文言（`Strings.resx`、日本語）、アイコン |
 | `Tests/` | Unit Test（xUnit。FFmpeg 不要） |
 | `IntegrationTests/` | 実 FFmpeg を使う Integration Test（xUnit） |
 | `tools/icon-source.png`, `Resources/icon.ico` | アプリアイコン（`pwsh -File tools/make-icon.ps1` で `icon-source.png` から `icon.ico` を作成） |
 
-Microsoft Store 用のパッケージ（MSIX）とインストーラーの作成ツールは、このリポジトリに含まれていません。`ManualVideoStudio.csproj` の `ManualVideoStudioMsix` の条件は Store 版用です。`Resources/Help/manual.html` は取扱説明書の原稿から生成したファイルで、原稿と生成ツールは含まれていません。
+Microsoft Store 用のパッケージ（MSIX）とインストーラーの作成ツールは、このリポジトリに含まれていません。`ManualVideoStudio.csproj` の `ManualVideoStudioMsix` の条件は Store 版用です。取扱説明書は Web 版（上記 URL）で、exe には埋め込みません（v1.17.0 から）。
 
-設定は `%AppData%\ManualVideoStudio\settings.json` に、キャッシュ・ログは `%LocalAppData%\ManualVideoStudio\` に保存します。
+設定は `%AppData%\ManualVideoStudio\settings.json` に、キャッシュ・ログは `%LocalAppData%\ManualVideoStudio\` に保存します（Microsoft Store 版は Windows がアプリ専用の場所へ振り替えるため、`%LocalAppData%\Packages\<パッケージ ファミリ名>\LocalCache\` 以下の実際の場所を使います）。Gemini 用の字幕依頼動画は、プロジェクトフォルダー内の `caption-requests\` に作ります。
 
 ソースのコメントは主に日本語です。コメント中の「仕様書」「仕様書 §N」などは、このリポジトリに含まれていない内部の開発用仕様書の節を指します。
 

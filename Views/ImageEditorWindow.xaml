@@ -159,8 +159,6 @@
                     <TextBlock Text="終了" VerticalAlignment="Center" Margin="10,0,4,0"/>
                     <TextBox Width="110" Text="{Binding EndText, UpdateSourceTrigger=PropertyChanged}" FontFamily="Consolas"
                              AutomationProperties.Name="図形の表示終了" ToolTip="表示を終える時刻（HH:MM:SS.mmm。この時刻は含まない）"/>
-                    <Button Content="最後まで" Command="{Binding SetEndToLastCommand}" AutomationProperties.Name="最後まで"
-                            ToolTip="終了を編集後の動画の最後にします（モザイクで最後まで隠す場合など）"/>
                     <TextBlock VerticalAlignment="Center" Margin="10,0,0,0" Style="{StaticResource Subtle}">
                         <Run Text="編集後の長さ"/><Run Text="{Binding OutputDurationText, Mode=OneWay}"/>
                     </TextBlock>

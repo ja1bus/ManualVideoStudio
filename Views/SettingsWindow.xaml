@@ -289,7 +289,7 @@
                             <TextBox Grid.Row="4" Grid.Column="1" Style="{StaticResource Num}" Text="{Binding SceneThreshold}"/>
                             <TextBlock Grid.Row="5" Style="{StaticResource Label}" Text="候補の前後に残す余白（秒）"/>
                             <TextBox Grid.Row="5" Grid.Column="1" Style="{StaticResource Num}" Text="{Binding EdgeMarginSeconds}"/>
-                            <TextBlock Grid.Row="6" Style="{StaticResource Label}" Text="短縮候補で残す秒数"/>
+                            <TextBlock Grid.Row="6" Style="{StaticResource Label}" Text="候補の先頭に残す秒数（この分を残して、後ろを削除する候補にします）"/>
                             <TextBox Grid.Row="6" Grid.Column="1" Style="{StaticResource Num}" Text="{Binding ShortenKeepSeconds}"/>
                             <TextBlock Grid.Row="7" Style="{StaticResource Label}" Text="解析時の縮小幅（px、0 で縮小なし）"/>
                             <TextBox Grid.Row="7" Grid.Column="1" Style="{StaticResource Num}" Text="{Binding ScaleWidth}"/>
@@ -389,16 +389,13 @@
                         <Grid.RowDefinitions>
                             <RowDefinition/>
                             <RowDefinition/>
-                            <RowDefinition/>
                         </Grid.RowDefinitions>
-                        <TextBlock Style="{StaticResource Label}" Text="短縮登録の既定の残し秒数"/>
-                        <TextBox Grid.Column="1" Style="{StaticResource Num}" Text="{Binding DefaultShortenKeepSeconds}"/>
-                        <TextBlock Grid.Row="1" Style="{StaticResource Label}" Text="Shift+矢印キーで移動する秒数"/>
-                        <TextBox Grid.Row="1" Grid.Column="1" Style="{StaticResource Num}" Text="{Binding JumpSeconds}"/>
-                        <TextBlock Grid.Row="2" Style="{StaticResource Label}" Text="AI の回答言語（{{LANGUAGE}}）" Visibility="{Binding IsFullMode, Converter={StaticResource BoolToVisibility}}"/>
-                        <TextBox Grid.Row="2" Grid.Column="1" Width="160" HorizontalAlignment="Left" Text="{Binding Language}" Visibility="{Binding IsFullMode, Converter={StaticResource BoolToVisibility}}"/>
+                        <TextBlock Style="{StaticResource Label}" Text="Shift+矢印キーで移動する秒数"/>
+                        <TextBox Grid.Column="1" Style="{StaticResource Num}" Text="{Binding JumpSeconds}"/>
+                        <TextBlock Grid.Row="1" Style="{StaticResource Label}" Text="AI の回答言語（{{LANGUAGE}}）" Visibility="{Binding IsFullMode, Converter={StaticResource BoolToVisibility}}"/>
+                        <TextBox Grid.Row="1" Grid.Column="1" Width="160" HorizontalAlignment="Left" Text="{Binding Language}" Visibility="{Binding IsFullMode, Converter={StaticResource BoolToVisibility}}"/>
                     </Grid>
-                    <TextBlock Text="{Binding AboutText}" Style="{StaticResource Subtle}" Margin="0,24,0,0"/>
+                    <TextBlock Text="{Binding AboutText}" Style="{StaticResource Subtle}" Margin="0,24,0,0" AutomationProperties.AutomationId="About.Version"/>
                 </StackPanel>
             </TabItem>
         </TabControl>

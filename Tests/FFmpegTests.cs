@@ -391,9 +391,11 @@ public class DetectionTests
         Assert.Equal(2, c.Count);
         Assert.Equal(CandidateKind.FreezeAndSilence, c[0].Kind);
         Assert.Equal("7.6秒の静止＋無音", c[0].Reason);
-        Assert.Equal(10.5, c[0].Start); // 余白 0.5 秒
+        // 余白 0.5 秒のあと、先頭に残す秒数（標準 1.5 秒）を残して、以降を削除する候補にする（短縮は廃止。v1.17.0）。
+        Assert.Equal(12.0, c[0].Start);
         Assert.Equal(17.1, c[0].End);
-        Assert.Equal(SegmentAction.Shorten, c[0].SuggestedAction);
+        Assert.Equal(SegmentAction.Remove, c[0].SuggestedAction);
+        Assert.Equal(0, c[0].KeepSeconds);
         Assert.Equal(CandidateKind.Freeze, c[1].Kind);
         Assert.True(c[0].Confidence > c[1].Confidence);
         Assert.All(c, x => Assert.Equal(SegmentSource.LocalAnalysis, x.Source));
@@ -405,8 +407,8 @@ public class DetectionTests
         var s = AnalysisSettings.FromPreset(AnalysisPreset.Standard);
         var c = CandidateBuilder.Build([new TimeRange(0, 5), new TimeRange(20, 22.5), new TimeRange(55, 60)], [], 60, false, s);
         Assert.Equal(2, c.Count);
-        Assert.Equal(0, c[0].Start);  // 先頭は余白なし
-        Assert.Equal(60, c[1].End);   // 末尾も余白なし
+        Assert.Equal(1.5, c[0].Start);  // 先頭は余白なし。残す秒数（1.5 秒）だけ後ろから削除する
+        Assert.Equal(60, c[1].End);     // 末尾も余白なし
     }
 
     [Fact]

@@ -3,6 +3,7 @@ using System.Text;
 using ManualVideoStudio.Core.Analysis;
 using ManualVideoStudio.Core.Editing;
 using ManualVideoStudio.Core.Export;
+using ManualVideoStudio.Core.Persistence;
 using ManualVideoStudio.Core.Models;
 using ManualVideoStudio.Core.Recording;
 
@@ -55,7 +56,7 @@ public static class FFmpegArguments
 
     /// <summary>長いフィルタを書き出す一時ファイルのパス。一覧ファイルと同じ理由で拡張子を付けない（v1.4.1）。</summary>
     public static string NewFilterScriptPath()
-        => Path.Combine(Path.GetTempPath(), $"manualvideostudio-filter-{Guid.NewGuid():N}");
+        => Path.Combine(AppTemp.Root, $"manualvideostudio-filter-{Guid.NewGuid():N}");
 
     private static string S(double seconds) => TimeFormat.ToFFmpegSeconds(seconds);
     private static string I(int v) => v.ToString(CultureInfo.InvariantCulture);

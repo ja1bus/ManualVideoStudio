@@ -531,7 +531,7 @@ public class VideoShapeEditorTests
         vm.SetToolCommand.Execute(EditorTool.Line);
         vm.CommitShape(new ImagePoint(10, 10), new ImagePoint(100, 10));
         Assert.IsType<LineAnnotation>(Assert.Single(vm.Session.Items));
-        vm.SetEndToLastCommand.Execute(null);
+        vm.EndText = "00:00:30.000";
         Assert.Equal("00:00:30.000", vm.EndText);
         Assert.True(vm.IsDirty);
 

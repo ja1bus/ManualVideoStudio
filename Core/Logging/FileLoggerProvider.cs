@@ -29,6 +29,12 @@ public sealed class FileLoggerProvider : ILoggerProvider
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException) { }
     }
 
+    /// <summary>
+    /// ログを書き込めなかったときの最後の理由（書けているときは null）。ログ保存の失敗は処理を止めないが、
+    /// エラー表示で「ログを保存できていません」と案内できるようにする（v1.17.0）。
+    /// </summary>
+    public static string? LastWriteError { get; private set; }
+
     public string CurrentLogFile => Path.Combine(_directory, $"app-{DateTime.Now:yyyyMMdd}.log");
 
     public ILogger CreateLogger(string categoryName) => _loggers.GetOrAdd(categoryName, n => new FileLogger(this, ShortName(n)));
@@ -55,8 +61,13 @@ public sealed class FileLoggerProvider : ILoggerProvider
         sb.AppendLine();
         lock (_lock)
         {
-            try { File.AppendAllText(CurrentLogFile, sb.ToString(), new UTF8Encoding(false)); }
-            catch (Exception e) when (e is IOException or UnauthorizedAccessException) { /* ログ失敗で処理を止めない */ }
+            try
+            {
+                Directory.CreateDirectory(_directory);
+                File.AppendAllText(CurrentLogFile, sb.ToString(), new UTF8Encoding(false));
+                LastWriteError = null;
+            }
+            catch (Exception e) when (e is IOException or UnauthorizedAccessException) { LastWriteError = e.Message; /* ログ失敗で処理を止めない */ }
         }
     }
 

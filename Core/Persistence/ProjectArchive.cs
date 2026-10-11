@@ -37,6 +37,17 @@ public sealed class ProjectArchive(ILogger? logger = null)
 
     private readonly ILogger _logger = logger ?? NullLogger.Instance;
 
+    /// <summary>
+    /// zip に入れるファイル。字幕依頼用動画（<see cref="AppPaths.CaptionRequestFolderName"/> フォルダー。Gemini へ添付する一時的な動画）は含めない（v1.17.0）。
+    /// </summary>
+    public static IEnumerable<string> EnumerateArchiveFiles(string folder)
+    {
+        var root = Path.TrimEndingDirectorySeparator(Path.GetFullPath(folder));
+        return Directory.EnumerateFiles(root, "*", SearchOption.AllDirectories).Where(f =>
+            !Path.GetRelativePath(root, f).Split(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar)
+                .SkipLast(1).Contains(AppPaths.CaptionRequestFolderName, StringComparer.OrdinalIgnoreCase));
+    }
+
     /// <summary>既定の zip のファイル名（「名前_yyyyMMdd_HHmm.zip」。名前が無ければフォルダー名）。</summary>
     public static string DefaultFileName(string recordingFolderName)
     {
@@ -54,7 +65,7 @@ public sealed class ProjectArchive(ILogger? logger = null)
     {
         var folder = Path.TrimEndingDirectorySeparator(Path.GetFullPath(recordingFolder));
         var folderName = Path.GetFileName(folder);
-        var files = Directory.EnumerateFiles(folder, "*", SearchOption.AllDirectories).Select(f => new FileInfo(f)).ToList();
+        var files = EnumerateArchiveFiles(folder).Select(f => new FileInfo(f)).ToList();
         long total = files.Sum(f => f.Length);
         var partial = zipPath + ".part";
         try
@@ -121,7 +132,7 @@ public sealed class ProjectArchive(ILogger? logger = null)
             if (zip.GetEntry(ArchiveManifest.FileName) is null) return "zip に目印のファイルがありません。";
             var entries = zip.Entries.Where(e => e.FullName != ArchiveManifest.FileName && !e.FullName.EndsWith('/'))
                 .ToDictionary(e => e.FullName, e => e.Length, StringComparer.OrdinalIgnoreCase);
-            var files = Directory.EnumerateFiles(folder, "*", SearchOption.AllDirectories).ToList();
+            var files = EnumerateArchiveFiles(folder).ToList();
             if (entries.Count != files.Count) return $"zip のファイル数（{entries.Count}）がフォルダー（{files.Count}）と違います。";
             foreach (var f in files)
             {

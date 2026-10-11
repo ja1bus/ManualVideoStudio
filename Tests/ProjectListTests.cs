@@ -475,6 +475,7 @@ public class ProjectListViewModelTests
         }
         public bool EditSubtitle(SubtitleEditViewModel vm) => false;
         public bool ChooseGifQuality(GifExportViewModel vm) => false;
+        public void ShowAbout(AboutViewModel vm) { }
         public bool EditTitle(TitleEditViewModel vm) => false;
         public bool ConfirmDanger(string title, string message, string okLabel, string cancelLabel)
         {

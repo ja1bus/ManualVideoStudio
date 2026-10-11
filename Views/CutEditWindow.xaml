@@ -15,7 +15,6 @@
                 <RowDefinition/>
                 <RowDefinition/>
                 <RowDefinition/>
-                <RowDefinition/>
             </Grid.RowDefinitions>
             <TextBlock Text="開始位置" VerticalAlignment="Center"/>
             <TextBox Grid.Column="1" Text="{Binding StartText, UpdateSourceTrigger=PropertyChanged}" FontFamily="Consolas"/>
@@ -23,19 +22,12 @@
             <TextBlock Grid.Row="1" Text="終了位置" VerticalAlignment="Center"/>
             <TextBox Grid.Row="1" Grid.Column="1" Text="{Binding EndText, UpdateSourceTrigger=PropertyChanged}" FontFamily="Consolas"/>
             <Button Grid.Row="1" Grid.Column="2" Content="現在位置" Command="{Binding EndFromCurrentCommand}"/>
-            <TextBlock Grid.Row="2" Text="動作" VerticalAlignment="Center"/>
-            <StackPanel Grid.Row="2" Grid.Column="1" Grid.ColumnSpan="2" Orientation="Horizontal">
-                <RadioButton Content="削除" IsChecked="{Binding IsShorten, Converter={StaticResource InverseBool}}"/>
-                <RadioButton Content="短縮" IsChecked="{Binding IsShorten}"/>
-                <TextBlock Text="残す秒数" VerticalAlignment="Center" Margin="8,0,4,0"/>
-                <TextBox Width="60" Text="{Binding KeepSecondsText, UpdateSourceTrigger=PropertyChanged}" IsEnabled="{Binding IsShorten}"/>
-            </StackPanel>
-            <TextBlock Grid.Row="3" Text="出所" VerticalAlignment="Center"/>
-            <TextBlock Grid.Row="3" Grid.Column="1" Text="{Binding SourceText}" Margin="4"/>
-            <TextBlock Grid.Row="4" Text="理由" VerticalAlignment="Top" Margin="0,4"/>
-            <TextBlock Grid.Row="4" Grid.Column="1" Grid.ColumnSpan="2" Text="{Binding Reason}" TextWrapping="Wrap" Margin="4"/>
+            <TextBlock Grid.Row="2" Text="出所" VerticalAlignment="Center"/>
+            <TextBlock Grid.Row="2" Grid.Column="1" Text="{Binding SourceText}" Margin="4"/>
+            <TextBlock Grid.Row="3" Text="理由" VerticalAlignment="Top" Margin="0,4"/>
+            <TextBlock Grid.Row="3" Grid.Column="1" Grid.ColumnSpan="2" Text="{Binding Reason}" TextWrapping="Wrap" Margin="4"/>
         </Grid>
-        <TextBlock Text="時刻は 00:01:23.456 形式。短縮は区間の先頭から指定秒数を残し、残りを削除します。" Style="{StaticResource Subtle}" FontSize="11" Margin="0,6,0,0"/>
+        <TextBlock Text="時刻は 00:01:23.456 形式。ほかのカットと重なる（接する）ときは、そのカットも含めて 1 つのカットにまとめます。" Style="{StaticResource Subtle}" FontSize="11" Margin="0,6,0,0"/>
         <TextBlock Text="{Binding Error}" Foreground="{StaticResource ErrorBrush}" TextWrapping="Wrap" Margin="0,6,0,0"
                    Visibility="{Binding Error, Converter={StaticResource EmptyToCollapsed}}"/>
         <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,12,0,0">

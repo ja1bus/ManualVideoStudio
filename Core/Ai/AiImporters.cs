@@ -133,16 +133,18 @@ public static class AiCutImporter
                     row.Action = SegmentAction.Remove;
                     break;
                 case "shorten":
-                    row.Action = SegmentAction.Shorten;
-                    if (c.KeepSeconds is { } k && k > 0) row.KeepSeconds = Math.Round(k, 3);
-                    else
+                    // 短縮は廃止（v1.17.0）。先頭の keep_seconds 秒を残し、それ以降だけを削除する区間にする。
+                    row.Action = SegmentAction.Remove;
+                    var keep = c.KeepSeconds is { } k && k > 0 ? Math.Round(k, 3) : defaultKeepSeconds;
+                    if (row.Errors.Count == 0 && start + keep < end)
                     {
-                        row.KeepSeconds = defaultKeepSeconds;
-                        row.Warnings.Add(string.Create(CultureInfo.InvariantCulture, $"keep_seconds が無いため {defaultKeepSeconds:0.0#} 秒にしました。"));
+                        row.Start = Math.Round(start + keep, 3);
+                        row.Warnings.Add(string.Create(CultureInfo.InvariantCulture, $"shorten を、先頭 {keep:0.0#} 秒を残して以降を削除する区間に変換しました。"));
                     }
+                    else if (row.Errors.Count == 0) row.Errors.Add("keep_seconds が区間の長さ以上です。");
                     break;
                 default:
-                    row.Errors.Add($"action \"{c.Action ?? "なし"}\" は未対応です（remove / shorten）。");
+                    row.Errors.Add($"action \"{c.Action ?? "なし"}\" は未対応です（remove）。");
                     break;
             }
 
@@ -170,8 +172,6 @@ public static class AiCutImporter
                     }
                     else row.Errors.Add("end が動画の長さを超えています。");
                 }
-                if (row.Errors.Count == 0 && row.Action == SegmentAction.Shorten && row.KeepSeconds >= row.End - row.Start)
-                    row.Errors.Add("keep_seconds が区間の長さ以上です。");
             }
             row.Include = row.IsValid;
             rows.Add(row);

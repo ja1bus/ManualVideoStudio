@@ -71,8 +71,10 @@
                         </Grid.RowDefinitions>
                         <DockPanel>
                             <StackPanel DockPanel.Dock="Right" Orientation="Horizontal">
-                                <Button Content="クリア" Command="{Binding ClearResponseCommand}"/>
-                                <Button Content="解析" Style="{StaticResource AccentButton}" MinWidth="90" Command="{Binding ParseCommand}"/>
+                                <Button Content="クリップボードから貼り付け" Command="{Binding PasteFromClipboardCommand}" AutomationProperties.AutomationId="Ai.Paste"
+                                        ToolTip="回答欄の内容を、クリップボードの文字列で置き換えます（追記しません）。貼り付けただけでは解析も取り込みもしません"/>
+                                <Button Content="クリア" Command="{Binding ClearResponseCommand}" AutomationProperties.AutomationId="Ai.ClearResponse"/>
+                                <Button Content="解析" Style="{StaticResource AccentButton}" MinWidth="90" Command="{Binding ParseCommand}" AutomationProperties.AutomationId="Ai.Parse"/>
                             </StackPanel>
                             <TextBlock Style="{StaticResource Step}" Text="4. Gemini の回答を貼り付けて解析"/>
                         </DockPanel>
@@ -81,6 +83,8 @@
                                  ToolTip="JSON 以外の文章が含まれていても、```json ブロックや { } の範囲を探して解析します"/>
 
                         <StackPanel Grid.Row="2" Margin="0,6,0,4">
+                            <TextBlock Text="{Binding PasteMessage}" TextWrapping="Wrap" Style="{StaticResource Subtle}" FontSize="11" Margin="0,0,0,4"
+                                       Visibility="{Binding PasteMessage, Converter={StaticResource EmptyToCollapsed}}" AutomationProperties.AutomationId="Ai.PasteMessage"/>
                             <TextBlock Style="{StaticResource Step}" Text="5. 内容を確認して取り込む"/>
                             <Border Background="#FDE7E9" CornerRadius="4" Padding="6,3" Visibility="{Binding ErrorMessage, Converter={StaticResource EmptyToCollapsed}}">
                                 <TextBlock Text="{Binding ErrorMessage}" Foreground="{StaticResource ErrorBrush}" TextWrapping="Wrap"/>
@@ -191,10 +195,16 @@
                         </Grid>
 
                         <DockPanel Grid.Row="4" Margin="0,6,0,0">
-                            <Button DockPanel.Dock="Right" Content="取り込む" Style="{StaticResource AccentButton}" MinWidth="120" Command="{Binding ImportCommand}"
-                                    IsEnabled="{Binding HasResult}"/>
-                            <TextBlock Style="{StaticResource Subtle}" VerticalAlignment="Center" FontSize="11"
-                                       Text="取り込みは主画面の［元に戻す］（Ctrl+Z）で取り消せます。カット候補は採用するまで編集に反映されません。"/>
+                            <StackPanel DockPanel.Dock="Right" Orientation="Horizontal">
+                                <Button Content="取り込む" MinWidth="96" Command="{Binding ImportCommand}" IsEnabled="{Binding HasResult}" AutomationProperties.AutomationId="Ai.Import"
+                                        ToolTip="取り込んで、この画面は開いたままにします（履歴などを続けて見られます）"/>
+                                <Button Content="取り込んで閉じる" Style="{StaticResource AccentButton}" MinWidth="120" Command="{Binding ImportAndCloseCommand}" IsEnabled="{Binding HasResult}"
+                                        AutomationProperties.AutomationId="Ai.ImportAndClose" ToolTip="取り込みに成功したときだけ、この画面を閉じます（0 件・エラーのときは開いたままです）"/>
+                                <Button Content="閉じる" MinWidth="72" Command="{Binding CloseCommand}" AutomationProperties.AutomationId="Ai.Close"
+                                        ToolTip="この画面を閉じます。まだ取り込んでいない解析結果は、反映されません"/>
+                            </StackPanel>
+                            <TextBlock Style="{StaticResource Subtle}" VerticalAlignment="Center" FontSize="11" TextWrapping="Wrap"
+                                       Text="取り込みは主画面の［元に戻す］（Ctrl+Z）で取り消せます。カット候補の取り込みは「採用」とは別で、採用するまで編集に反映されません。閉じるだけでは取り込みません。"/>
                         </DockPanel>
                     </Grid>
                 </Grid>

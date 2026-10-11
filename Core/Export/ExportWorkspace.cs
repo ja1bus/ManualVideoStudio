@@ -1,5 +1,6 @@
 using System.Text;
 using ManualVideoStudio.Core.FFmpeg;
+using ManualVideoStudio.Core.Persistence;
 using ManualVideoStudio.Core.Models;
 using ManualVideoStudio.Core.Subtitles;
 
@@ -41,7 +42,7 @@ public sealed class ExportWorkspace : IDisposable
         bool hasSubtitles = subtitles is { Count: > 0 };
         bool hasShapes = shapes is { IsEmpty: false };
         if (!hasSubtitles && !hasShapes && title is null) return new ExportWorkspace(null, null, null);
-        var dir = Path.Combine(Path.GetTempPath(), $"manualvideostudio-sub-{Guid.NewGuid():N}");
+        var dir = Path.Combine(AppTemp.Root, $"manualvideostudio-sub-{Guid.NewGuid():N}");
         System.IO.Directory.CreateDirectory(dir);
         try
         {

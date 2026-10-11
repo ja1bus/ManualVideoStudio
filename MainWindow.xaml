@@ -94,8 +94,7 @@
                 <Separator/>
                 <MenuItem Header="カット開始位置を設定" InputGestureText="I" Command="{Binding SetMarkInCommand}"/>
                 <MenuItem Header="カット終了位置を設定" InputGestureText="O" Command="{Binding SetMarkOutCommand}"/>
-                <MenuItem Header="削除区間として登録" InputGestureText="R" Command="{Binding AddRemoveCutCommand}"/>
-                <MenuItem Header="短縮区間として登録" InputGestureText="S" Command="{Binding AddShortenCutCommand}"/>
+                <MenuItem Header="この区間をカットする" InputGestureText="R" Command="{Binding AddRemoveCutCommand}"/>
                 <Separator Visibility="{Binding IsFullMode, Converter={StaticResource BoolToVisibility}}"/>
                 <MenuItem Header="この位置を画像に追加" InputGestureText="C" Command="{Binding AddCaptureCommand}" Visibility="{Binding IsFullMode, Converter={StaticResource BoolToVisibility}}"/>
                 <Separator/>
@@ -126,8 +125,10 @@
                 <MenuItem Header="ログフォルダーを開く" Command="{Binding OpenLogFolderCommand}"/>
             </MenuItem>
             <MenuItem Header="ヘルプ(_H)">
-                <MenuItem Header="取扱説明書（使い方・用語集）" InputGestureText="F1" Command="{Binding OpenManualCommand}"/>
+                <MenuItem Header="取扱説明書（Web・最新版）" InputGestureText="F1" Command="{Binding OpenManualCommand}" AutomationProperties.AutomationId="Menu.Help.Manual"/>
                 <MenuItem Header="キーボード操作" Click="Shortcuts_Click"/>
+                <Separator/>
+                <MenuItem Header="{local:Str Help.About}" Command="{Binding ShowAboutCommand}" AutomationProperties.AutomationId="Menu.Help.About"/>
             </MenuItem>
         </Menu>
 
@@ -312,7 +313,7 @@
                             <DockPanel LastChildFill="False">
                                 <StackPanel Orientation="Horizontal" DockPanel.Dock="Left" VerticalAlignment="Center">
                                     <Button Style="{StaticResource IconButton}" Content="⏮" ToolTip="先頭へ (Home)" Command="{Binding SeekStartCommand}"/>
-                                    <Button Style="{StaticResource IconButton}" Content="−1s" ToolTip="1 秒戻る (Shift+←)" Command="{Binding JumpCommand}" CommandParameter="-1"/>
+                                    <Button Style="{StaticResource IconButton}" Content="◀ カット" ToolTip="{local:Str Seek.PrevCut.Tip}" Command="{Binding SeekPrevCutCommand}" AutomationProperties.AutomationId="Seek.PrevCut"/>
                                     <Button Style="{StaticResource IconButton}" Content="◀|" ToolTip="1 フレーム戻る (←)" Command="{Binding StepFrameCommand}" CommandParameter="-1"/>
                                     <Button Style="{StaticResource AccentButton}" MinWidth="72" ToolTip="再生 / 一時停止 (Space)" Command="{Binding PlayPauseCommand}">
                                         <TextBlock>
@@ -329,7 +330,7 @@
                                         </TextBlock>
                                     </Button>
                                     <Button Style="{StaticResource IconButton}" Content="|▶" ToolTip="1 フレーム進む (→)" Command="{Binding StepFrameCommand}" CommandParameter="1"/>
-                                    <Button Style="{StaticResource IconButton}" Content="+1s" ToolTip="1 秒進む (Shift+→)" Command="{Binding JumpCommand}" CommandParameter="+1"/>
+                                    <Button Style="{StaticResource IconButton}" Content="カット ▶" ToolTip="{local:Str Seek.NextCut.Tip}" Command="{Binding SeekNextCutCommand}" AutomationProperties.AutomationId="Seek.NextCut"/>
                                     <Button Style="{StaticResource IconButton}" Content="⏭" ToolTip="末尾へ (End)" Command="{Binding SeekEndCommand}"/>
                                 </StackPanel>
                                 <StackPanel Orientation="Horizontal" DockPanel.Dock="Left" VerticalAlignment="Center" Margin="12,0,0,0">
@@ -342,8 +343,8 @@
                                                ToolTip="字幕の時刻（編集後の動画の時刻）" Visibility="{Binding IsSubtitlePhase, Converter={StaticResource BoolToVisibility}}"/>
                                 </StackPanel>
                                 <StackPanel Orientation="Horizontal" DockPanel.Dock="Right" VerticalAlignment="Center">
-                                    <TextBlock Text="時刻へ移動" VerticalAlignment="Center" Foreground="{StaticResource SubtleTextBrush}"/>
-                                    <TextBox Width="100" Text="{Binding JumpText, UpdateSourceTrigger=PropertyChanged}" KeyDown="JumpBox_KeyDown" ToolTip="例: 00:01:23.456 / 1:23.4 / 83.4（Enter で移動）"/>
+                                    <CheckBox Content="{local:Str Preview.Toggle}" IsChecked="{Binding ApplyCutsInPreview}" ToolTip="{local:Str Preview.Applied.Tip}" VerticalAlignment="Center" Margin="0,0,14,0"
+                                              Visibility="{Binding ShowCutTools, Converter={StaticResource BoolToVisibility}}" AutomationProperties.AutomationId="Cut.Preview.Applied"/>
                                 </StackPanel>
                             </DockPanel>
                         </Border>
@@ -355,27 +356,24 @@
                                 <StackPanel>
                                     <WrapPanel VerticalAlignment="Center">
                                         <TextBlock Text="{local:Str Cut.Title}" FontWeight="SemiBold" VerticalAlignment="Center" Margin="4,0,8,0"/>
-                                        <Button Content="{local:Str Cut.Start}" Command="{Binding SetMarkInCommand}" ToolTip="{local:Str Cut.Start.Tip}" AutomationProperties.AutomationId="Cut.Start"/>
-                                        <TextBlock Text="{Binding MarkInText}" FontFamily="Consolas" VerticalAlignment="Center" Margin="2,0,6,0" AutomationProperties.AutomationId="Cut.MarkInText"/>
-                                        <Button Content="{local:Str Cut.End}" Command="{Binding SetMarkOutCommand}" ToolTip="{local:Str Cut.End.Tip}" AutomationProperties.AutomationId="Cut.End"/>
-                                        <TextBlock Text="{Binding MarkOutText}" FontFamily="Consolas" VerticalAlignment="Center" Margin="2,0,4,0" AutomationProperties.AutomationId="Cut.MarkOutText"/>
+                                        <Button Style="{StaticResource SegButton}" Content="{local:Str Cut.Start}" Command="{Binding SetMarkInCommand}" Tag="{Binding HasMarkIn}" ToolTip="{Binding MarkInTip}" AutomationProperties.AutomationId="Cut.Start"/>
+                                        <Button Style="{StaticResource IconButton}" Content="{local:Str Cut.ClearIn}" Command="{Binding ClearMarkInCommand}" ToolTip="{local:Str Cut.ClearIn.Tip}"
+                                                AutomationProperties.AutomationId="Cut.ClearIn" AutomationProperties.Name="{local:Str Cut.ClearIn.Tip}" Margin="0,0,10,0"/>
+                                        <Button Style="{StaticResource SegButton}" Content="{local:Str Cut.End}" Command="{Binding SetMarkOutCommand}" Tag="{Binding HasMarkOut}" ToolTip="{Binding MarkOutTip}" AutomationProperties.AutomationId="Cut.End"/>
+                                        <Button Style="{StaticResource IconButton}" Content="{local:Str Cut.ClearOut}" Command="{Binding ClearMarkOutCommand}" ToolTip="{local:Str Cut.ClearOut.Tip}"
+                                                AutomationProperties.AutomationId="Cut.ClearOut" AutomationProperties.Name="{local:Str Cut.ClearOut.Tip}" Margin="0,0,10,0"/>
                                         <TextBlock Text="{Binding MarkRangeText}" Foreground="{StaticResource SubtleTextBrush}" VerticalAlignment="Center" Margin="2,0,8,0"/>
                                         <Button Content="{local:Str Cut.Remove}" Command="{Binding AddRemoveCutCommand}" BorderBrush="{StaticResource RemoveBrush}"
                                                 ToolTip="{local:Str Cut.Remove.Tip}" AutomationProperties.AutomationId="Cut.Remove"/>
-                                        <Button Style="{StaticResource SegButton}" Content="{local:Str Cut.Shorten}" Command="{Binding ToggleShortenDetailCommand}" Tag="{Binding IsShortenDetailOpen}"
-                                                BorderBrush="{StaticResource ShortenBrush}" ToolTip="{local:Str Cut.Shorten.Tip}" AutomationProperties.AutomationId="Cut.Shorten"/>
                                         <Button Content="{local:Str Cut.ClearRange}" Command="{Binding ClearMarksCommand}" ToolTip="{local:Str Cut.ClearRange.Tip}" AutomationProperties.AutomationId="Cut.ClearRange"/>
-                                        <Border Width="1" Background="{StaticResource BorderBrush}" Margin="6,4"/>
-                                        <Button Content="{local:Str Cut.Analyze}" Command="{Binding RunAnalysisCommand}" ToolTip="{local:Str Cut.Analyze.Tip}" AutomationProperties.AutomationId="Cut.Analyze"/>
                                     </WrapPanel>
-                                    <WrapPanel Margin="4,4,0,0" VerticalAlignment="Center" Visibility="{Binding IsShortenDetailOpen, Converter={StaticResource BoolToVisibility}}" AutomationProperties.AutomationId="Cut.ShortenDetail">
-                                        <TextBlock Text="{local:Str Cut.ShortenKeep}" VerticalAlignment="Center" Margin="0,0,6,0"/>
-                                        <TextBox Width="56" Text="{Binding ShortenKeepText, UpdateSourceTrigger=PropertyChanged}" ToolTip="{local:Str Cut.ShortenKeep.Tip}"
-                                                 VerticalContentAlignment="Center" AutomationProperties.AutomationId="Cut.ShortenKeep" AutomationProperties.Name="{local:Str Cut.ShortenKeep}"/>
-                                        <TextBlock Text="{local:Str Cut.Unit}" VerticalAlignment="Center" Margin="4,0,10,0"/>
-                                        <Button Style="{StaticResource AccentButton}" Content="{local:Str Cut.ShortenRegister}" Command="{Binding AddShortenCutCommand}"
-                                                ToolTip="{local:Str Cut.ShortenRegister.Tip}" AutomationProperties.AutomationId="Cut.ShortenRegister"/>
-                                    </WrapPanel>
+                                    <Border Background="{StaticResource InfoBackgroundBrush}" CornerRadius="4" Padding="8,3" Margin="4,4,0,0" HorizontalAlignment="Left"
+                                            Visibility="{Binding HasPreviewBanner, Converter={StaticResource BoolToVisibility}}" AutomationProperties.AutomationId="Cut.Preview.Banner">
+                                        <StackPanel Orientation="Horizontal">
+                                            <TextBlock Text="{Binding PreviewBannerText}" TextWrapping="Wrap" VerticalAlignment="Center"/>
+                                            <Button Content="{local:Str Preview.Stop}" Command="{Binding StopPreviewCommand}" Margin="8,0,0,0" AutomationProperties.AutomationId="Cut.Preview.Stop"/>
+                                        </StackPanel>
+                                    </Border>
                                 </StackPanel>
                             </Border>
 
@@ -383,10 +381,12 @@
                             <Border Style="{StaticResource Card}" Padding="6,4" Visibility="{Binding ShowSubtitleTools, Converter={StaticResource BoolToVisibility}}" AutomationProperties.AutomationId="Sub.Tools">
                                 <WrapPanel VerticalAlignment="Center">
                                     <TextBlock Text="{local:Str Sub.Title}" FontWeight="SemiBold" VerticalAlignment="Center" Margin="4,0,8,0" Foreground="{StaticResource SubtitleBrush}"/>
-                                    <Button Content="{local:Str Sub.Start}" Command="{Binding SetMarkInCommand}" ToolTip="{local:Str Sub.Start.Tip}" AutomationProperties.AutomationId="Sub.Start"/>
-                                    <TextBlock Text="{Binding SubtitleMarkInText}" FontFamily="Consolas" VerticalAlignment="Center" Margin="2,0,6,0" AutomationProperties.AutomationId="Sub.MarkInText"/>
-                                    <Button Content="{local:Str Sub.End}" Command="{Binding SetMarkOutCommand}" ToolTip="{local:Str Sub.End.Tip}" AutomationProperties.AutomationId="Sub.End"/>
-                                    <TextBlock Text="{Binding SubtitleMarkOutText}" FontFamily="Consolas" VerticalAlignment="Center" Margin="2,0,4,0" AutomationProperties.AutomationId="Sub.MarkOutText"/>
+                                    <Button Style="{StaticResource SegButton}" Content="{local:Str Sub.Start}" Command="{Binding SetMarkInCommand}" Tag="{Binding HasMarkIn}" ToolTip="{Binding MarkInTip}" AutomationProperties.AutomationId="Sub.Start"/>
+                                    <Button Style="{StaticResource IconButton}" Content="{local:Str Cut.ClearIn}" Command="{Binding ClearMarkInCommand}" ToolTip="{local:Str Cut.ClearIn.Tip}"
+                                            AutomationProperties.AutomationId="Sub.ClearIn" AutomationProperties.Name="{local:Str Cut.ClearIn.Tip}" Margin="0,0,10,0"/>
+                                    <Button Style="{StaticResource SegButton}" Content="{local:Str Sub.End}" Command="{Binding SetMarkOutCommand}" Tag="{Binding HasMarkOut}" ToolTip="{Binding MarkOutTip}" AutomationProperties.AutomationId="Sub.End"/>
+                                    <Button Style="{StaticResource IconButton}" Content="{local:Str Cut.ClearOut}" Command="{Binding ClearMarkOutCommand}" ToolTip="{local:Str Cut.ClearOut.Tip}"
+                                            AutomationProperties.AutomationId="Sub.ClearOut" AutomationProperties.Name="{local:Str Cut.ClearOut.Tip}" Margin="0,0,10,0"/>
                                     <TextBlock Text="{Binding MarkRangeText}" Foreground="{StaticResource SubtleTextBrush}" VerticalAlignment="Center" Margin="0,0,4,0"/>
                                     <Button Content="{local:Str Sub.Add}" Command="{Binding AddSubtitleCommand}" BorderBrush="{StaticResource SubtitleBrush}"
                                             ToolTip="{local:Str Sub.Add.Tip}" AutomationProperties.AutomationId="Sub.Add"/>
@@ -563,20 +563,19 @@
                                 <DockPanel>
                                     <TextBlock DockPanel.Dock="Top" Text="{Binding OutputDurationText}" Margin="4,2,4,6" FontWeight="SemiBold" TextWrapping="Wrap"/>
                                     <WrapPanel DockPanel.Dock="Bottom" Margin="0,4,0,0">
-                                        <Button Content="編集..." Command="{Binding EditCutCommand}" CommandParameter="{Binding SelectedItem, ElementName=CutGrid}"
-                                                IsEnabled="{Binding IsCutLocked, Converter={StaticResource InverseBool}}"/>
-                                        <Button Content="削除" Command="{Binding DeleteCutsCommand}" CommandParameter="{Binding SelectedItems, ElementName=CutGrid}"
-                                                IsEnabled="{Binding IsCutLocked, Converter={StaticResource InverseBool}}"/>
-                                        <Button Content="開始位置へ移動" Command="{Binding SeekToCutCommand}" CommandParameter="{Binding SelectedItem, ElementName=CutGrid}"/>
+                                        <Button Content="{local:Str Cut.List.Edit}" Command="{Binding EditCutCommand}" CommandParameter="{Binding SelectedItem, ElementName=CutGrid}"
+                                                IsEnabled="{Binding IsCutLocked, Converter={StaticResource InverseBool}}" AutomationProperties.AutomationId="List.Cuts.Edit"/>
+                                        <Button Content="{local:Str Cut.List.Undo}" Command="{Binding DeleteCutsCommand}" CommandParameter="{Binding SelectedItems, ElementName=CutGrid}"
+                                                IsEnabled="{Binding IsCutLocked, Converter={StaticResource InverseBool}}" ToolTip="{local:Str Cut.List.Undo.Tip}" AutomationProperties.AutomationId="List.Cuts.Remove"/>
+                                        <Button Content="{local:Str Cut.List.Seek}" Command="{Binding SeekToCutCommand}" CommandParameter="{Binding SelectedItem, ElementName=CutGrid}" AutomationProperties.AutomationId="List.Cuts.Seek"/>
                                     </WrapPanel>
                                     <Grid>
                                         <DataGrid x:Name="CutGrid" ItemsSource="{Binding CutItems}" IsReadOnly="True" SelectionMode="Extended"
-                                                  MouseDoubleClick="CutGrid_MouseDoubleClick" AutomationProperties.AutomationId="List.Cuts" AutomationProperties.Name="カット区間一覧">
+                                                  SelectionChanged="CutGrid_SelectionChanged" MouseDoubleClick="CutGrid_MouseDoubleClick" AutomationProperties.AutomationId="List.Cuts" AutomationProperties.Name="カット区間一覧">
                                             <DataGrid.Columns>
                                                 <DataGridTextColumn Header="開始" Binding="{Binding StartText}" FontFamily="Consolas"/>
                                                 <DataGridTextColumn Header="終了" Binding="{Binding EndText}" FontFamily="Consolas"/>
                                                 <DataGridTextColumn Header="長さ" Binding="{Binding DurationText}"/>
-                                                <DataGridTextColumn Header="動作" Binding="{Binding ActionText}"/>
                                                 <DataGridTextColumn Header="出所" Binding="{Binding SourceText}"/>
                                                 <DataGridTextColumn Header="理由" Binding="{Binding Reason}" Width="*"/>
                                             </DataGrid.Columns>
@@ -628,13 +627,17 @@
                                                              AutomationProperties.AutomationId="SubEdit.Text" AutomationProperties.Name="{local:Str SubEdit.Text}"/>
                                                     <WrapPanel Margin="0,6,0,0" VerticalAlignment="Center">
                                                         <TextBlock Text="{local:Str SubEdit.Start}" VerticalAlignment="Center" Margin="0,0,4,0"/>
-                                                        <TextBox Width="104" Text="{Binding SubtitleDraftStart, UpdateSourceTrigger=PropertyChanged}" FontFamily="Consolas" VerticalContentAlignment="Center" Tag="draft"
+                                                        <TextBox Width="84" Text="{Binding SubtitleDraftStart, UpdateSourceTrigger=PropertyChanged}" FontFamily="Consolas" VerticalContentAlignment="Center" Tag="draft"
                                                                  ToolTip="{local:Str SubEdit.Time.Tip}" LostKeyboardFocus="SubtitleDraft_LostKeyboardFocus" KeyDown="SubtitleDraftSingle_KeyDown"
                                                                  AutomationProperties.AutomationId="SubEdit.Start" AutomationProperties.Name="{local:Str SubEdit.Start}"/>
-                                                        <TextBlock Text="{local:Str SubEdit.End}" VerticalAlignment="Center" Margin="10,0,4,0"/>
-                                                        <TextBox Width="104" Text="{Binding SubtitleDraftEnd, UpdateSourceTrigger=PropertyChanged}" FontFamily="Consolas" VerticalContentAlignment="Center" Tag="draft"
+                                                        <Button Content="{local:Str SubEdit.FromCurrent}" Command="{Binding SubtitleDraftStartFromCurrentCommand}" Tag="NoCommit" Padding="4,2" MinHeight="26"
+                                                                ToolTip="{local:Str SubEdit.FromCurrent.Tip}" AutomationProperties.AutomationId="SubEdit.StartFromCurrent"/>
+                                                        <TextBlock Text="{local:Str SubEdit.End}" VerticalAlignment="Center" Margin="6,0,4,0"/>
+                                                        <TextBox Width="84" Text="{Binding SubtitleDraftEnd, UpdateSourceTrigger=PropertyChanged}" FontFamily="Consolas" VerticalContentAlignment="Center" Tag="draft"
                                                                  ToolTip="{local:Str SubEdit.Time.Tip}" LostKeyboardFocus="SubtitleDraft_LostKeyboardFocus" KeyDown="SubtitleDraftSingle_KeyDown"
                                                                  AutomationProperties.AutomationId="SubEdit.End" AutomationProperties.Name="{local:Str SubEdit.End}"/>
+                                                        <Button Content="{local:Str SubEdit.FromCurrent}" Command="{Binding SubtitleDraftEndFromCurrentCommand}" Tag="NoCommit" Padding="4,2" MinHeight="26"
+                                                                ToolTip="{local:Str SubEdit.FromCurrent.Tip}" AutomationProperties.AutomationId="SubEdit.EndFromCurrent"/>
                                                     </WrapPanel>
                                                     <WrapPanel Margin="0,6,0,0">
                                                         <Button Style="{StaticResource AccentButton}" Content="{local:Str SubEdit.Apply}" Command="{Binding ApplySubtitleDraftCommand}" Tag="NoCommit"
@@ -672,15 +675,6 @@
                                                                 AutomationProperties.Name="上下のずらしを戻す" ToolTip="上下のずらしをなくす"/>
                                                     </WrapPanel>
                                                 </StackPanel>
-                                                <!-- 全字幕に共通の設定（選択中の字幕とは別） -->
-                                                <Border BorderBrush="{StaticResource BorderBrush}" BorderThickness="0,1,0,0" Margin="0,8,0,0" Padding="0,6,0,0">
-                                                    <StackPanel>
-                                                        <TextBlock Text="{local:Str SubEdit.CommonHeader}" FontWeight="SemiBold"/>
-                                                        <TextBlock Text="{local:Str SubEdit.CommonHint}" Style="{StaticResource Subtle}" FontSize="11" TextWrapping="Wrap" Margin="0,2,0,2"/>
-                                                        <Button Content="{local:Str SubEdit.Appearance}" Command="{Binding ShowSubtitleSettingsCommand}" HorizontalAlignment="Left"
-                                                                ToolTip="{local:Str SubEdit.Appearance.Tip}" AutomationProperties.AutomationId="SubEdit.Appearance"/>
-                                                    </StackPanel>
-                                                </Border>
                                             </StackPanel>
                                         </Border>
                                     </StackPanel>
@@ -693,13 +687,44 @@
                                     <Border DockPanel.Dock="Top" Padding="6" Background="#F7E8FA" CornerRadius="4" Margin="0,0,0,4">
                                         <TextBlock Style="{StaticResource Subtle}" TextWrapping="Wrap" Text="{local:Str Shapes.ListHint}"/>
                                     </Border>
+                                    <!-- 選択中の図形: 表示する時間（編集後の動画）を直す。図形の描き直しは［図形を編集…］ -->
+                                    <Border DockPanel.Dock="Bottom" Style="{StaticResource Card}" Padding="8" Margin="0,6,0,0" AutomationProperties.AutomationId="ShapeEdit.Panel">
+                                        <StackPanel>
+                                            <TextBlock Text="{local:Str ShapeEdit.Header}" FontWeight="SemiBold" Foreground="{StaticResource ShapeBrush}"/>
+                                            <TextBlock Text="{local:Str ShapeEdit.None}" Style="{StaticResource Subtle}" TextWrapping="Wrap" Margin="0,4,0,0"
+                                                       Visibility="{Binding HasSelectedShape, Converter={StaticResource BoolToVisibility}, ConverterParameter=Invert}"
+                                                       AutomationProperties.AutomationId="ShapeEdit.None"/>
+                                            <StackPanel IsEnabled="{Binding HasSelectedShape}" Margin="0,4,0,0">
+                                                <WrapPanel VerticalAlignment="Center">
+                                                    <TextBlock Text="{local:Str SubEdit.Start}" VerticalAlignment="Center" Margin="0,0,4,0"/>
+                                                    <TextBox Width="84" Text="{Binding ShapeDraftStart, UpdateSourceTrigger=PropertyChanged}" FontFamily="Consolas" VerticalContentAlignment="Center"
+                                                             ToolTip="{local:Str SubEdit.Time.Tip}" AutomationProperties.AutomationId="ShapeEdit.Start" AutomationProperties.Name="{local:Str SubEdit.Start}"/>
+                                                    <Button Content="{local:Str SubEdit.FromCurrent}" Command="{Binding ShapeDraftStartFromCurrentCommand}" Padding="4,2" MinHeight="26"
+                                                            ToolTip="{local:Str SubEdit.FromCurrent.Tip}" AutomationProperties.AutomationId="ShapeEdit.StartFromCurrent"/>
+                                                    <TextBlock Text="{local:Str SubEdit.End}" VerticalAlignment="Center" Margin="6,0,4,0"/>
+                                                    <TextBox Width="84" Text="{Binding ShapeDraftEnd, UpdateSourceTrigger=PropertyChanged}" FontFamily="Consolas" VerticalContentAlignment="Center"
+                                                             ToolTip="{local:Str SubEdit.Time.Tip}" AutomationProperties.AutomationId="ShapeEdit.End" AutomationProperties.Name="{local:Str SubEdit.End}"/>
+                                                    <Button Content="{local:Str SubEdit.FromCurrent}" Command="{Binding ShapeDraftEndFromCurrentCommand}" Padding="4,2" MinHeight="26"
+                                                            ToolTip="{local:Str SubEdit.FromCurrent.Tip}" AutomationProperties.AutomationId="ShapeEdit.EndFromCurrent"/>
+                                                </WrapPanel>
+                                                <WrapPanel Margin="0,6,0,0">
+                                                    <Button Style="{StaticResource AccentButton}" Content="{local:Str SubEdit.Apply}" Command="{Binding ApplyShapeDraftCommand}" AutomationProperties.AutomationId="ShapeEdit.Apply"/>
+                                                    <Button Content="{local:Str SubEdit.Revert}" Command="{Binding RevertShapeDraftCommand}" AutomationProperties.AutomationId="ShapeEdit.Revert"/>
+                                                    <TextBlock Text="{local:Str SubEdit.Pending}" Foreground="{StaticResource ErrorBrush}" VerticalAlignment="Center" Margin="6,0,0,0"
+                                                               Visibility="{Binding HasShapeDraft, Converter={StaticResource BoolToVisibility}}" AutomationProperties.AutomationId="ShapeEdit.PendingText"/>
+                                                </WrapPanel>
+                                                <TextBlock Text="{Binding ShapeDraftError}" Foreground="{StaticResource ErrorBrush}" TextWrapping="Wrap" Margin="0,4,0,0"
+                                                           Visibility="{Binding ShapeDraftError, Converter={StaticResource EmptyToCollapsed}}" AutomationProperties.AutomationId="ShapeEdit.Error"/>
+                                            </StackPanel>
+                                        </StackPanel>
+                                    </Border>
                                     <WrapPanel DockPanel.Dock="Bottom" Margin="0,4,0,0" IsEnabled="{Binding IsSubtitlePhase}">
-                                        <Button Content="編集..." Command="{Binding EditShapesCommand}" CommandParameter="{Binding SelectedItem, ElementName=ShapeGrid}" AutomationProperties.AutomationId="List.Shapes.Edit"/>
+                                        <Button Content="図形再編集" Command="{Binding EditShapesCommand}" CommandParameter="{Binding SelectedItem, ElementName=ShapeGrid}" AutomationProperties.AutomationId="List.Shapes.Edit"/>
                                         <Button Content="削除" Command="{Binding DeleteShapesCommand}" CommandParameter="{Binding SelectedItems, ElementName=ShapeGrid}" AutomationProperties.AutomationId="List.Shapes.Delete"/>
                                         <Button Content="開始位置へ移動" Command="{Binding SeekToShapesCommand}" CommandParameter="{Binding SelectedItem, ElementName=ShapeGrid}"/>
                                     </WrapPanel>
                                     <Grid>
-                                        <DataGrid x:Name="ShapeGrid" ItemsSource="{Binding ShapeItems}" IsReadOnly="True" SelectionMode="Extended"
+                                        <DataGrid x:Name="ShapeGrid" ItemsSource="{Binding ShapeItems}" IsReadOnly="True" SelectionMode="Extended" SelectionChanged="ShapeGrid_SelectionChanged"
                                                   MouseDoubleClick="ShapeGrid_MouseDoubleClick" AutomationProperties.AutomationId="List.Shapes" AutomationProperties.Name="図形一覧">
                                             <DataGrid.Columns>
                                                 <DataGridTextColumn Header="開始" Binding="{Binding StartText}" FontFamily="Consolas"/>
@@ -719,37 +744,56 @@
                                 <DockPanel>
                                     <Border DockPanel.Dock="Top" Padding="6" Background="{StaticResource InfoBackgroundBrush}" CornerRadius="4" Margin="0,0,0,4">
                                         <StackPanel>
-                                            <TextBlock Style="{StaticResource Subtle}" TextWrapping="Wrap" Text="{local:Str Cand.Hint}"/>
+                                            <DockPanel>
+                                                <Menu DockPanel.Dock="Right" Background="Transparent" VerticalAlignment="Center">
+                                                    <MenuItem Header="{local:Str Cand.More}" AutomationProperties.AutomationId="Cand.More" ToolTip="{local:Str Cand.More.Tip}">
+                                                        <MenuItem Header="{local:Str Cand.Clear.Local.Button}" Command="{Binding ClearCandidatesCommand}" CommandParameter="local"
+                                                                  ToolTip="{local:Str Cand.Clear.Local.Tip}" AutomationProperties.AutomationId="Cand.Clear.Local"/>
+                                                        <MenuItem Header="{local:Str Cand.Clear.Ai.Button}" Command="{Binding ClearCandidatesCommand}" CommandParameter="ai"
+                                                                  ToolTip="{local:Str Cand.Clear.Ai.Tip}" AutomationProperties.AutomationId="Cand.Clear.Ai"/>
+                                                    </MenuItem>
+                                                </Menu>
+                                                <WrapPanel>
+                                                    <TextBlock Text="{local:Str Cand.Find.Label}" FontWeight="SemiBold" VerticalAlignment="Center" Margin="2,0,6,0"/>
+                                                    <Button Content="{local:Str Cand.AskAi}" Command="{Binding AskAiForCandidatesCommand}" ToolTip="{local:Str Cand.AskAi.Tip}"
+                                                            AutomationProperties.AutomationId="Cand.AskAi"/>
+                                                    <Button Content="{local:Str Cand.Run}" Command="{Binding RunAnalysisCommand}" ToolTip="{local:Str Cand.Run.Tip}" AutomationProperties.AutomationId="Cand.Run"/>
+                                                </WrapPanel>
+                                            </DockPanel>
                                             <WrapPanel Margin="0,4,0,0">
-                                                <Button Content="自動解析を実行" Command="{Binding RunAnalysisCommand}" AutomationProperties.AutomationId="Cand.Run"/>
-                                                <Button Content="解析設定..." Command="{Binding ShowAnalysisSettingsCommand}"/>
-                                                <Button Content="ローカル候補をクリア" Command="{Binding ClearCandidatesCommand}" CommandParameter="local"/>
-                                                <Button Content="AI 候補をクリア" Command="{Binding ClearCandidatesCommand}" CommandParameter="ai" Visibility="{Binding IsFullMode, Converter={StaticResource BoolToVisibility}}"/>
-                                                <CheckBox Content="却下・採用済みも表示" IsChecked="{Binding ShowDismissedCandidates}" Margin="6,0" VerticalAlignment="Center"/>
+                                                    <TextBlock Text="{local:Str Cand.Filter.Label}" FontWeight="SemiBold" VerticalAlignment="Center" Margin="2,0,6,0"/>
+                                                    <TextBlock Text="{local:Str Cand.View.Label}" VerticalAlignment="Center" Margin="0,0,4,0"/>
+                                                    <ComboBox Width="84" Height="30" Padding="6,0" VerticalContentAlignment="Center" ItemsSource="{x:Static vm:MainViewModel.CandidateStatusFilters}" SelectedIndex="{Binding CandidateStatusFilter}"
+                                                              AutomationProperties.AutomationId="Cand.View" AutomationProperties.Name="{local:Str Cand.View.Label}" ToolTip="{local:Str Cand.View.Tip}"/>
+                                                    <TextBlock Text="{local:Str Cand.Filter.SourceLabel}" VerticalAlignment="Center" Margin="10,0,4,0"/>
+                                                    <ComboBox Width="92" Height="30" Padding="6,0" VerticalContentAlignment="Center" ItemsSource="{x:Static vm:MainViewModel.CandidateSourceFilters}" SelectedIndex="{Binding CandidateSourceFilter}"
+                                                              AutomationProperties.AutomationId="Cand.Filter.Source" AutomationProperties.Name="出所の絞り込み"/>
                                             </WrapPanel>
+                                            <TextBlock Style="{StaticResource Subtle}" TextWrapping="Wrap" Text="{local:Str Cand.Hint}" Margin="0,4,0,0"/>
                                         </StackPanel>
                                     </Border>
-                                    <WrapPanel DockPanel.Dock="Bottom" Margin="0,4,0,0">
-                                        <!-- 採用はカットを変えるため字幕編集中は無効。却下・戻すは時間軸を変えないので使える -->
-                                        <Button Content="提案どおり採用" Style="{StaticResource AccentButton}" Command="{Binding AcceptCandidatesSuggestedCommand}" CommandParameter="{Binding SelectedItems, ElementName=CandidateGrid}"
-                                                IsEnabled="{Binding IsCutLocked, Converter={StaticResource InverseBool}}"/>
-                                        <Button Content="削除として採用" Command="{Binding AcceptCandidatesAsRemoveCommand}" CommandParameter="{Binding SelectedItems, ElementName=CandidateGrid}"
-                                                IsEnabled="{Binding IsCutLocked, Converter={StaticResource InverseBool}}"/>
-                                        <Button Content="短縮として採用" Command="{Binding AcceptCandidatesAsShortenCommand}" CommandParameter="{Binding SelectedItems, ElementName=CandidateGrid}"
-                                                IsEnabled="{Binding IsCutLocked, Converter={StaticResource InverseBool}}"
-                                                ToolTip="［短縮］で設定した「残す秒数」で短縮します"/>
-                                        <Button Content="却下" Command="{Binding DismissCandidatesCommand}" CommandParameter="{Binding SelectedItems, ElementName=CandidateGrid}"/>
-                                        <Button Content="未判断に戻す" Command="{Binding RestoreCandidatesCommand}" CommandParameter="{Binding SelectedItems, ElementName=CandidateGrid}"/>
-                                    </WrapPanel>
+                                    <StackPanel DockPanel.Dock="Bottom" Margin="0,4,0,0">
+                                        <TextBlock Text="{Binding CandidateSelectionText}" TextWrapping="Wrap" Margin="2,0,0,4" AutomationProperties.AutomationId="Cand.SelectionText"/>
+                                        <WrapPanel>
+                                            <Button Content="{local:Str Cand.Cut}" Style="{StaticResource AccentButton}" Command="{Binding AcceptCandidatesCommand}" CommandParameter="{Binding SelectedItems, ElementName=CandidateGrid}"
+                                                    IsEnabled="{Binding IsCutLocked, Converter={StaticResource InverseBool}}" ToolTip="{local:Str Cand.Cut.Tip}" AutomationProperties.AutomationId="Cand.Cut"/>
+                                            <Button Content="{Binding DismissButtonText}" Command="{Binding DismissOrRestoreCommand}" CommandParameter="{Binding SelectedItems, ElementName=CandidateGrid}"
+                                                    ToolTip="{local:Str Cand.Dismiss.Tip}" AutomationProperties.AutomationId="Cand.Dismiss"/>
+                                            <Button Content="{local:Str Cand.Trial}" Command="{Binding PreviewCandidateTrialCommand}" CommandParameter="{Binding SelectedItem, ElementName=CandidateGrid}"
+                                                    ToolTip="{local:Str Cand.Trial.Tip}" AutomationProperties.AutomationId="Cand.Trial"/>
+                                            <Button Content="{local:Str Cand.SelectAll}" Click="SelectAllPendingCandidates_Click" ToolTip="{local:Str Cand.SelectAll.Tip}" AutomationProperties.AutomationId="Cand.SelectAll"/>
+                                            <TextBlock Text="{Binding CandidateCountText}" Style="{StaticResource Subtle}" VerticalAlignment="Center" Margin="6,0,0,0" AutomationProperties.AutomationId="Cand.CountText"/>
+                                        </WrapPanel>
+                                    </StackPanel>
                                     <Grid>
                                         <DataGrid x:Name="CandidateGrid" ItemsSource="{Binding CandidateItems}" IsReadOnly="True" SelectionMode="Extended"
+                                                  SelectionChanged="CandidateGrid_SelectionChanged"
                                                   MouseDoubleClick="CandidateGrid_MouseDoubleClick" AutomationProperties.AutomationId="List.Candidates" AutomationProperties.Name="解析候補一覧">
                                             <DataGrid.Columns>
                                                 <DataGridTextColumn Header="開始" Binding="{Binding StartText}" FontFamily="Consolas"/>
                                                 <DataGridTextColumn Header="終了" Binding="{Binding EndText}" FontFamily="Consolas"/>
                                                 <DataGridTextColumn Header="長さ" Binding="{Binding DurationText}"/>
-                                                <DataGridTextColumn Header="提案" Binding="{Binding SuggestionText}"/>
-                                                <DataGridTextColumn Header="信頼度" Binding="{Binding ConfidenceText}"/>
+                                                <DataGridTextColumn Header="信頼度（目安）" Binding="{Binding ConfidenceText}"/>
                                                 <DataGridTextColumn Header="出所" Binding="{Binding SourceText}"/>
                                                 <DataGridTextColumn Header="状態" Binding="{Binding StatusText}"/>
                                                 <DataGridTextColumn Header="理由" Binding="{Binding Reason}" Width="*"/>
@@ -791,7 +835,9 @@
                                          Duration="{Binding Duration}" CurrentTime="{Binding CurrentTime}"
                                          Segments="{Binding TimelineSegments}" Candidates="{Binding TimelineCandidates}"
                                          Captures="{Binding TimelineCaptures}" SceneChanges="{Binding TimelineScenes}"
-                                         MarkIn="{Binding MarkIn}" MarkOut="{Binding MarkOut}" Revision="{Binding TimelineRevision}"/>
+                                         MarkIn="{Binding MarkIn}" MarkOut="{Binding MarkOut}" Revision="{Binding TimelineRevision}"
+                                         SelectedCutIds="{Binding SelectedCutIds}" SelectedCandidateIds="{Binding SelectedCandidateIds}"
+                                         SelectedSubtitleIds="{Binding SelectedSubtitleIds}" SelectedShapeIds="{Binding SelectedShapeIds}"/>
                     <DockPanel Margin="4,4,4,0">
                         <WrapPanel DockPanel.Dock="Right">
                             <WrapPanel.Resources>
@@ -810,7 +856,7 @@
                             </WrapPanel.Resources>
                             <Rectangle Fill="{StaticResource NormalSegmentBrush}"/><TextBlock Text="通常"/>
                             <Rectangle Fill="{StaticResource RemoveBrush}"/><TextBlock Text="削除（確定）"/>
-                            <Rectangle Fill="{StaticResource ShortenBrush}"/><TextBlock Text="短縮（確定）"/>
+                            
                             <Rectangle Fill="{StaticResource LocalCandidateBrush}"/><TextBlock Text="ローカル解析候補"/>
                             <Rectangle Fill="{StaticResource AiCandidateBrush}" Visibility="{Binding IsFullMode, Converter={StaticResource BoolToVisibility}}"/><TextBlock Text="AI 候補" Visibility="{Binding IsFullMode, Converter={StaticResource BoolToVisibility}}"/>
                             <Rectangle Fill="{StaticResource SubtitleBrush}"/><TextBlock Text="字幕"/>

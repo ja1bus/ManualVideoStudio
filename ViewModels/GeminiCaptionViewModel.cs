@@ -6,6 +6,7 @@ using ManualVideoStudio.Core.Ai;
 using ManualVideoStudio.Core.Editing;
 using ManualVideoStudio.Core.Export;
 using ManualVideoStudio.Core.FFmpeg;
+using ManualVideoStudio.Core.Logging;
 using ManualVideoStudio.Core.Models;
 using ManualVideoStudio.Core.Persistence;
 using ManualVideoStudio.Core.Subtitles;
@@ -66,13 +67,17 @@ public sealed partial class GeminiCaptionViewModel : ObservableObject
     private readonly CaptionRequestSession _session;
     private readonly GeminiCaptionServices _s;
     private readonly string _projectName;
+    private readonly string? _projectLocation;
 
-    public GeminiCaptionViewModel(ProjectEditor editor, CaptionRequestSession session, GeminiCaptionServices services, string projectName)
+    /// <param name="projectLocation">依頼用動画の保存先（プロジェクトフォルダー内の caption-requests。未保存の編集は null）。</param>
+    public GeminiCaptionViewModel(ProjectEditor editor, CaptionRequestSession session, GeminiCaptionServices services, string projectName,
+        string? projectLocation = null)
     {
         _editor = editor;
         _session = session;
         _s = services;
         _projectName = projectName;
+        _projectLocation = projectLocation;
         Refresh();
     }
 
@@ -156,7 +161,7 @@ public sealed partial class GeminiCaptionViewModel : ObservableObject
             {
                 var p = new Progress<VideoExportProgress>(x => progress.Report(new ProgressInfo(x.Ratio,
                     $"作成中 {TimeFormat.Format(x.ProcessedSeconds)} / {TimeFormat.Format(x.TotalSeconds)}（{x.Ratio:0%}）")));
-                video = await _s.Requests.PrepareAsync(ffmpeg, _s.FFmpeg.MajorVersion, project, _projectName, p, ct);
+                video = await _s.Requests.PrepareAsync(ffmpeg, _s.FFmpeg.MajorVersion, project, _projectName, _projectLocation, p, ct);
             });
             if (!completed)
             {
@@ -165,29 +170,48 @@ public sealed partial class GeminiCaptionViewModel : ObservableObject
                 return;
             }
         }
+        catch (PathStageException ex)
+        {
+            // どの段階で・どのパスで失敗したかを示す（暗号化・振り替えられた保存先などの切り分け用）。
+            _s.Dialogs.ShowError("字幕依頼用動画を準備できませんでした。" + Environment.NewLine + ex.Message, LogHint());
+            ResultMessage = $"字幕依頼用動画の準備に失敗しました（{ex.Stage}）。";
+            Refresh();
+            return;
+        }
         catch (FFmpegException ex)
         {
-            _s.Dialogs.ShowError(ex.Message, ex.ErrorDetail);
+            _s.Dialogs.ShowError(ex.Message, ex.ErrorDetail + Environment.NewLine + LogHint());
+            ResultMessage = "字幕依頼用動画の準備に失敗しました（FFmpeg の書き出し）。";
             Refresh();
             return;
         }
         catch (Exception ex)
         {
             _s.Logger.LogError(ex, "Caption request video failed");
-            _s.Dialogs.ShowError("字幕依頼用動画の作成に失敗しました。", ex.Message);
+            _s.Dialogs.ShowError("字幕依頼用動画の作成に失敗しました。", ex.Message + Environment.NewLine + LogHint());
             Refresh();
             return;
         }
         _session.Video = video;
-        ResultMessage = "字幕依頼用の動画を準備しました。";
+        ResultMessage = "字幕依頼用の動画を準備しました。" + (video is { Notice.Length: > 0 } ? Environment.NewLine + video.Notice : "");
         Refresh();
+    }
+
+    /// <summary>エラー表示に添える、ログの保存先の案内（保存できていないときはその旨）。</summary>
+    private static string LogHint()
+    {
+        var dir = AppPaths.Current.LogDirectory;
+        return FileLoggerProvider.LastWriteError is { } err
+            ? $"ログを保存できていません（{dir}: {err}）。"
+            : $"詳しい経過はログに記録しています: {dir}";
     }
 
     [RelayCommand]
     private void OpenVideoFolder()
     {
         if (_session.Video is { } v) _s.Shell.RevealFile(v.Path);
-        else _s.Shell.OpenFolder(_s.Store.Root);
+        else if (_projectLocation is not null && Directory.Exists(_projectLocation)) _s.Shell.OpenFolder(_projectLocation);
+        else if (_projectLocation is not null && Path.GetDirectoryName(_projectLocation) is { } folder) _s.Shell.OpenFolder(folder);
     }
 
     /// <summary>使えなくなった古い依頼用動画を、1 件ずつ確認して削除する。</summary>

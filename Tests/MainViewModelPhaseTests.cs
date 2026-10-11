@@ -20,7 +20,8 @@ public class MainViewModelPhaseTests
         public bool ConfirmResult { get; set; } = true;
         public List<string> Warnings { get; } = [];
         public List<string> Errors { get; } = [];
-        public void ShowInfo(string message, string title = "情報") { }
+        public List<string> Infos { get; } = [];
+        public void ShowInfo(string message, string title = "情報") => Infos.Add(message);
         public void ShowWarning(string message, string title = "注意") => Warnings.Add(message);
         public void ShowError(string message, string? detail = null, string title = "エラー") => Errors.Add(message);
         public bool Confirm(string message, string title = "確認")
@@ -78,6 +79,7 @@ public class MainViewModelPhaseTests
         public bool ChooseGifQuality(GifExportViewModel vm) => false;
         /// <summary>タイトル編集画面の代わり（null ならキャンセル扱い）。</summary>
         public Func<TitleEditViewModel, bool>? TitleEdit { get; set; }
+        public void ShowAbout(AboutViewModel vm) { }
         public bool EditTitle(TitleEditViewModel vm) => TitleEdit?.Invoke(vm) ?? false;
 
         public bool ConfirmDanger(string title, string message, string okLabel, string cancelLabel)
@@ -213,7 +215,6 @@ public class MainViewModelPhaseTests
         vm.SeekTo(25);
         vm.SetMarkOutCommand.Execute(null);
         Assert.False(vm.AddRemoveCutCommand.CanExecute(null));
-        Assert.False(vm.AddShortenCutCommand.CanExecute(null));
         vm.AddRemoveCutCommand.Execute(null);
         vm.DeleteCutsCommand.Execute(vm.CutItems.ToList());
         vm.EditCutCommand.Execute(vm.CutItems[0]);
@@ -421,14 +422,13 @@ public class MainViewModelPhaseTests
 
     // ---------------- 簡易モード（v1.11） ----------------
 
-    private static readonly string[] FullOnlyCommands = ["AddCapture", "ExportImages", "ExportTejunsho", "ShowAiAssist", "ShowPromptSettings"];
+    private static readonly string[] FullOnlyCommands = ["AddCapture", "ExportImages", "ExportTejunsho", "ShowPromptSettings"];
 
     private static Dictionary<string, bool> FullOnlyCanExecute(MainViewModel vm) => new()
     {
         ["AddCapture"] = vm.AddCaptureCommand.CanExecute(null),
         ["ExportImages"] = vm.ExportImagesCommand.CanExecute(null),
         ["ExportTejunsho"] = vm.ExportTejunshoCommand.CanExecute(null),
-        ["ShowAiAssist"] = vm.ShowAiAssistCommand.CanExecute(null),
         ["ShowPromptSettings"] = vm.ShowPromptSettingsCommand.CanExecute(null),
     };
 
@@ -444,6 +444,9 @@ public class MainViewModelPhaseTests
         Assert.True(vm.ExportVideoCommand.CanExecute(null));
         Assert.True(vm.ExportGifCommand.CanExecute(null));
         Assert.True(vm.RunAnalysisCommand.CanExecute(null));
+        // AI 連携（不要区間の解析）は簡易モードでも使える（v1.17.0）。
+        Assert.True(vm.ShowAiAssistCommand.CanExecute(null));
+        Assert.True(vm.AskAiForCandidatesCommand.CanExecute(null));
     }
 
     [Theory]
