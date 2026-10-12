@@ -87,15 +87,28 @@ public sealed partial class MainViewModel
     public void SetSelectedShapes(IEnumerable<string> ids)
     {
         var list = ids.ToList();
+        // 「留まる」を選んで一覧の選択を戻している間は、途中の空の通知を無視し、戻し終えた通知（同じ図形）で入力を保つ。
+        if (_shapeRestoreId is { } restore)
+        {
+            if (list.Count == 0) return;
+            _shapeRestoreId = null;
+            if (list.Count == 1 && list[0] == restore) return;
+        }
         if (_shapeDraftId is { } old && HasShapeDraft && !(list.Count == 1 && list[0] == old))
         {
             if (!TryApplyShapeDraft(out var error)
                 && !_dialogs.Confirm(Loc.Format("ShapeEdit.DiscardConfirm", error), Loc.Get("ShapeEdit.DiscardTitle")))
             {
+                _shapeRestoreId = old;
                 ListSelectionRequested?.Invoke(ListKind.Shapes, [old]);
                 return;
             }
         }
+        // 選択が変わらないときは、入力中の時間を読み直さない。
+        if (list.SequenceEqual(SelectedShapeIds)) return;
         SelectedShapeIds = list;
     }
+
+    /// <summary>「留まる」を選んで、一覧の選択を戻す通知を待っている図形の ID。</summary>
+    private string? _shapeRestoreId;
 }

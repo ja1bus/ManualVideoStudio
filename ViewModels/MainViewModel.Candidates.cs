@@ -303,13 +303,13 @@ public sealed partial class MainViewModel
             SelectedTabIndex = kind == ListKind.Subtitles ? TabSubtitles : TabShapes;
             var cur = kind == ListKind.Shapes ? SelectedShapeIds : SelectedSubtitleIds;
             var picked = additive && kind == ListKind.Shapes ? (cur.Contains(id) ? cur.Where(x => x != id).ToList() : cur.Append(id).ToList()) : [id];
-            ListSelectionRequested?.Invoke(kind, picked.Count == 0 ? [id] : picked);
+            ListSelectionRequested?.Invoke(kind, picked); // 空なら選択を解除する（Ctrl+クリックで最後の 1 件を外す）
             return;
         }
         if (!ShowCutTools) return;
         var current = kind == ListKind.Cuts ? SelectedCutIds : SelectedCandidateIds;
         var ids = additive ? current.Contains(id) ? current.Where(x => x != id).ToList() : current.Append(id).ToList() : [id];
-        if (ids.Count == 0) ids = [id];
-        SelectInList(kind, ids);
+        if (ids.Count == 0) ListSelectionRequested?.Invoke(kind, ids); // 選択を解除する
+        else SelectInList(kind, ids);
     }
 }

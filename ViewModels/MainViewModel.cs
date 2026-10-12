@@ -331,6 +331,7 @@ public sealed partial class MainViewModel : ObservableObject
         // 開いていた編集の字幕依頼用動画と、回答の取り込み待ちは無効にする（ファイルは確認なしには消さない。v1.12）。
         CaptionRequest.Invalidate();
         _importedSubtitleSignature = null;
+        ClearPreviewState(pause: false); // 前のプロジェクトの試し再生・つなぎ目の再生は終える
         if (Editor is not null)
         {
             Editor.Changed -= OnEditorChanged;
@@ -422,6 +423,9 @@ public sealed partial class MainViewModel : ObservableObject
         if ((HasSubtitleDraft || HasShapeDraft) && !FlushSubtitleDraft()
             && !_dialogs.Confirm(Loc.Format("SubEdit.DiscardConfirm", ShapeDraftError.Length > 0 ? ShapeDraftError : SubtitleDraftError), Loc.Get("SubEdit.DiscardTitle")))
             return false;
+        // 破棄を承認したら、反映できなかった入力を実際に戻す（残すと、続く保存が同じ入力エラーで止まる）。
+        if (HasSubtitleDraft) LoadSubtitleDraft();
+        if (HasShapeDraft) LoadShapeDraft(force: true);
         if (Editor is null || !Editor.IsDirty) return true;
         var message = "変更が保存されていません。保存しますか？";
         if (_annotatedImagesSinceSave)

@@ -1206,8 +1206,69 @@ public class ScreenRefinementTests
         vm.SetSelectedShapes([id]);
         vm.ShapeDraftEnd = "00:00:12.000";
         Assert.True(vm.HasShapeDraft);
-        Assert.True(vm.ConfirmDiscardChanges() || true);           // 保存の確認の前に入力を反映する（確認ダイアログの答えは問わない）
+        var dialogs = (MainViewModelPhaseTests.FakeDialogs)typeof(MainViewModel).GetField("_dialogs", System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic)!.GetValue(vm)!;
+        dialogs.YesNoCancelResult = false;                          // 保存しない
+        Assert.True(vm.ConfirmDiscardChanges());                    // 保存の確認の前に入力を反映する
         Assert.Equal(12.0, vm.Project!.ShapeGroups.Single().End);
+    }
+
+    private static MainViewModelPhaseTests.FakeDialogs DialogsOf(MainViewModel vm)
+        => (MainViewModelPhaseTests.FakeDialogs)typeof(MainViewModel).GetField("_dialogs", System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic)!.GetValue(vm)!;
+
+    [Fact]
+    public async Task StayingOnTheShapeKeepsTheInputWhenTheViewReselectsTheSameRow()
+    {
+        var (vm, id) = await WithShapeAsync();
+        var (_, g2) = vm.Editor!.AddShapeGroup(20, 25, [new RectangleAnnotation { X = 1, Y = 1, Width = 10, Height = 10 }], 1920, 1080);
+        vm.SetSelectedShapes([id]);
+        vm.ShapeDraftEnd = "でたらめ";
+        DialogsOf(vm).ConfirmResult = false;                        // 留まる
+        vm.SetSelectedShapes([g2!.Id]);
+        // 画面が一覧の選択を戻すときの通知（いったん空になり、元の図形が選ばれる）。
+        vm.SetSelectedShapes([]);
+        vm.SetSelectedShapes([id]);
+        Assert.Equal("でたらめ", vm.ShapeDraftEnd);
+        Assert.True(vm.HasShapeDraft);
+        Assert.Equal(id, vm.SelectedShapeIds.Single());
+    }
+
+    [Fact]
+    public async Task DiscardingAnInvalidInputClearsItSoSavingCanContinue()
+    {
+        var (vm, id) = await WithShapeAsync();
+        vm.SetSelectedShapes([id]);
+        vm.ShapeDraftEnd = "でたらめ";
+        var dialogs = DialogsOf(vm);
+        dialogs.ConfirmResult = true;                               // 破棄する
+        dialogs.YesNoCancelResult = null;                           // 保存の確認はキャンセル（保存処理に入らず、下書きの状態だけ確かめる）
+        Assert.False(vm.ConfirmDiscardChanges());
+        Assert.False(vm.HasShapeDraft);
+        Assert.Equal("00:00:10.000", vm.ShapeDraftEnd);
+    }
+
+    [Fact]
+    public async Task OpeningAnotherProjectEndsThePreviewPlayback()
+    {
+        var (vm, _) = await OpenAsync();
+        var banner = typeof(MainViewModel).GetProperty("PreviewBannerText")!;
+        banner.SetValue(vm, "試し再生中");
+        Assert.True(vm.HasPreviewBanner);
+        var (vm2, _) = await OpenAsync();
+        Assert.False(vm2.HasPreviewBanner);
+        typeof(MainViewModel).GetMethod("SetProject", System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic)!
+            .Invoke(vm, [vm2.Project!, null]);
+        Assert.False(vm.HasPreviewBanner);
+    }
+
+    [Fact]
+    public async Task CtrlClickOnTheLastSelectedShapeBandClearsTheSelection()
+    {
+        var (vm, id) = await WithShapeAsync();
+        var requests = new List<string>();
+        vm.ListSelectionRequested += (k, ids) => requests.Add(k + ":" + string.Join(",", ids));
+        vm.SetSelectedShapes([id]);
+        vm.OnTimelineItemClicked(ListKind.Shapes, id, additive: true);
+        Assert.Equal([$"Shapes:"], requests);                       // 空の選択要求（解除）
     }
 
     [Fact]

@@ -239,7 +239,7 @@ public partial class MainWindow : Window
     private void CandidateGrid_SelectionChanged(object sender, SelectionChangedEventArgs e)
         => _vm.SetSelectedCandidates(CandidateGrid.SelectedItems.OfType<CandidateItem>().Select(i => i.Id));
 
-    /// <summary>タイムラインのクリック・次へ進む操作で、対応する一覧の行を選んで見える位置へスクロールする（再生位置は動かさない）。</summary>
+    /// <summary>タイムラインのクリック・次へ進む操作で、対応する一覧の行を選んで見える位置へスクロールする（空なら選択を解除する。再生位置の移動は呼び出し側が決める）。</summary>
     private void OnListSelectionRequested(ListKind kind, IReadOnlyList<string> ids)
     {
         // 一覧のタブが表示されてから選ぶ。
@@ -255,8 +255,8 @@ public partial class MainWindow : Window
     private static void SelectRows(DataGrid grid, IEnumerable<object> rows)
     {
         var list = rows.ToList();
-        if (list.Count == 0) return;
         grid.SelectedItems.Clear();
+        if (list.Count == 0) return;
         foreach (var row in list) grid.SelectedItems.Add(row);
         grid.ScrollIntoView(list[0]);
     }
