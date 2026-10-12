@@ -16,8 +16,12 @@
             <TextBox Text="{Binding VideoPath, Mode=OneWay}" IsReadOnly="True" TextWrapping="Wrap" Margin="0,4,0,0"
                      Visibility="{Binding VideoPath, Converter={StaticResource EmptyToCollapsed}}" AutomationProperties.Name="字幕依頼用動画の保存場所"/>
             <StackPanel Orientation="Horizontal" Margin="0,6,0,0">
-                <Button Content="{Binding PrepareButtonText}" Style="{StaticResource AccentButton}" MinWidth="130" Command="{Binding PrepareCommand}" AutomationProperties.Name="動画を準備する"/>
+                <!-- 未準備のときだけ目立つ［動画を準備する］。準備後は通常色の［作り直す］（ほとんど使わないため）。 -->
+                <Button Content="動画を準備する" Style="{StaticResource AccentButton}" MinWidth="130" Command="{Binding PrepareCommand}" AutomationProperties.Name="動画を準備する"
+                        Visibility="{Binding NeedsVideo, Converter={StaticResource BoolToVisibility}}"/>
                 <Button Content="保存場所のフォルダーを開く" MinWidth="170" Command="{Binding OpenVideoFolderCommand}"/>
+                <Button Content="作り直す" MinWidth="130" Command="{Binding PrepareCommand}" AutomationProperties.Name="作り直す"
+                        Visibility="{Binding HasVideo, Converter={StaticResource BoolToVisibility}}"/>
             </StackPanel>
             <TextBlock Text="字幕なしの動画です（図形も含みません）。完成動画の書き出しにはこの動画を使わず、元動画から改めて作ります（動画の作成は、依頼用と完成用で別々に行います）。"
                        TextWrapping="Wrap" Style="{StaticResource Subtle}" Margin="0,4,0,0"/>
@@ -30,10 +34,10 @@
             </Border>
 
             <!-- ② プロンプト -->
-            <TextBlock Text="② プロンプトをコピーして Gemini を開く" Style="{StaticResource SectionTitle}" Margin="0,14,0,2"/>
+            <TextBlock Text="② Gemini を開いてプロンプトをコピー" Style="{StaticResource SectionTitle}" Margin="0,14,0,2"/>
             <StackPanel Orientation="Horizontal">
-                <Button Content="プロンプトをコピー" MinWidth="140" Command="{Binding CopyPromptCommand}"/>
                 <Button Content="Gemini を開く" MinWidth="120" Command="{Binding OpenGeminiCommand}"/>
+                <Button Content="プロンプトをコピー" MinWidth="140" Command="{Binding CopyPromptCommand}"/>
             </StackPanel>
             <TextBlock Text="{Binding PromptMessage}" TextWrapping="Wrap" Margin="0,4,0,0"
                        Visibility="{Binding PromptMessage, Converter={StaticResource EmptyToCollapsed}}"/>

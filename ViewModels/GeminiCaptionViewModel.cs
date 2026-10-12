@@ -101,11 +101,11 @@ public sealed partial class GeminiCaptionViewModel : ObservableObject
     public bool HasVideo => _session.Video is not null;
     public bool HasOrphans => _session.Orphans.Count > 0;
     public bool HasVideoPath => VideoPath.Length > 0;
-    public string PrepareButtonText => HasVideo ? "作り直す" : "動画を準備する";
+    public bool NeedsVideo => !HasVideo;
     public string OutputDurationText => $"カット後の長さ {TimeFormat.FormatShort(_editor.OutputDuration)}（完成動画と同じカット・クロスフェード）";
 
     public string FlowText =>
-        "① 字幕依頼用の動画を準備（字幕なし・カット後） → ② プロンプトをコピーして Gemini を開き、動画を添付して送信 → "
+        "① 字幕依頼用の動画を準備（字幕なし・カット後） → ② Gemini を開いてプロンプトをコピーし、動画を添付して送信 → "
         + "③ Gemini の回答を下の欄へ貼り付け → ④ 検証して［字幕を取り込む］。取り込んだ字幕は、手動の字幕と同じ一覧・タイムラインで修正できます。";
 
     partial void OnResponseTextChanged(string value) => Validate();
@@ -130,7 +130,7 @@ public sealed partial class GeminiCaptionViewModel : ObservableObject
         OnPropertyChanged(nameof(HasVideo));
         OnPropertyChanged(nameof(HasOrphans));
         OnPropertyChanged(nameof(HasVideoPath));
-        OnPropertyChanged(nameof(PrepareButtonText));
+        OnPropertyChanged(nameof(NeedsVideo));
         ImportCommand.NotifyCanExecuteChanged();
     }
 
