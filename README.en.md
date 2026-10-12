@@ -9,7 +9,7 @@ This repository contains the source code of the publicly released ManualVideoStu
 ## Features
 
 - Records a region, a window or a whole monitor (15 / 30 fps, with or without the cursor; the region can be landscape or portrait with a fixed aspect ratio; microphone recording is off by default)
-- Cuts that delete or shorten waiting time and mistakes, with a 0.3-second crossfade at each joint (can be turned off). Freeze, silence and scene-change detection in FFmpeg suggests **candidates** for cuts (you decide which to use)
+- Cuts that delete waiting time and mistakes (overlapping or touching cuts are merged into one), with a 0.3-second crossfade at each joint (can be turned off). Freeze, silence and scene-change detection in FFmpeg suggests **candidates** for cuts (you decide which to use)
 - Subtitles (4 styles, using fonts installed in Windows), timed shapes (rectangles, arrows, lines, text and mosaic) and a title at the start of the video
 - Exports MP4 and Animated GIF (light / standard / high quality) with subtitles and shapes burned in
 - Extracts still images for documents (`<number>_<caption>.png`) and adds rectangles, arrows, lines, text and mosaic annotations
