@@ -626,7 +626,7 @@ public class HelpManualTests : IDisposable
     [Fact]
     public async Task OpenManualOpensTheWebAddressAndNeverAFileUrl()
     {
-        Assert.Equal("https://www.iwanaga.net/manualvideostudio/manual/", HelpManual.WebUrl);
+        Assert.Equal("https://www.ja1bus.com/manualvideostudio/manual/", HelpManual.WebUrl);
         var (vm, _, _) = await MainViewModelPhaseTests.OpenAsync();
         var shell = new RecordingShell();
         var field = typeof(MainViewModel).GetField("_shell", System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic)!;

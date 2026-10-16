@@ -43,7 +43,7 @@ ManualVideoStudio は、パソコンの操作を録画し、いらない部分�
 
 詳しくは取扱説明書をご覧ください。アプリの［ヘルプ］（F1）からは Web 版が開きます。［ヘルプ］の一番下の［バージョン情報…］に、版・MIT License・ライセンス全文があります。
 
-- 取扱説明書: https://www.iwanaga.net/manualvideostudio/manual/
+- 取扱説明書: https://www.ja1bus.com/manualvideostudio/manual/
 
 ## ビルド方法
 
@@ -112,9 +112,9 @@ FFmpeg・NuGet パッケージなど第三者のソフトウェアについて�
 
 ## 関連リンク
 
-- Web ページ: https://www.iwanaga.net/manualvideostudio/
-- 取扱説明書: https://www.iwanaga.net/manualvideostudio/manual/
-- 更新履歴: https://www.iwanaga.net/manualvideostudio/changelog/
-- プライバシーポリシー: https://www.iwanaga.net/manualvideostudio/privacy/
+- Web ページ: https://www.ja1bus.com/manualvideostudio/
+- 取扱説明書: https://www.ja1bus.com/manualvideostudio/manual/
+- 更新履歴: https://www.ja1bus.com/manualvideostudio/changelog/
+- プライバシーポリシー: https://www.ja1bus.com/manualvideostudio/privacy/
 - Microsoft Store: https://apps.microsoft.com/detail/9N33XK4M3JFJ
-- 連絡先: support@iwanaga.net
+- 連絡先: contact@ja1bus.com

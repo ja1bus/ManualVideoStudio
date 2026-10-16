@@ -43,7 +43,7 @@ This GitHub repository does not distribute executables (binaries).
 
 See the user guide (Japanese) for details. Help (F1) in the app opens the web version. Help > About (at the bottom) shows the version, the MIT License and its full text.
 
-- User guide: https://www.iwanaga.net/manualvideostudio/manual/
+- User guide: https://www.ja1bus.com/manualvideostudio/manual/
 
 ## Building
 
@@ -112,9 +112,9 @@ This software is provided "as is", without warranty of any kind, express or impl
 
 ## Links
 
-- Web page: https://www.iwanaga.net/manualvideostudio/en/
-- User guide (Japanese): https://www.iwanaga.net/manualvideostudio/manual/
-- Changelog: https://www.iwanaga.net/manualvideostudio/en/changelog/
-- Privacy policy: https://www.iwanaga.net/manualvideostudio/en/privacy/
+- Web page: https://www.ja1bus.com/manualvideostudio/en/
+- User guide (Japanese): https://www.ja1bus.com/manualvideostudio/manual/
+- Changelog: https://www.ja1bus.com/manualvideostudio/en/changelog/
+- Privacy policy: https://www.ja1bus.com/manualvideostudio/en/privacy/
 - Microsoft Store: https://apps.microsoft.com/detail/9N33XK4M3JFJ
-- Contact: support@iwanaga.net
+- Contact: contact@ja1bus.com

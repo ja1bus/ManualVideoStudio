@@ -7,5 +7,5 @@ namespace ManualVideoStudio.Services;
 public static class HelpManual
 {
     /// <summary>Web 版の取扱説明書（常に最新版の説明）。</summary>
-    public const string WebUrl = "https://www.iwanaga.net/manualvideostudio/manual/";
+    public const string WebUrl = "https://www.ja1bus.com/manualvideostudio/manual/";
 }
