@@ -10,6 +10,7 @@
         <WrapPanel DockPanel.Dock="Top" Margin="0,0,0,10">
             <Button Style="{StaticResource AccentButton}" Command="{Binding StartRecordingCommand}" MinWidth="120" Content="{local:Str PL.Record}"
                     ToolTip="{local:Str PL.Record.Tip}" AutomationProperties.AutomationId="PL.Record"/>
+            <Button Content="{local:Str PL.AppendRecord}" Command="{Binding AppendRecordingCommand}" ToolTip="{local:Str PL.AppendRecord.Tip}" AutomationProperties.AutomationId="PL.AppendRecord"/>
             <Button Content="{local:Str PL.OpenVideo}" Command="{Binding OpenVideoDialogCommand}" ToolTip="{local:Str PL.OpenVideo.Tip}" AutomationProperties.AutomationId="PL.OpenVideo"/>
             <Button Content="{local:Str PL.OpenProjectFile}" Command="{Binding OpenProjectDialogCommand}" ToolTip="{local:Str PL.OpenProjectFile.Tip}" AutomationProperties.AutomationId="PL.OpenProjectFile"/>
         </WrapPanel>

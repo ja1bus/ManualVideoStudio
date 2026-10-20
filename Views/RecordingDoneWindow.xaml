@@ -24,16 +24,33 @@
             <TextBlock Grid.Row="2" Text="内容" Foreground="{StaticResource SubtleTextBrush}" Margin="0,4,0,0"/>
             <TextBlock Grid.Row="2" Grid.Column="1" x:Name="InfoText" TextWrapping="Wrap" Margin="0,4,0,0"/>
         </Grid>
-        <TextBlock Text="プロジェクト名" Style="{StaticResource SectionTitle}" Margin="0,12,0,4"/>
+        <TextBlock x:Name="NameLabel" Text="プロジェクト名" Style="{StaticResource SectionTitle}" Margin="0,12,0,4"/>
         <TextBox x:Name="NameText" TextChanged="NameText_TextChanged" AutomationProperties.Name="プロジェクト名" MaxLength="60"/>
         <TextBlock x:Name="FolderText" Style="{StaticResource Subtle}" TextWrapping="Wrap" Margin="0,4,0,0"/>
-        <TextBlock Style="{StaticResource Subtle}" Margin="0,10,0,0"
+        <TextBlock x:Name="HelpText" Style="{StaticResource Subtle}" Margin="0,10,0,0" TextWrapping="Wrap"
                    Text="保存している間にプロジェクト名を入力できます。録画ファイルは上のプロジェクトフォルダーへ移動します（名前が空なら日時だけのフォルダー）。［編集を開始］は録画した動画を開き、編集（カット・字幕など）を始めます。［保存して終了］は録画ファイルを残して録画画面を閉じます。"/>
         <TextBlock x:Name="WaitText" Style="{StaticResource Subtle}" Margin="0,6,0,0" TextWrapping="Wrap"
                    Text="ボタンは録画ファイルができてから押せます。Esc・Enter キーでは閉じません。"/>
-        <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,14,0,0">
+        <StackPanel x:Name="NormalButtons" Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,14,0,0">
             <Button x:Name="EditButton" Content="編集を開始" Style="{StaticResource AccentButton}" MinWidth="110" IsEnabled="False" Click="Edit_Click" AutomationProperties.Name="編集を開始"/>
             <Button x:Name="CloseButton" Content="保存して終了" MinWidth="110" IsEnabled="False" Click="Close_Click" AutomationProperties.Name="保存して終了"/>
+        </StackPanel>
+        <!-- 追加録画（v1.18）。つなげて編集 / 追加録画だけで編集。保存して終了・破棄は無い（破棄は停止直後の確認画面で選ぶ）。ボタンの中身は固定幅の左寄せ（ボタンの枠は内容を中央に置くため）。 -->
+        <StackPanel x:Name="AppendButtons" Visibility="Collapsed" Margin="0,14,0,0">
+            <Button x:Name="JoinButton" Style="{StaticResource AccentButton}" IsEnabled="False" Click="Join_Click" HorizontalContentAlignment="Left"
+                    AutomationProperties.Name="元の動画につなげて編集" Margin="0,0,0,6">
+                <StackPanel Width="456" HorizontalAlignment="Left">
+                    <TextBlock Text="元の動画につなげて編集" FontWeight="SemiBold" TextAlignment="Left"/>
+                    <TextBlock x:Name="JoinDescription" FontSize="11" TextWrapping="Wrap" Margin="0,2,0,0"/>
+                </StackPanel>
+            </Button>
+            <Button x:Name="SingleButton" IsEnabled="False" Click="Single_Click" HorizontalContentAlignment="Left"
+                    AutomationProperties.Name="追加録画だけで編集" Margin="0">
+                <StackPanel Width="456" HorizontalAlignment="Left">
+                    <TextBlock Text="追加録画だけで編集" FontWeight="SemiBold" TextAlignment="Left"/>
+                    <TextBlock Text="つなげずに、今撮った動画だけで新しいプロジェクトの編集を始めます。" FontSize="11" TextWrapping="Wrap" Margin="0,2,0,0"/>
+                </StackPanel>
+            </Button>
         </StackPanel>
     </StackPanel>
 </Window>

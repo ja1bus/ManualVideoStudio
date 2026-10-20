@@ -455,6 +455,21 @@ public static class FFmpegArguments
         return args;
     }
 
+    /// <summary>
+    /// 別々の MP4 を順番に 1 本へ連結する（再エンコードしない。映像と音声の先頭ストリームだけを取り込む）。
+    /// 一覧ファイルは <see cref="ConcatListForPaths"/> で作る（絶対パスを書くため -safe 0 が必要）。
+    /// </summary>
+    public static IReadOnlyList<string> ConcatVideos(string concatListFile, string output)
+        => ["-hide_banner", "-nostdin", "-loglevel", "error", "-y", "-f", "concat", "-safe", "0", "-i", concatListFile,
+            "-map", "0:v:0", "-map", "0:a:0?", "-c", "copy", "-movflags", "+faststart", output];
+
+    /// <summary>
+    /// 絶対パスの concat 一覧ファイルの内容。パスの区切りは / にそろえ（\ はエスケープに読まれるため）、
+    /// 空白・日本語・' を含んでも読めるよう ' で囲み、中の ' は '\'' にする。
+    /// </summary>
+    public static string ConcatListForPaths(IEnumerable<string> paths)
+        => string.Concat(paths.Select(p => $"file '{Path.GetFullPath(p).Replace('\\', '/').Replace("'", "'\\''")}'\n"));
+
     /// <summary>concat demuxer の一覧ファイルの内容。</summary>
     public static string ConcatList(IEnumerable<string> segmentFiles)
         => string.Concat(segmentFiles.Select(f => $"file '{f.Replace("'", "'\\''")}'\n"));

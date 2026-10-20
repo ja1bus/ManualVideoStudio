@@ -477,7 +477,7 @@ public class GeminiCaptionViewModelTests : IDisposable
         public void ShowAbout(AboutViewModel vm) { }
         public bool EditTitle(TitleEditViewModel vm) => false;
         public bool ConfirmDanger(string title, string message, string okLabel, string cancelLabel) => false;
-        public Task<RecordingOutcome?> ShowRecorderAsync() => Task.FromResult<RecordingOutcome?>(null);
+        public Task<RecordingOutcome?> ShowRecorderAsync(AppendRecordingContext? append = null) => Task.FromResult<RecordingOutcome?>(null);
         public bool IsRecorderOpen => false;
         public void ActivateRecorder() { }
         public ProjectListAction? ShowProjectList(string? openProjectPath, string? openVideoPath) => null;

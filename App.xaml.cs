@@ -87,6 +87,7 @@ public partial class App : Application
         sc.AddSingleton<IFrameExtractionService>(sp => new FrameExtractionService(sp.GetRequiredService<IProcessRunner>(),
             _paths.CacheDirectory, sp.GetRequiredService<ILogger<FrameExtractionService>>()));
         sc.AddSingleton<IVideoExportService, VideoExportService>();
+        sc.AddSingleton<ManualVideoStudio.Core.Join.IRecordingJoinService, ManualVideoStudio.Core.Join.RecordingJoinService>();
         sc.AddSingleton(new CaptionRequestStore(_paths.CaptionRequestDirectory));
         sc.AddSingleton<CaptionRequestService>();
         sc.AddSingleton<SubtitleSampleRenderer>();

@@ -60,6 +60,11 @@
         </Style>
     </Window.Resources>
     <StackPanel Margin="16,12" IsEnabled="{Binding IsIdle}">
+        <!-- 追加録画（v1.18）。元の動画に合わせて対象・大きさ・FPS（と音声の有無）を固定している案内。 -->
+        <Border Background="{StaticResource InfoBackgroundBrush}" CornerRadius="4" Padding="8,6" Margin="0,0,0,8"
+                Visibility="{Binding IsAppendMode, Converter={StaticResource BoolToVisibility}}">
+            <TextBlock Text="{Binding AppendBanner}" TextWrapping="Wrap" AutomationProperties.AutomationId="Recorder.AppendBanner"/>
+        </Border>
         <Grid>
             <Grid.ColumnDefinitions>
                 <ColumnDefinition Width="96"/>
@@ -77,7 +82,7 @@
 
             <!-- 録画対象 -->
             <TextBlock Text="録画する対象" Style="{StaticResource Label}"/>
-            <StackPanel Grid.Column="1" Orientation="Horizontal">
+            <StackPanel Grid.Column="1" Orientation="Horizontal" IsEnabled="{Binding IsNotAppend}">
                 <RadioButton Content="範囲を指定" AutomationProperties.Name="範囲を指定"
                              IsChecked="{Binding Mode, Converter={StaticResource EnumEquals}, ConverterParameter=Region}"/>
                 <RadioButton Content="ウィンドウ" AutomationProperties.Name="ウィンドウ"
@@ -91,7 +96,7 @@
                     <!-- 範囲 -->
                     <StackPanel Visibility="{Binding IsRegionMode, Converter={StaticResource BoolToVisibility}}">
                         <!-- サイズ・向き（v1.16）。規格サイズは縦横比を固定する。選択中は ✓・太い枠・背景色で示す。同じボタンを押し直すと規格サイズに戻す。 -->
-                        <Grid>
+                        <Grid IsEnabled="{Binding IsNotAppend}">
                             <Grid.ColumnDefinitions>
                                 <ColumnDefinition Width="Auto"/>
                                 <ColumnDefinition Width="*"/>
@@ -133,7 +138,7 @@
                                              Command="{Binding SelectOrientationCommand}" CommandParameter="{x:Static models:RegionOrientation.Portrait}"/>
                             </StackPanel>
                         </Grid>
-                        <StackPanel Orientation="Horizontal" Margin="0,4,0,0">
+                        <StackPanel Orientation="Horizontal" Margin="0,4,0,0" IsEnabled="{Binding IsNotAppend}">
                             <TextBlock Text="幅" VerticalAlignment="Center"/>
                             <TextBox Width="64" Text="{Binding RegionWidthText, UpdateSourceTrigger=PropertyChanged}" AutomationProperties.Name="幅" AutomationProperties.AutomationId="Recorder.Width" KeyDown="SizeBox_KeyDown"/>
                             <TextBlock Text="×  高さ" VerticalAlignment="Center" Margin="4,0,0,0"/>
@@ -142,7 +147,10 @@
                             <Button Content="適用" AutomationProperties.AutomationId="Recorder.ApplySize" Padding="8,3" MinHeight="26" Command="{Binding ApplyRegionSizeCommand}"/>
                         </StackPanel>
                         <TextBlock Style="{StaticResource Subtle}" FontSize="11" Margin="0,4,0,0"
-                                   Text="{local:Str Recorder.RegionHelp}"/>
+                                   Text="{local:Str Recorder.RegionHelp}" Visibility="{Binding IsNotAppend, Converter={StaticResource BoolToVisibility}}"/>
+                        <TextBlock Style="{StaticResource Subtle}" FontSize="11" Margin="0,4,0,0"
+                                   Text="大きさ（幅・高さ）は元の動画に合わせて固定です。赤い枠は、上の［移動］のつまみで動かせます。"
+                                   Visibility="{Binding IsAppendMode, Converter={StaticResource BoolToVisibility}}"/>
                     </StackPanel>
                     <!-- ウィンドウ -->
                     <StackPanel Visibility="{Binding IsWindowMode, Converter={StaticResource BoolToVisibility}}">
@@ -168,7 +176,7 @@
             </Border>
 
             <TextBlock Grid.Row="2" Text="FPS" Style="{StaticResource Label}"/>
-            <StackPanel Grid.Row="2" Grid.Column="1" Orientation="Horizontal">
+            <StackPanel Grid.Row="2" Grid.Column="1" Orientation="Horizontal" IsEnabled="{Binding IsNotAppend}">
                 <RadioButton Content="30 fps（標準）" AutomationProperties.Name="30 fps"
                              IsChecked="{Binding Fps, Converter={StaticResource IntEquals}, ConverterParameter=30}"/>
                 <RadioButton Content="15 fps" AutomationProperties.Name="15 fps"
@@ -180,7 +188,7 @@
 
             <TextBlock Grid.Row="4" Text="音声" Style="{StaticResource Label}" VerticalAlignment="Top"/>
             <StackPanel Grid.Row="4" Grid.Column="1">
-                <StackPanel Orientation="Horizontal">
+                <StackPanel Orientation="Horizontal" IsEnabled="{Binding CanChooseAudio}">
                     <RadioButton Content="なし" AutomationProperties.Name="音声なし"
                                  IsChecked="{Binding MicrophoneEnabled, Converter={StaticResource InverseBool}}"/>
                     <RadioButton Content="マイク" AutomationProperties.Name="マイク"

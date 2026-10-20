@@ -3,6 +3,7 @@ using System.Globalization;
 using System.IO;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
+using ManualVideoStudio.Core.Join;
 using ManualVideoStudio.Core.Models;
 using ManualVideoStudio.Core.Persistence;
 using ManualVideoStudio.Core.Recording;
@@ -16,10 +17,24 @@ namespace ManualVideoStudio.ViewModels;
 public sealed record MicrophoneOption(string Name, string Label);
 
 /// <summary>録画の結果（録画画面を閉じた後の主画面の動作）。</summary>
-public sealed record RecordingOutcome(string OutputPath, RecordingInfo Info, bool StartEditing);
+/// <param name="JoinWithSource">追加録画で「元の動画につなげて編集」を選んだ（主画面が連結して編集を始める。ProjectName は連結後のプロジェクト名）。</param>
+public sealed record RecordingOutcome(string OutputPath, RecordingInfo Info, bool StartEditing, bool JoinWithSource = false, string ProjectName = "");
+
+/// <summary>追加録画（v1.18）の元になる動画と、録画画面で固定する条件。</summary>
+public sealed record AppendRecordingContext(string SourceName, string SourceVideoPath, AppendRequirement Requirement);
+
+/// <summary>追加録画の完了画面での選択。通常の録画では None。</summary>
+public enum AppendDoneAction
+{
+    None,
+    /// <summary>元の動画につなげて、新しいプロジェクトで編集を始める。</summary>
+    Join,
+    /// <summary>つなげずに、追加録画だけで新しいプロジェクトの編集を始める。</summary>
+    Single,
+}
 
 /// <summary>録画終了画面での選択（編集を開始するか・プロジェクト名。名前は空でもよい）。</summary>
-public sealed record RecordingDoneChoice(bool StartEditing, string ProjectName);
+public sealed record RecordingDoneChoice(bool StartEditing, string ProjectName, AppendDoneAction Append = AppendDoneAction.None);
 
 /// <summary>停止した直後の確認画面に出す内容（録画ファイルができる前に分かる範囲）。</summary>
 public sealed record RecordingStopSummary(RecordingInfo Info, TimeSpan Duration, int SegmentCount);
@@ -131,6 +146,53 @@ public sealed partial class RecorderViewModel : ObservableObject
     /// <summary>停止してから録画完了の選択が終わるまで（録画画面・枠を出さず、ショートカットも受け付けない）。</summary>
     [ObservableProperty] private bool _isFinishing;
 
+    // ---------------- 追加録画（v1.18） ----------------
+
+    /// <summary>追加録画のとき、元の動画と固定する条件。通常の録画では null。</summary>
+    public AppendRecordingContext? Append { get; private set; }
+    public bool IsAppendMode => Append is not null;
+    /// <summary>XAML の IsEnabled 用（追加録画では録画の対象・大きさ・FPS を変えられない）。</summary>
+    public bool IsNotAppend => Append is null;
+    /// <summary>音声（なし / マイク）を選べるか。追加録画で元の動画に音声が無いときは「なし」に固定する。</summary>
+    public bool CanChooseAudio => Append is not { Requirement.HasAudio: false };
+    /// <summary>追加録画の枠が今の画面（全モニター）に収まるか。収まらなければ録画を開始しない。</summary>
+    public bool AppendFits { get; private set; } = true;
+    /// <summary>追加録画の案内（録画画面の上に出す）。</summary>
+    public string AppendBanner => Append is null ? "" :
+        $"「{Append.SourceName}」につなげる追加録画です。元の動画と同じ条件（{Append.Requirement.Description}）に固定しています。元の動画だけを使い、編集のカット・字幕・図形は引き継ぎません。"
+        + (Append.Requirement.HasAudio ? "元の動画に音声があるため、音声は［マイク］を選んで録画してください。" : "元の動画に音声が無いため、音声は録画しません。");
+
+    /// <summary>
+    /// 追加録画モードにする（録画画面を開く前に呼ぶ）。範囲指定・元の動画と同じ幅・高さと FPS に固定し、枠は移動だけできる。
+    /// 通常の録画用の保存済み設定（大きさ・FPS・向き）は書き換えない（<see cref="SaveSettings"/>）。
+    /// </summary>
+    public void ApplyAppend(AppendRecordingContext context)
+    {
+        Append = context;
+        var req = context.Requirement;
+        Mode = RecordingMode.Region;
+        Fps = req.Fps;
+        SizePreset = RegionSizePreset.Free;
+        MicrophoneEnabled = false;
+        var screen = _targets.VirtualScreen();
+        AppendFits = req.Width <= screen.Width && req.Height <= screen.Height;
+        if (AppendFits)
+        {
+            Region = new CaptureRegion(Region.X, Region.Y, req.Width, req.Height).ClampTo(screen);
+        }
+        else
+        {
+            Region = new CaptureRegion(screen.X, screen.Y, Math.Min(req.Width, screen.Width), Math.Min(req.Height, screen.Height));
+            StatusText = $"録画する範囲（{req.Width}x{req.Height}）が今の画面に収まらないため、追加録画を始められません。元の動画と同じ大きさの画面で録画してください。";
+        }
+        OnPropertyChanged(nameof(Append));
+        OnPropertyChanged(nameof(IsAppendMode));
+        OnPropertyChanged(nameof(IsNotAppend));
+        OnPropertyChanged(nameof(CanChooseAudio));
+        OnPropertyChanged(nameof(AppendBanner));
+        OnPropertyChanged(nameof(FrameLabel));
+    }
+
     public bool IsRegionMode => Mode == RecordingMode.Region;
     public bool IsWindowMode => Mode == RecordingMode.Window;
     public bool IsMonitorMode => Mode == RecordingMode.Monitor;
@@ -152,7 +214,7 @@ public sealed partial class RecorderViewModel : ObservableObject
     public string Preset720Label => PresetLabel(RegionSizePreset.Hd720);
     public string Preset1080Label => PresetLabel(RegionSizePreset.Hd1080);
     /// <summary>枠の上の表示（固定中は「1280×720・横16:9」、自由サイズは「1280×720・自由サイズ」）。</summary>
-    public string FrameLabel => IsAspectLocked
+    public string FrameLabel => IsAppendMode ? $"{Region.Width}×{Region.Height}・元の動画と同じ大きさ（固定）" : IsAspectLocked
         ? Loc.Format("Recorder.FrameLocked", Region.Width, Region.Height, Loc.Get(IsPortrait ? "Recorder.AspectPortrait" : "Recorder.AspectLandscape"))
         : Loc.Format("Recorder.FrameFree", Region.Width, Region.Height);
 
@@ -273,6 +335,11 @@ public sealed partial class RecorderViewModel : ObservableObject
 
     partial void OnMicrophoneEnabledChanged(bool value)
     {
+        if (value && !CanChooseAudio)
+        {
+            MicrophoneEnabled = false;
+            return;
+        }
         if (value && _devices.Count == 0)
         {
             MicrophoneEnabled = false;
@@ -339,7 +406,7 @@ public sealed partial class RecorderViewModel : ObservableObject
     /// </summary>
     public void ResizeRegionByDrag(CaptureRegion start, int dx, int dy, int mx, int my)
     {
-        if (!IsIdle) return;
+        if (!IsIdle || IsAppendMode) return;
         if (IsAspectLocked)
             SetLockedRegion(RegionAspect.Resize(start, dx, dy, mx, my, Orientation, _targets.VirtualScreen()));
         else
@@ -351,7 +418,8 @@ public sealed partial class RecorderViewModel : ObservableObject
     {
         if (!IsIdle) return;
         var next = start with { X = start.X + mx, Y = start.Y + my };
-        if (IsAspectLocked) SetLockedRegion(next);
+        // 追加録画は大きさ固定。位置だけを画面内へ寄せる（最小サイズの補正で大きさが変わらないように）。
+        if (IsAspectLocked || IsAppendMode) SetLockedRegion(next);
         else SetRegion(next);
     }
 
@@ -362,7 +430,7 @@ public sealed partial class RecorderViewModel : ObservableObject
     [RelayCommand]
     private void SelectSizePreset(RegionSizePreset preset)
     {
-        if (!IsIdle) return;
+        if (!IsIdle || IsAppendMode) return;
         if (preset == RegionSizePreset.Free)
         {
             SizePreset = RegionSizePreset.Free;
@@ -384,7 +452,7 @@ public sealed partial class RecorderViewModel : ObservableObject
     [RelayCommand]
     private void SelectOrientation(RegionOrientation orientation)
     {
-        if (!IsIdle || !IsAspectLocked || orientation == Orientation) return;
+        if (IsAppendMode || !IsIdle || !IsAspectLocked || orientation == Orientation) return;
         var monitor = _targets.MonitorOf(Region).Bounds;
         var (region, shrunk) = RegionAspect.Rotate(Region, orientation, monitor);
         Orientation = orientation;
@@ -396,7 +464,7 @@ public sealed partial class RecorderViewModel : ObservableObject
     [RelayCommand]
     private void ApplyRegionSize()
     {
-        if (!IsIdle) return;
+        if (!IsIdle || IsAppendMode) return;
         if (!int.TryParse(RegionWidthText, NumberStyles.Integer, CultureInfo.InvariantCulture, out var w)
             || !int.TryParse(RegionHeightText, NumberStyles.Integer, CultureInfo.InvariantCulture, out var h))
         {
@@ -433,6 +501,20 @@ public sealed partial class RecorderViewModel : ObservableObject
             return;
         }
 
+        if (Append is { } append)
+        {
+            if (!AppendFits)
+            {
+                _dialogs.ShowWarning($"録画する範囲（{append.Requirement.Width}x{append.Requirement.Height}）が今の画面に収まらないため、追加録画を始められません。元の動画と同じ大きさの画面で録画してください。");
+                return;
+            }
+            if (append.Requirement.HasAudio && !MicrophoneEnabled)
+            {
+                _dialogs.ShowWarning("元の動画には音声があります。つなげるには追加録画にも音声が必要です。音声の［マイク］を選び、マイクを確認してから録画を開始してください。");
+                return;
+            }
+        }
+
         // 録画対象の範囲を確定する（ウィンドウは録画開始時の位置・大きさ）。
         CaptureRegion region;
         string target;
@@ -465,6 +547,11 @@ public sealed partial class RecorderViewModel : ObservableObject
         // 画面の外にはみ出した部分は録画できないため切り詰め、H.264 用に幅・高さを偶数にする。
         region = region.ClampTo(_targets.VirtualScreen()).ToEvenSize();
         if (region.Width < 16 || region.Height < 16) { _dialogs.ShowWarning("録画する範囲が小さすぎます。"); return; }
+        if (Append is { } fixedSize && (region.Width != fixedSize.Requirement.Width || region.Height != fixedSize.Requirement.Height))
+        {
+            _dialogs.ShowWarning($"録画する範囲が元の動画の大きさ（{fixedSize.Requirement.Width}x{fixedSize.Requirement.Height}）と違うため、追加録画を始められません。");
+            return;
+        }
 
         AudioInputSpec? audio = null;
         if (MicrophoneEnabled)
@@ -601,10 +688,14 @@ public sealed partial class RecorderViewModel : ObservableObject
             _logger.LogInformation("Recording done choice: {Choice}, project name \"{Name}\"", choice.StartEditing ? "start editing" : "save and close", choice.ProjectName);
             StatusText = $"保存しました: {result.OutputPath}";
             // 録画ファイルを保存先の直下に作った「日時_名前」のプロジェクトフォルダーへ移す（v1.4）。
+            // 元の動画につなげる追加録画は、つなげた動画のフォルダー（名前）とは別に、「名前_追加録画」のフォルダーに残す（v1.18）。
             var path = result.OutputPath;
+            var folderName = choice.Append == AppendDoneAction.Join
+                ? (string.IsNullOrWhiteSpace(choice.ProjectName) ? "追加録画" : choice.ProjectName.Trim() + "_追加録画")
+                : choice.ProjectName;
             try
             {
-                path = ProjectFolders.MoveIntoNewFolder(path, OutputDirectory, result.Info.RecordedAt.LocalDateTime, choice.ProjectName);
+                path = ProjectFolders.MoveIntoNewFolder(path, OutputDirectory, result.Info.RecordedAt.LocalDateTime, folderName);
                 _logger.LogInformation("Moved recording into project folder: {Path}", path);
             }
             catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
@@ -612,7 +703,7 @@ public sealed partial class RecorderViewModel : ObservableObject
                 _logger.LogWarning(ex, "Failed to move recording into project folder");
                 _dialogs.ShowWarning($"録画ファイルをプロジェクトフォルダーへ移動できませんでした。保存先に残しています。{Environment.NewLine}{path}{Environment.NewLine}{ex.Message}");
             }
-            CloseRequested?.Invoke(new RecordingOutcome(path, result.Info, choice.StartEditing));
+            CloseRequested?.Invoke(new RecordingOutcome(path, result.Info, choice.StartEditing, choice.Append == AppendDoneAction.Join, choice.ProjectName));
         }
         finally
         {
@@ -690,13 +781,20 @@ public sealed partial class RecorderViewModel : ObservableObject
     public void SaveSettings()
     {
         var s = _settings.Current.Recording;
-        s.Mode = Mode;
-        s.Fps = Fps;
         s.DrawCursor = DrawCursor;
-        s.MicrophoneEnabled = MicrophoneEnabled;
         s.MicrophoneDevice = SelectedMicrophone?.Name ?? s.MicrophoneDevice;
         s.Countdown = Countdown;
         s.OutputDirectory = string.Equals(OutputDirectory, RecordingSettings.DefaultOutputDirectory(), StringComparison.OrdinalIgnoreCase) ? "" : OutputDirectory;
+        // 追加録画は元の動画に合わせて固定した条件なので、通常の録画用の保存済み設定（対象・FPS・マイク・範囲・大きさ）は書き換えない。
+        if (IsAppendMode)
+        {
+            try { _settings.Save(); }
+            catch (Exception ex) { _logger.LogWarning(ex, "Settings save failed"); }
+            return;
+        }
+        s.Mode = Mode;
+        s.Fps = Fps;
+        s.MicrophoneEnabled = MicrophoneEnabled;
         s.RegionX = Region.X;
         s.RegionY = Region.Y;
         s.RegionWidth = Region.Width;

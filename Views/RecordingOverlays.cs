@@ -194,7 +194,8 @@ public sealed class RegionFrameWindow : Window
         Canvas.SetTop(_centerGrip, iy + (h - _centerGrip.Height) / 2);
         foreach (var (handle, dx, dy) in _handles)
         {
-            handle.Visibility = interactive ? Visibility.Visible : Visibility.Collapsed;
+            // 追加録画（v1.18）は大きさ固定のため、大きさを変えるつまみは出さない（移動のつまみだけ）。
+            handle.Visibility = interactive && !_vm.IsAppendMode ? Visibility.Visible : Visibility.Collapsed;
             Canvas.SetLeft(handle, ix + (dx + 1) / 2.0 * w - handle.Width / 2);
             Canvas.SetTop(handle, iy + (dy + 1) / 2.0 * h - handle.Height / 2);
         }

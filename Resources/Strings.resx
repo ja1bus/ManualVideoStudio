@@ -134,6 +134,8 @@
   <data name="Status.CutLocked" xml:space="preserve"><value>字幕・図形の編集中のため、カットを変更できません。［カットを見直す…］を押してください（現在の編集を残してやり直すか、字幕・図形を破棄して戻るかを選べます）。</value></data>
   <data name="PL.Record" xml:space="preserve"><value>● 録画する</value></data>
   <data name="PL.Record.Tip" xml:space="preserve"><value>画面を録画して、新しい録画のフォルダーを作ります</value></data>
+  <data name="PL.AppendRecord" xml:space="preserve"><value>動画を追加して録画…</value></data>
+  <data name="PL.AppendRecord.Tip" xml:space="preserve"><value>選んだ録画（編集）の元の動画に、続きを追加録画してつなげ、新しいプロジェクトにします（元の動画・編集は変わりません）</value></data>
   <data name="PL.OpenVideo" xml:space="preserve"><value>動画を開く…</value></data>
   <data name="PL.OpenVideo.Tip" xml:space="preserve"><value>保存先の外にある動画を選び、プロジェクトのフォルダーへ移動して開きます</value></data>
   <data name="PL.OpenProjectFile" xml:space="preserve"><value>既存プロジェクトを開く…</value></data>

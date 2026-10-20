@@ -39,17 +39,20 @@ public sealed partial class MainViewModel : ObservableObject
     private readonly SubtitleCheckService? _subtitleCheck;
     /// <summary>字幕依頼（Gemini）の部品（v1.12。テストでは null で、その場合は［Geminiで字幕を作る］を使えない）。</summary>
     private readonly GeminiCaptionServices? _geminiCaption;
+    private readonly Core.Join.IRecordingJoinService? _recordingJoin;
 
     public MainViewModel(ISettingsService settings, IProjectService projects, IMediaMetadataService metadata,
         IFrameExtractionService frames, IVideoExportService videoExport, IGifExportService gifExport, ImageExportService imageExport,
         ILocalAnalysisService analysis, IDialogService dialogs, IWindowService windows, IShellService shell,
         FFmpegStatus ffmpeg, ILogger<MainViewModel> logger, SubtitleCheckService? subtitleCheck = null,
         CaptionRequestService? captionRequests = null, CaptionRequestStore? captionStore = null,
-        Core.Ai.IPromptTemplateService? promptTemplates = null, IClipboardService? clipboard = null)
+        Core.Ai.IPromptTemplateService? promptTemplates = null, IClipboardService? clipboard = null,
+        Core.Join.IRecordingJoinService? recordingJoin = null)
     {
         if (captionRequests is not null && captionStore is not null && promptTemplates is not null && clipboard is not null)
             _geminiCaption = new GeminiCaptionServices(captionRequests, captionStore, promptTemplates, clipboard, shell, dialogs, windows, ffmpeg, settings, logger);
         _subtitleCheck = subtitleCheck;
+        _recordingJoin = recordingJoin;
         _settings = settings;
         _projects = projects;
         _metadata = metadata;

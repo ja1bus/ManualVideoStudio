@@ -6,6 +6,7 @@ using ManualVideoStudio.Core.Models;
 using ManualVideoStudio.Core.Persistence;
 using ManualVideoStudio.Core.Recording;
 using ManualVideoStudio.Services.Recording;
+using ManualVideoStudio.ViewModels;
 
 namespace ManualVideoStudio.Views;
 
@@ -22,13 +23,26 @@ public partial class RecordingDoneWindow : Window
 
     private readonly string _root;
     private readonly DateTime _recordedAt;
+    private readonly AppendRecordingContext? _append;
     private bool _closeAllowed;
 
-    public RecordingDoneWindow(Task<RecordingResult> saving, RecordingInfo info, string projectRoot)
+    public RecordingDoneWindow(Task<RecordingResult> saving, RecordingInfo info, string projectRoot, AppendRecordingContext? append = null)
     {
         InitializeComponent();
         _root = projectRoot;
+        _append = append;
         _recordedAt = info.RecordedAt.LocalDateTime;
+        if (append is not null)
+        {
+            // 追加録画（v1.18）: つなげて編集 / 追加録画だけで編集。
+            NormalButtons.Visibility = Visibility.Collapsed;
+            AppendButtons.Visibility = Visibility.Visible;
+            NameLabel.Text = "新しいプロジェクト名";
+            JoinDescription.Text = $"「{append.SourceName}」のあとに追加録画をつなげた、新しい動画で編集を始めます。元の動画・元の編集は変わりません。"
+                + "元の動画と追加録画のコピーが増えるため、容量を使います。";
+            HelpText.Text = "保存している間にプロジェクト名を入力できます（空なら日時だけの名前）。名前は、つなげた動画のプロジェクト（または追加録画だけで編集するときのプロジェクト）に付きます。"
+                + "追加録画は、つなげても別のフォルダーに残ります。";
+        }
         InfoText.Text = Describe(info, 1);
         UpdateFolderText();
         SourceInitialized += (_, _) =>
@@ -48,6 +62,9 @@ public partial class RecordingDoneWindow : Window
     public string ProjectName => NameText.Text.Trim();
 
     public bool StartEditing { get; private set; }
+
+    /// <summary>追加録画での選択（通常の録画では None）。</summary>
+    public AppendDoneAction AppendAction { get; private set; }
 
     /// <summary>録画ファイルを作れずに閉じた。</summary>
     public bool Failed { get; private set; }
@@ -74,6 +91,8 @@ public partial class RecordingDoneWindow : Window
         await Task.Delay(ButtonGuard);
         EditButton.IsEnabled = true;
         CloseButton.IsEnabled = true;
+        JoinButton.IsEnabled = true;
+        SingleButton.IsEnabled = true;
         WaitText.Text = "Esc・Enter キーでは閉じません。ボタンを押して選んでください。";
     }
 
@@ -89,8 +108,29 @@ public partial class RecordingDoneWindow : Window
     private void UpdateFolderText()
     {
         if (FolderText is null || NameText is null) return;
-        FolderText.Text = "保存先: " + Path.Combine(_root, ProjectFolders.FolderName(_recordedAt, ProjectName));
+        if (_append is null)
+        {
+            FolderText.Text = "保存先: " + Path.Combine(_root, ProjectFolders.FolderName(_recordedAt, ProjectName));
+            return;
+        }
+        var extra = string.IsNullOrWhiteSpace(ProjectName) ? "追加録画" : ProjectName + "_追加録画";
+        FolderText.Text = "つなげた動画の保存先: " + Path.Combine(_root, ProjectFolders.FolderName(DateTime.Now, ProjectName)) + Environment.NewLine
+            + "追加録画の保存先: " + Path.Combine(_root, ProjectFolders.FolderName(_recordedAt, extra));
     }
+
+    private void Join_Click(object sender, RoutedEventArgs e)
+    {
+        AppendAction = AppendDoneAction.Join;
+        CloseBy(true);
+    }
+
+    private void Single_Click(object sender, RoutedEventArgs e)
+    {
+        AppendAction = AppendDoneAction.Single;
+        StartEditing = true;
+        CloseBy(true);
+    }
+
 
     private void Edit_Click(object sender, RoutedEventArgs e)
     {

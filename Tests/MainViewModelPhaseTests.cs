@@ -88,7 +88,7 @@ public class MainViewModelPhaseTests
             return DangerResult;
         }
 
-        public Task<RecordingOutcome?> ShowRecorderAsync() => Task.FromResult<RecordingOutcome?>(null);
+        public Task<RecordingOutcome?> ShowRecorderAsync(AppendRecordingContext? append = null) => Task.FromResult<RecordingOutcome?>(null);
         public bool IsRecorderOpen => false;
         public void ActivateRecorder() { }
         public ProjectListAction? ShowProjectList(string? openProjectPath, string? openVideoPath) => null;

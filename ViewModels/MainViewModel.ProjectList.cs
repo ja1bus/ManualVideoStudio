@@ -34,6 +34,7 @@ public sealed partial class MainViewModel
             case ProjectListActionKind.Duplicate: await DuplicateEditAsync(action.Path!, restartFromCuts: false); break;
             case ProjectListActionKind.DuplicateFromCuts: await DuplicateEditAsync(action.Path!, restartFromCuts: true); break;
             case ProjectListActionKind.StartRecording: await StartRecordingAsync(); break;
+            case ProjectListActionKind.AppendRecording: await AppendRecordingAsync(action.Path!); break;
             case ProjectListActionKind.OpenVideoDialog: await OpenVideoAsync(); break;
             case ProjectListActionKind.OpenProjectDialog: await OpenProjectAsync(); break;
         }

@@ -43,7 +43,8 @@ public interface IWindowService
     /// <summary>取り消しにくい操作の確認（ボタンに操作名を出す。既定はキャンセル）。</summary>
     bool ConfirmDanger(string title, string message, string okLabel, string cancelLabel);
     /// <summary>録画画面を開く（主画面は最小化・無効化し、閉じたら戻す）。録画して閉じた場合は結果、それ以外は null。</summary>
-    Task<RecordingOutcome?> ShowRecorderAsync();
+    /// <param name="append">追加録画（v1.18）。元の動画に合わせて大きさ・FPS・音声を固定した録画画面にする。通常の録画は null。</param>
+    Task<RecordingOutcome?> ShowRecorderAsync(AppendRecordingContext? append = null);
     /// <summary>録画画面が開いているか（開いている間は主画面を閉じない）。</summary>
     bool IsRecorderOpen { get; }
     /// <summary>録画画面を前面に出す。</summary>
@@ -201,7 +202,7 @@ public sealed class WindowService(IServiceProvider services) : IWindowService
         if (_recorder is { IsVisible: true } r) r.Activate();
     }
 
-    public Task<RecordingOutcome?> ShowRecorderAsync()
+    public Task<RecordingOutcome?> ShowRecorderAsync(AppendRecordingContext? append = null)
     {
         if (_recorder is not null)
         {
@@ -210,6 +211,7 @@ public sealed class WindowService(IServiceProvider services) : IWindowService
         }
         var main = Application.Current.MainWindow;
         var vm = services.GetRequiredService<RecorderViewModel>();
+        if (append is not null) vm.ApplyAppend(append);
         var w = new RecorderWindow(vm);
         _recorder = w;
         var tcs = new TaskCompletionSource<RecordingOutcome?>();

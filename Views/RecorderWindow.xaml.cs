@@ -152,9 +152,9 @@ public partial class RecorderWindow : Window
 
     private RecordingDoneChoice? AskStartEditing(Task<RecordingResult> saving, RecordingInfo info)
     {
-        var w = new RecordingDoneWindow(saving, info, _vm.OutputDirectory);
+        var w = new RecordingDoneWindow(saving, info, _vm.OutputDirectory, _vm.Append);
         w.ShowDialog();
-        return w.Failed ? null : new RecordingDoneChoice(w.StartEditing, w.ProjectName);
+        return w.Failed ? null : new RecordingDoneChoice(w.StartEditing, w.ProjectName, w.AppendAction);
     }
 
     // ---------------- ショートカット ----------------

@@ -22,6 +22,8 @@ public enum ProjectListActionKind
     /// <summary>カットだけ引き継いで複製する。Path は元のプロジェクトファイル。</summary>
     DuplicateFromCuts,
     StartRecording,
+    /// <summary>選んだ録画・編集の元の動画に続きを追加録画して連結する（v1.18）。Path は録画のフォルダーまたはプロジェクトファイル。</summary>
+    AppendRecording,
     OpenVideoDialog,
     OpenProjectDialog,
 }
@@ -149,6 +151,7 @@ public sealed partial class ProjectListViewModel(ISettingsService settings, IDia
     {
         OpenCommand.NotifyCanExecuteChanged();
         NewEditCommand.NotifyCanExecuteChanged();
+        AppendRecordingCommand.NotifyCanExecuteChanged();
         DuplicateCommand.NotifyCanExecuteChanged();
         DuplicateFromCutsCommand.NotifyCanExecuteChanged();
         RenameCommand.NotifyCanExecuteChanged();
@@ -232,6 +235,27 @@ public sealed partial class ProjectListViewModel(ISettingsService settings, IDia
             return;
         }
         Close(new ProjectListAction(kind, row.FullPath));
+    }
+
+    /// <summary>［動画を追加して録画…］。録画の行はその録画の動画、編集の行はその編集の元の動画に、続きを追加録画する。</summary>
+    [RelayCommand(CanExecute = nameof(HasSingle))]
+    private void AppendRecording()
+    {
+        if (Single is not { } row) return;
+        if (row.IsRecording)
+        {
+            if (ProjectFolders.FindVideo(row.FullPath) is null)
+            {
+                dialogs.ShowWarning($"録画のフォルダーに動画が見つかりません。{Environment.NewLine}{row.FullPath}{Environment.NewLine}{Environment.NewLine}エクスプローラーで変更した場合は［最新の情報に更新］を押してください。");
+                return;
+            }
+        }
+        else if (!File.Exists(row.FullPath))
+        {
+            dialogs.ShowWarning($"プロジェクトファイルが見つかりません。{Environment.NewLine}{row.FullPath}");
+            return;
+        }
+        Close(new ProjectListAction(ProjectListActionKind.AppendRecording, row.FullPath));
     }
 
     [RelayCommand]
