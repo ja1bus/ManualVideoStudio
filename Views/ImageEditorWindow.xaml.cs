@@ -41,7 +41,7 @@ public partial class ImageEditorWindow : Window
         if (ctrl && key == Key.Y) { Run(vm.RedoCommand, e); return; }
         if (Keyboard.Modifiers.HasFlag(ModifierKeys.Alt) || ctrl) return;
         // 文字サイズのプルダウン・表示時間の入力欄（動画の図形）の操作中は、矢印キー・文字キーをそちらに任せる。
-        if (e.OriginalSource is DependencyObject src && (src is System.Windows.Controls.ComboBox or System.Windows.Controls.TextBox
+        if (e.OriginalSource is DependencyObject src && (src is System.Windows.Controls.ComboBox or System.Windows.Controls.TextBox or Slider
                 || ItemsControl.ItemsControlFromItemContainer(src) is System.Windows.Controls.ComboBox))
         {
             if (key == Key.Escape) Canvas.Focus();
@@ -61,11 +61,24 @@ public partial class ImageEditorWindow : Window
             case Key.L: Run(vm.SetToolCommand, e, EditorTool.Line); break;
             case Key.T: Run(vm.SetToolCommand, e, EditorTool.Text); break;
             case Key.M: Run(vm.SetToolCommand, e, EditorTool.Mosaic); break;
-            case Key.Left: Nudge(vm, e, shift ? -10 : -1, 0); break;
-            case Key.Right: Nudge(vm, e, shift ? 10 : 1, 0); break;
+            case Key.Left:
+                if (!vm.HasSelection && vm.HasFrameNav) StepBackground(vm, e, shift ? "-1" : null, shift ? null : "-1");
+                else Nudge(vm, e, shift ? -10 : -1, 0);
+                break;
+            case Key.Right:
+                if (!vm.HasSelection && vm.HasFrameNav) StepBackground(vm, e, shift ? "+1" : null, shift ? null : "1");
+                else Nudge(vm, e, shift ? 10 : 1, 0);
+                break;
             case Key.Up: Nudge(vm, e, 0, shift ? -10 : -1); break;
             case Key.Down: Nudge(vm, e, 0, shift ? 10 : 1); break;
         }
+    }
+
+    /// <summary>図形を選んでいないときの ←/→ は背景のコマ送り（Shift で 1 秒）。</summary>
+    private static void StepBackground(ImageEditorViewModel vm, KeyEventArgs e, string? seconds, string? frame)
+    {
+        if (seconds is not null) Run(vm.JumpBackgroundCommand, e, seconds);
+        else Run(vm.StepBackgroundCommand, e, frame);
     }
 
     private static void Nudge(ImageEditorViewModel vm, KeyEventArgs e, double dx, double dy)

@@ -71,9 +71,18 @@ public sealed class ShellService : IShellService
 
     public void RevealFile(string file)
     {
-        if (System.IO.File.Exists(file)) Start("explorer.exe", ["/select," + file]);
+        if (System.IO.File.Exists(file))
+        {
+            // /select, はパスだけを引用符で囲む形でないとエクスプローラーが読めず、ドキュメントを開いてしまう。
+            // ArgumentList では "/select,パス" 全体が囲まれるため、Arguments で組み立てる。
+            Process.Start(new ProcessStartInfo("explorer.exe") { UseShellExecute = false, Arguments = SelectArguments(file) })?.Dispose();
+        }
         else OpenFolder(System.IO.Path.GetDirectoryName(file) ?? "");
     }
+
+    /// <summary>explorer.exe にファイルを選択させる引数（<c>/select,"フルパス"</c>）。区切りは \ にそろえる。</summary>
+    public static string SelectArguments(string file)
+        => "/select,\"" + System.IO.Path.GetFullPath(file).Replace('/', '\\') + "\"";
 
     public void OpenUrl(string url)
         => Process.Start(new ProcessStartInfo(url) { UseShellExecute = true })?.Dispose();

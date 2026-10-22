@@ -163,6 +163,26 @@
                         <Run Text="編集後の長さ"/><Run Text="{Binding OutputDurationText, Mode=OneWay}"/>
                     </TextBlock>
                 </WrapPanel>
+                <!-- 背景のコマ送り（v1.18.1）: 対象物が映るコマに合わせてから図形を描く -->
+                <DockPanel Margin="0,5,0,0" Visibility="{Binding HasFrameNav, Converter={StaticResource BoolToVisibility}}">
+                    <TextBlock Text="背景のコマ" FontWeight="SemiBold" VerticalAlignment="Center" Margin="0,0,8,0"/>
+                    <TextBlock DockPanel.Dock="Right" Text="{Binding FrameTimeText}" FontFamily="Consolas" VerticalAlignment="Center" Margin="8,0,0,0" MinWidth="86"
+                               AutomationProperties.Name="背景のコマの時刻"/>
+                    <StackPanel DockPanel.Dock="Left" Orientation="Horizontal">
+                        <Button Content="−1秒" MinWidth="44" Command="{Binding JumpBackgroundCommand}" CommandParameter="-1" ToolTip="背景を 1 秒戻す"
+                                AutomationProperties.Name="背景を1秒戻す"/>
+                        <Button Content="◀|" MinWidth="36" Command="{Binding StepBackgroundCommand}" CommandParameter="-1" ToolTip="背景を 1 コマ戻す (←。図形を選んでいないとき)"
+                                AutomationProperties.Name="背景を1コマ戻す"/>
+                        <Button Content="|▶" MinWidth="36" Command="{Binding StepBackgroundCommand}" CommandParameter="1" ToolTip="背景を 1 コマ進める (→。図形を選んでいないとき)"
+                                AutomationProperties.Name="背景を1コマ進める"/>
+                        <Button Content="＋1秒" MinWidth="44" Command="{Binding JumpBackgroundCommand}" CommandParameter="1" ToolTip="背景を 1 秒進める"
+                                AutomationProperties.Name="背景を1秒進める"/>
+                    </StackPanel>
+                    <Slider Minimum="0" Maximum="{Binding FrameMaximum, Mode=OneWay}" Value="{Binding FrameSlider, Mode=TwoWay}"
+                            SmallChange="{Binding FrameSmallChange, Mode=OneWay}" LargeChange="1" IsMoveToPointEnabled="True"
+                            VerticalAlignment="Center" Margin="10,0,0,0" MinWidth="200"
+                            AutomationProperties.Name="背景のコマの位置" ToolTip="動かすと背景の画面が変わります（図形の表示時間は変わりません）"/>
+                </DockPanel>
                 <TextBlock Text="{Binding TargetText}" Style="{StaticResource Subtle}" FontSize="11" Margin="0,3,0,0" TextTrimming="CharacterEllipsis"/>
                 <TextBlock Text="{Binding TimeError}" Foreground="{StaticResource ErrorBrush}" TextWrapping="Wrap" Margin="0,3,0,0"
                            Visibility="{Binding TimeError, Converter={StaticResource EmptyToCollapsed}}"/>

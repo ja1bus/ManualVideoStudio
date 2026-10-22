@@ -189,13 +189,21 @@ public sealed partial class MainViewModel
             baseImage,
             existing?.Shapes ?? [], existing?.ImageWidth ?? 0, existing?.ImageHeight ?? 0,
             start, end, Editor.OutputDuration,
-            $"背景: 編集後 {TimeFormat.FormatShort(frameOutput)} の画面。図形は画面の動きについて行きません（その位置に表示し続けます）。",
+            $"背景: 編集後 {TimeFormat.FormatShort(frameOutput)} の画面。{ImageEditorViewModel.BackgroundNote}",
             (shapes, w, h, s, e) =>
             {
                 var r = id is null ? Editor.AddShapeGroup(s, e, shapes, w, h).Result : Editor.UpdateShapeGroup(id, s, e, shapes, w, h);
                 committed |= r.Success;
                 return r;
-            });
+            },
+            frameOutput,
+            // コマ送り: 編集画面で背景を動かしたとき、そのコマを元動画から切り出す。
+            async outputTime =>
+            {
+                var path = await _frames.GetFullFrameAsync(ffmpeg, VideoPath, EditTimelineCalculator.MapToSource(outputTime, KeepRanges), CancellationToken.None);
+                return ImageFiles.Load(path);
+            },
+            FrameDuration);
         var vm = new ImageEditorViewModel(request, _dialogs, _windows, _logger);
         _windows.EditImage(vm);
         return committed;

@@ -36,6 +36,8 @@ public sealed class AnnotationCanvas : FrameworkElement
 
     private BitmapSource? _mosaicked;
     private string _mosaicKey = "";
+    /// <summary>モザイクを焼き込んだ元の画像（コマ送りで背景が替わったら作り直す）。</summary>
+    private BitmapSource? _mosaicBase;
 
     public AnnotationCanvas()
     {
@@ -139,10 +141,11 @@ public sealed class AnnotationCanvas : FrameworkElement
     {
         var mosaics = vm.Session.Items.OfType<MosaicAnnotation>().ToList();
         var key = JsonSerializer.Serialize(mosaics, JsonDefaults.Options);
-        if (_mosaicked is null || key != _mosaicKey)
+        if (_mosaicked is null || key != _mosaicKey || !ReferenceEquals(vm.BaseImage, _mosaicBase))
         {
             _mosaicked = mosaics.Count == 0 ? vm.BaseImage : AnnotationRenderer.ApplyMosaics(vm.BaseImage, mosaics);
             _mosaicKey = key;
+            _mosaicBase = vm.BaseImage;
         }
         return _mosaicked;
     }

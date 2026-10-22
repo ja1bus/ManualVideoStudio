@@ -7,7 +7,7 @@
     <Nullable>enable</Nullable>
     <RootNamespace>ManualVideoStudio</RootNamespace>
     <AssemblyName>ManualVideoStudio</AssemblyName>
-    <Version>1.18.0</Version>
+    <Version>1.18.1</Version>
     <!-- 画面の文言は Resources/Strings.resx（日本語。既定の言語）。英語対応では同じキーの Strings.en.resx を足す（v1.13）。 -->
     <NeutralLanguage>ja</NeutralLanguage>
     <ApplicationIcon>Resources/icon.ico</ApplicationIcon>

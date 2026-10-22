@@ -518,6 +518,107 @@ public class VideoShapeEditorTests
         return (new ImageEditorViewModel(request, new Dialogs(), null!, NullLogger.Instance), commits);
     }
 
+    private static (ImageEditorViewModel Vm, List<double> Loaded) OpenWithFrames(Func<double, Task<BitmapSource>>? load = null, double at = 2)
+    {
+        var loaded = new List<double>();
+        var request = new VideoShapeEditRequest("動画の図形 - 追加", Frame(), [], 320, 180, 1, 4, 30, "背景", (_, _, _, _, _) => EditResult.Ok(),
+            at, t => { loaded.Add(t); return load?.Invoke(t) ?? Task.FromResult(Frame()); }, 0.5);
+        return (new ImageEditorViewModel(request, new Dialogs(), null!, NullLogger.Instance), loaded);
+    }
+
+    [Fact]
+    public Task FrameNavIsOffWithoutLoaderAndStartsAtTheGivenFrame() => StaThread.RunAsync(() =>
+    {
+        Assert.False(Open().Vm.HasFrameNav);
+        var (vm, loaded) = OpenWithFrames(at: 2.5);
+        Assert.True(vm.HasFrameNav);
+        Assert.Equal(2.5, vm.FrameTime);
+        Assert.Equal(2.5, vm.FrameSlider);
+        Assert.Equal("00:00:02.500", vm.FrameTimeText);
+        Assert.Empty(loaded);
+    });
+
+    [Fact]
+    public Task SteppingMovesTheBackgroundAndKeepsTheShapeTimesAndDirtyState() => StaThread.RunAsync(() =>
+    {
+        var (vm, loaded) = OpenWithFrames();
+        var before = vm.BaseImage;
+        var renders = 0;
+        vm.RenderRequested += () => renders++;
+
+        vm.StepBackgroundCommand.ExecuteAsync("1").GetAwaiter().GetResult();
+        Assert.Equal([2.5], loaded);
+        Assert.Equal(2.5, vm.FrameSlider);
+        Assert.NotSame(before, vm.BaseImage);
+        Assert.Equal(1, renders);
+        Assert.Contains(TimeFormat.FormatShort(2.5), vm.TargetText);
+        Assert.Contains(ImageEditorViewModel.BackgroundNote, vm.TargetText);
+
+        vm.JumpBackgroundCommand.ExecuteAsync("-1").GetAwaiter().GetResult();
+        Assert.Equal(1.5, vm.FrameTime);
+        Assert.Equal("00:00:01.000", vm.StartText);
+        Assert.Equal("00:00:04.000", vm.EndText);
+        Assert.False(vm.IsDirty);
+    });
+
+    [Fact]
+    public Task SteppingStaysInsideTheVideo() => StaThread.RunAsync(() =>
+    {
+        var (vm, loaded) = OpenWithFrames(at: 0.2);
+        vm.StepBackgroundCommand.ExecuteAsync("-1").GetAwaiter().GetResult();
+        Assert.Equal(0, vm.FrameTime);
+        vm.GoToFrameAsync(999).GetAwaiter().GetResult();
+        Assert.Equal(29.5, vm.FrameTime);
+        Assert.Equal([0, 29.5], loaded);
+    });
+
+    [Fact]
+    public Task SliderLoadsTheFrameAndOnlyTheLatestRequestWhileLoading() => StaThread.RunAsync(() =>
+    {
+        var gate = new TaskCompletionSource<BitmapSource>();
+        var first = true;
+        var (vm, loaded) = OpenWithFrames(_ =>
+        {
+            if (!first) return Task.FromResult(Frame());
+            first = false;
+            return gate.Task;
+        });
+
+        // 読み込み中につまみを動かし続けても、最後の位置だけが読み込まれる。
+        vm.FrameSlider = 5;
+        Assert.True(vm.IsFrameLoading);
+        vm.FrameSlider = 6;
+        vm.FrameSlider = 7;
+        Assert.Equal([5.0], loaded);
+        gate.SetResult(Frame());
+        Assert.Equal([5.0, 7.0], loaded);
+        Assert.Equal(7, vm.FrameTime);
+        Assert.False(vm.IsFrameLoading);
+    });
+
+    [Fact]
+    public Task LoadFailureKeepsTheCurrentBackgroundAndReportsIt() => StaThread.RunAsync(() =>
+    {
+        var (vm, _) = OpenWithFrames(_ => throw new IOException("読めません"));
+        var before = vm.BaseImage;
+        vm.GoToFrameAsync(3).GetAwaiter().GetResult();
+        Assert.Same(before, vm.BaseImage);
+        Assert.Contains("読めません", vm.StatusText);
+        Assert.False(vm.IsFrameLoading);
+        vm.GoToFrameAsync(3.5).GetAwaiter().GetResult();
+    });
+
+    [Fact]
+    public Task FrameOfAnotherSizeIsRejected() => StaThread.RunAsync(() =>
+    {
+        var other = BitmapSource.Create(64, 36, 96, 96, PixelFormats.Bgra32, null, new byte[64 * 36 * 4], 64 * 4);
+        var (vm, _) = OpenWithFrames(_ => Task.FromResult<BitmapSource>(other));
+        var before = vm.BaseImage;
+        vm.GoToFrameAsync(3).GetAwaiter().GetResult();
+        Assert.Same(before, vm.BaseImage);
+        Assert.Contains("大きさ", vm.StatusText);
+    });
+
     [Fact]
     public Task VideoModeShowsTimesAndCommitsOnOk() => StaThread.RunAsync(() =>
     {

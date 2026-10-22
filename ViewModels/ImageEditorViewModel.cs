@@ -49,7 +49,13 @@ public sealed record VideoShapeEditRequest(
     double OutputDuration,
     /// <summary>背景の 1 コマの説明（例: 「編集後 0:12.3 の画面」）。</summary>
     string BackgroundText,
-    Func<IReadOnlyList<Annotation>, int, int, double, double, EditResult> Commit);
+    Func<IReadOnlyList<Annotation>, int, int, double, double, EditResult> Commit,
+    /// <summary>背景のコマの時刻（編集後の動画の秒）。コマ送りの開始位置。</summary>
+    double FrameOutput = 0,
+    /// <summary>編集後の動画の指定時刻のコマを取得する。null ならコマ送りを出さない（背景は 1 コマ固定）。</summary>
+    Func<double, Task<BitmapSource>>? LoadFrame = null,
+    /// <summary>コマ送り 1 回の秒数（動画の 1 フレーム）。</summary>
+    double FrameStep = 1.0 / 30);
 
 /// <summary>
 /// 手順書画像の簡易注釈編集。編集中は注釈をオブジェクトとして持ち（AnnotationSession）、保存時に画像へ焼き込んで元ファイルへ上書きする。
@@ -87,6 +93,8 @@ public sealed partial class ImageEditorViewModel : ObservableObject
         _video = request;
         Title = request.Title;
         TargetText = request.BackgroundText;
+        _frameTime = Math.Clamp(request.FrameOutput, 0, Math.Max(0, request.OutputDuration));
+        _frameSlider = _frameTime;
         _startText = TimeFormat.Format(request.Start);
         _endText = TimeFormat.Format(request.End);
         _savedTimes = TimesKey;
@@ -117,7 +125,8 @@ public sealed partial class ImageEditorViewModel : ObservableObject
     public event Action? RenderRequested;
 
     public AnnotationSession Session { get; }
-    public BitmapSource BaseImage { get; }
+    /// <summary>背景の画像。動画の図形ではコマ送りで差し替わる（RenderRequested で再描画）。</summary>
+    public BitmapSource BaseImage { get; private set; }
     public string Title { get; private set; }
     public string TargetText { get; private set; }
     public bool IsOutputMissing => _request is { OutputPath: null };
@@ -140,7 +149,96 @@ public sealed partial class ImageEditorViewModel : ObservableObject
     [ObservableProperty] private string _endText = "";
     [ObservableProperty] private string _timeError = "";
 
-    private string TimesKey => $"{StartText.Trim()}|{EndText.Trim()}";
+    // ---------------- 背景のコマ送り（v1.18.1） ----------------
+
+    /// <summary>背景の説明に続ける注意（図形は画面の動きに追従しない）。</summary>
+    public const string BackgroundNote = "図形は画面の動きについて行きません（その位置に表示し続けます）。";
+
+    /// <summary>背景のコマを動かせるか（動画の図形で、コマの取得手段があるとき）。</summary>
+    public bool HasFrameNav => _video?.LoadFrame is not null;
+    public double FrameMaximum => _video?.OutputDuration ?? 0;
+    public double FrameSmallChange => _video?.FrameStep ?? 0;
+
+    /// <summary>背景のコマの時刻（編集後の動画の秒）。</summary>
+    [ObservableProperty] private double _frameTime;
+    /// <summary>スライダーの値（コマの時刻と同期。つまみを動かすと背景を取り直す）。</summary>
+    [ObservableProperty] private double _frameSlider;
+    [ObservableProperty] private bool _isFrameLoading;
+    private bool _syncingSlider;
+    private double? _pendingFrame;
+
+    public string FrameTimeText => TimeFormat.Format(FrameTime);
+
+    partial void OnFrameTimeChanged(double value) => OnPropertyChanged(nameof(FrameTimeText));
+
+    partial void OnFrameSliderChanged(double value)
+    {
+        // 初期化時の値の丸め（最大値が決まる前の 0 など）では背景を取り直さない。
+        if (!_syncingSlider && Math.Abs(value - FrameTime) > 1e-9) _ = GoToFrameAsync(value);
+    }
+
+    /// <summary>背景を指定の時刻のコマにする。読み込み中の要求は最後の 1 つだけを実行する（つまみを動かし続けても溜めない）。</summary>
+    public async Task GoToFrameAsync(double time)
+    {
+        if (_video?.LoadFrame is not { } load) return;
+        var max = Math.Max(0, _video.OutputDuration - Math.Min(_video.FrameStep, _video.OutputDuration));
+        time = Math.Round(Math.Clamp(time, 0, max), 3);
+        FrameTime = time;
+        _syncingSlider = true;
+        FrameSlider = time;
+        _syncingSlider = false;
+        _pendingFrame = time;
+        if (IsFrameLoading) return;
+        IsFrameLoading = true;
+        try
+        {
+            while (_pendingFrame is { } t)
+            {
+                _pendingFrame = null;
+                try
+                {
+                    var image = await load(t);
+                    if (image.PixelWidth != Session.ImageWidth || image.PixelHeight != Session.ImageHeight)
+                    {
+                        StatusText = "コマの大きさが違うため背景を切り替えられませんでした。";
+                        continue;
+                    }
+                    BaseImage = image;
+                    OnPropertyChanged(nameof(BaseImage));
+                    TargetText = $"背景: 編集後 {TimeFormat.FormatShort(t)} の画面。{BackgroundNote}";
+                    OnPropertyChanged(nameof(TargetText));
+                    RenderRequested?.Invoke();
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogError(ex, "Shape background frame failed: {Time}", t);
+                    StatusText = "背景のコマを読み込めませんでした: " + ex.Message;
+                }
+            }
+        }
+        finally
+        {
+            IsFrameLoading = false;
+        }
+    }
+
+    /// <summary>1 コマ分、背景を動かす（direction は "1" / "-1"）。</summary>
+    [RelayCommand]
+    private Task StepBackground(string? direction)
+    {
+        var dir = direction == "-1" ? -1 : 1;
+        return GoToFrameAsync(FrameTime + dir * (_video?.FrameStep ?? 0));
+    }
+
+    /// <summary>秒単位で背景を動かす（"+1" / "-1" など）。</summary>
+    [RelayCommand]
+    private Task JumpBackground(string? seconds)
+    {
+        var d = double.TryParse(seconds, System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out var v) ? v : 1;
+        return GoToFrameAsync(FrameTime + d);
+    }
+
+    private string TimesKey =>$"{StartText.Trim()}|{EndText.Trim()}";
 
     partial void OnStartTextChanged(string value) => OnTimesChanged();
     partial void OnEndTextChanged(string value) => OnTimesChanged();

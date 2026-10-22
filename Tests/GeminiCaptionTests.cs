@@ -870,6 +870,13 @@ public class GeminiCaptionViewModelTests : IDisposable
         Assert.Equal([r.Session.Video!.Path], r.Shell.Revealed);
     }
 
+    [Theory]
+    [InlineData(@"C:\Users\x\My Videos\a b.mp4", "/select,\"C:\\Users\\x\\My Videos\\a b.mp4\"")]
+    [InlineData(@"C:\work\録画 1\caption-requests\字幕 依頼", "/select,\"C:\\work\\録画 1\\caption-requests\\字幕 依頼\"")]
+    [InlineData("C:/work/rec/x.mp4", "/select,\"C:\\work\\rec\\x.mp4\"")]
+    public void RevealArgumentsQuoteOnlyThePathSoExplorerSelectsTheFile(string file, string expected)
+        => Assert.Equal(expected, ManualVideoStudio.Services.ShellService.SelectArguments(file));
+
     [Fact]
     public void SubtitleRequestTemplateIsCustomizableAndKeptApartFromOlderTemplateKeys()
     {
