@@ -147,6 +147,58 @@ public class SubtitleLayoutEditingTests
         return (ed, seg!);
     }
 
+    private static (ProjectEditor Editor, List<SubtitleSegment> Segments) SetupThree()
+    {
+        var ed = new ProjectEditor(TestProjects.Create(60));
+        Assert.True(ed.ConfirmCuts().Success);
+        var list = new List<SubtitleSegment>
+        {
+            ed.AddSubtitle(1, 3, "一", SubtitlePosition.Bottom, 48).Segment!,
+            ed.AddSubtitle(5, 7, "二", SubtitlePosition.Bottom, 48).Segment!,
+            ed.AddSubtitle(9, 11, "三", SubtitlePosition.Middle, 48).Segment!,
+        };
+        return (ed, list);
+    }
+
+    [Fact]
+    public void SeveralSubtitlesChangePositionTogetherAndUndoInOneStep()
+    {
+        var (ed, segs) = SetupThree();
+        var ids = segs.Select(s => s.Id).ToList();
+        Assert.True(ed.SetSubtitlesLayout(ids, s => (SubtitlePosition.Top, s.FontSize, s.VerticalOffset)).Success);
+        Assert.All(ed.Project.SubtitleSegments, s => Assert.Equal(SubtitlePosition.Top, s.Position));
+        Assert.Equal("字幕の位置の変更（3 件）", ed.History.UndoLabel);
+        ed.Undo();   // 1 回で全件が戻る
+        Assert.Equal([SubtitlePosition.Bottom, SubtitlePosition.Bottom, SubtitlePosition.Middle], ed.Project.SubtitleSegments.Select(s => s.Position));
+        ed.Redo();
+        Assert.All(ed.Project.SubtitleSegments, s => Assert.Equal(SubtitlePosition.Top, s.Position));
+    }
+
+    [Fact]
+    public void OnlyChangedSubtitlesAreCountedAndOffsetsMoveFromEachOwnValue()
+    {
+        var (ed, segs) = SetupThree();
+        Assert.True(ed.SetSubtitleLayout(segs[0].Id, SubtitlePosition.Bottom, 48, SubtitleStyle.OffsetStep * 2).Success);
+        // 一つ目はずらし 2 段、二つ目は 0 段から、それぞれ 1 段ずらす（変わるのは 2 件）
+        Assert.True(ed.SetSubtitlesLayout([segs[0].Id, segs[1].Id], s => (SubtitlePosition.Bottom, s.FontSize, s.VerticalOffset + SubtitleStyle.OffsetStep)).Success);
+        Assert.Equal(SubtitleStyle.OffsetStep * 3, ed.Project.SubtitleSegments[0].VerticalOffset);
+        Assert.Equal(SubtitleStyle.OffsetStep, ed.Project.SubtitleSegments[1].VerticalOffset);
+        Assert.Equal(0, ed.Project.SubtitleSegments[2].VerticalOffset);   // 対象外は変わらない
+        Assert.Equal("字幕の上下のずらしの変更（2 件）", ed.History.UndoLabel);
+        var before = ed.History.UndoLabel;
+        Assert.True(ed.SetSubtitlesLayout([segs[2].Id], s => (s.Position, s.FontSize, s.VerticalOffset)).Success);   // 変化なしは記録しない
+        Assert.Equal(before, ed.History.UndoLabel);
+    }
+
+    [Fact]
+    public void UnknownIdsAreIgnoredAndAllUnknownFails()
+    {
+        var (ed, segs) = SetupThree();
+        Assert.True(ed.SetSubtitlesLayout([segs[0].Id, "none"], s => (SubtitlePosition.Top, s.FontSize, s.VerticalOffset)).Success);
+        Assert.Equal("字幕の位置の変更", ed.History.UndoLabel);   // 1 件のときは件数を付けない
+        Assert.False(ed.SetSubtitlesLayout(["none"], s => (SubtitlePosition.Top, s.FontSize, s.VerticalOffset)).Success);
+    }
+
     [Fact]
     public void PositionSizeAndOffsetAreUndoable()
     {

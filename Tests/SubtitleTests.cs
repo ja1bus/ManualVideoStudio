@@ -313,6 +313,55 @@ public class EditTimelineMappingTests
         Assert.False(EditTimelineCalculator.IsRemoved(31, keep));
         Assert.True(EditTimelineCalculator.IsRemoved(60, keep));
     }
+
+    // v1.18.2: 「カットをスキップ」の再生で、削除区間の終端（79.689 秒）へ飛んだ直後に最後まで飛ぶ不具合。
+    // プレーヤーの位置は TimeSpan 経由で 79.6889999 になり、IsRemoved は削除中・NextKeepStart は null と食い違っていた。
+    private static IReadOnlyList<TimeRange> AlmaKeep() => EditTimelineCalculator.ComputeKeepRanges(370.565,
+    [
+        new CutSegment { Start = 59.124, End = 79.689, Action = SegmentAction.Remove },
+        new CutSegment { Start = 170.353, End = 178.586, Action = SegmentAction.Remove },
+    ]);
+
+    [Fact]
+    public void PlayerPositionJustBelowCutEndIsNotTreatedAsRemovedOrJumpedToEnd()
+    {
+        var keep = AlmaKeep();
+        var back = TimeSpan.FromSeconds(79.689).TotalSeconds; // 79.6889999（プレーヤーが返す値）
+        Assert.True(back < 79.689);
+        Assert.False(EditTimelineCalculator.IsRemoved(back, keep));
+        Assert.Null(EditTimelineCalculator.NextKeepStart(back, keep));
+        Assert.Equal(EditTimelineCalculator.SkipKind.None, EditTimelineCalculator.ResolveSkip(back, keep, out _));
+    }
+
+    [Fact]
+    public void ResolveSkipJumpsOverCutAndStopsOnlyAfterLastKeep()
+    {
+        var keep = AlmaKeep();
+        Assert.Equal(EditTimelineCalculator.SkipKind.None, EditTimelineCalculator.ResolveSkip(58.8, keep, out _));
+        Assert.Equal(EditTimelineCalculator.SkipKind.Jump, EditTimelineCalculator.ResolveSkip(59.2, keep, out var t));
+        Assert.Equal(79.689, t);
+        Assert.Equal(EditTimelineCalculator.SkipKind.Jump, EditTimelineCalculator.ResolveSkip(79.0, keep, out t));
+        Assert.Equal(79.689, t);
+        Assert.Equal(EditTimelineCalculator.SkipKind.None, EditTimelineCalculator.ResolveSkip(79.689, keep, out _));
+        Assert.Equal(EditTimelineCalculator.SkipKind.None, EditTimelineCalculator.ResolveSkip(300, keep, out _));
+
+        // 最後の区間を削除した場合だけ、削除の始まりで止める
+        var tail = EditTimelineCalculator.ComputeKeepRanges(100, [new CutSegment { Start = 80, End = 100, Action = SegmentAction.Remove }]);
+        Assert.Equal(EditTimelineCalculator.SkipKind.Stop, EditTimelineCalculator.ResolveSkip(80.5, tail, out t));
+        Assert.Equal(80, t);
+    }
+
+    [Fact]
+    public void ResolveSkipNeverStopsInAGapBeforeLaterKeep()
+    {
+        // 「削除中だが次に残る位置が無い」とされる隙間があっても、最後へは飛ばさない（保険）
+        var keep = new List<TimeRange> { new(0, 10), new(20, 30) };
+        for (var t = 0.0; t < 30; t += 0.0005)
+        {
+            var kind = EditTimelineCalculator.ResolveSkip(t, keep, out _);
+            Assert.NotEqual(EditTimelineCalculator.SkipKind.Stop, kind);
+        }
+    }
 }
 
 public class AssSubtitleBuilderTests

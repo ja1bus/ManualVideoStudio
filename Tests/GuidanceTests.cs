@@ -607,6 +607,45 @@ public class SubtitleDraftTests
     }
 
     [Fact]
+    public async Task LayoutControlsApplyToAllSelectedSubtitlesInOneUndo()
+    {
+        var (vm, _) = await WithTwoSubtitlesAsync();
+        vm.SetSelectedSubtitles(vm.SubtitleItems.Select(i => i.Id));   // Ctrl+A 相当
+        Assert.Contains("2 件", vm.SelectedSubtitleText);
+        vm.SetSubtitlePositionCommand.Execute("Top");
+        Assert.All(vm.Project!.SubtitleSegments, s => Assert.Equal(SubtitlePosition.Top, s.Position));
+        vm.NudgeSubtitleCommand.Execute("up");
+        Assert.All(vm.Project.SubtitleSegments, s => Assert.Equal(SubtitleStyle.OffsetStep, s.VerticalOffset));
+        vm.SelectedSubtitleFontSize = 64;
+        Assert.All(vm.Project.SubtitleSegments, s => Assert.Equal(64, s.FontSize));
+        vm.UndoCommand.Execute(null);   // 文字サイズだけが全件戻る
+        Assert.All(vm.Project.SubtitleSegments, s => Assert.Equal(48, s.FontSize));
+        Assert.All(vm.Project.SubtitleSegments, s => Assert.Equal(SubtitlePosition.Top, s.Position));
+    }
+
+    [Fact]
+    public async Task SingleSelectionStillChangesOnlyThatSubtitle()
+    {
+        var (vm, _) = await WithTwoSubtitlesAsync();
+        vm.SetSelectedSubtitles([vm.SubtitleItems[0].Id]);
+        vm.SetSubtitlePositionCommand.Execute("Top");
+        Assert.Equal(SubtitlePosition.Top, vm.Project!.SubtitleSegments[0].Position);
+        Assert.Equal(SubtitlePosition.Bottom, vm.Project.SubtitleSegments[1].Position);
+        Assert.StartsWith("選択中: No.1", vm.SelectedSubtitleText);
+    }
+
+    [Fact]
+    public async Task ShrinkingTheSelectionBackToOneStopsTheBulkChange()
+    {
+        var (vm, _) = await WithTwoSubtitlesAsync();
+        vm.SetSelectedSubtitles(vm.SubtitleItems.Select(i => i.Id));
+        vm.SetSelectedSubtitles([vm.SubtitleItems[0].Id]);
+        vm.SetSubtitlePositionCommand.Execute("Middle");
+        Assert.Equal(SubtitlePosition.Middle, vm.Project!.SubtitleSegments[0].Position);
+        Assert.Equal(SubtitlePosition.Bottom, vm.Project.SubtitleSegments[1].Position);
+    }
+
+    [Fact]
     public async Task ClearingTheSelectionResetsTheDraft()
     {
         var (vm, _) = await WithTwoSubtitlesAsync();

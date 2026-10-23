@@ -79,7 +79,7 @@
   <data name="Sub.AddShape.Tip" xml:space="preserve"><value>四角・矢印・直線・文字・モザイクを動画に入れます（表示する時間は開始・終了、または画面に出ている字幕と同じ時間）</value></data>
   <data name="Sub.ClearRange" xml:space="preserve"><value>指定を取り消す</value></data>
   <data name="Sub.ClearRange.Tip" xml:space="preserve"><value>指定中の字幕の開始・終了位置を取り消します（開始だけを指定した状態でも取り消せます）。登録済みの字幕は削除されません。キー: Esc</value></data>
-  <data name="Sub.ListHint" xml:space="preserve"><value>時刻は編集後（カット適用後）の動画の時刻です。MP4 と GIF の両方に同じ字幕を焼き込みます。字幕の行を選ぶか、タイムラインの字幕をクリックすると、下の「選択中の字幕」で編集できます（ダブルクリックでその字幕の位置へ移動）。</value></data>
+  <data name="Sub.ListHint" xml:space="preserve"><value>時刻は編集後（カット適用後）の動画の時刻です。MP4 と GIF の両方に同じ字幕を焼き込みます。字幕の行を選ぶか、タイムラインの字幕をクリックすると、下の「選択中の字幕」で編集できます（ダブルクリックでその字幕の位置へ移動）。Ctrl+クリック・Shift+クリック・Ctrl+A で複数の字幕を選ぶと、表示位置・上下のずらし・文字サイズをまとめて変えられます。</value></data>
   <data name="Shapes.ListHint" xml:space="preserve"><value>1 回の編集で描いた図形を、同じ表示時間でまとめて 1 行にしています。時刻は編集後（カット適用後）の動画の時刻です。図形は画面の動きについて行きません。図形の行を選ぶか、タイムラインの図形をクリックすると、下の「選択中の図形」で表示する時間を直せます。描き直しは一覧の下の［図形再編集］（ダブルクリックはその図形の位置へ移動）。</value></data>
   <data name="Cand.Hint" xml:space="preserve"><value>候補は、「カットする」で確定するまで書き出しに反映されません。AI の方が精度が高いので、まず［AI に聞く］をおすすめします。信頼度は目安で、削除してよい確率ではありません。</value></data>
   <data name="Img.ListHint" xml:space="preserve"><value>ファイル名は「連番_キャプション.拡張子」です。キャプションは直接編集できます（Enter / フォーカス移動で確定）。</value></data>

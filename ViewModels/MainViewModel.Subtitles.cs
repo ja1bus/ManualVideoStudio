@@ -88,6 +88,7 @@ public sealed partial class MainViewModel
         get
         {
             if (SelectedSubtitle is not { } s) return "選択中: なし（一覧で選択）";
+            if (SubtitleLayoutTargets().Count is > 1 and var n) return $"選択中: {n} 件（位置・サイズは全件に反映）";
             var index = Project!.SubtitleSegments.IndexOf(s) + 1;
             var t = s.Text.Replace("\n", " ");
             return $"選択中: No.{index}「{(t.Length > 8 ? t[..8] + "…" : t)}」";
@@ -103,8 +104,10 @@ public sealed partial class MainViewModel
         get => SelectedSubtitle?.FontSize ?? Settings.Subtitle.FontSize;
         set
         {
-            if (SelectedSubtitle is not { } s || s.FontSize == SubtitleStyle.NormalizeFontSize(value)) return;
-            ApplySubtitleLayout(s, s.Position, value, s.VerticalOffset);
+            var targets = SubtitleLayoutTargets();
+            var size = SubtitleStyle.NormalizeFontSize(value);
+            if (targets.Count == 0 || targets.All(s => s.FontSize == size)) return;
+            ApplySubtitleLayout(s => (s.Position, value, s.VerticalOffset));
         }
     }
 
@@ -151,34 +154,56 @@ public sealed partial class MainViewModel
         OnPropertyChanged(nameof(HasSubtitleDraft));
     }
 
-    /// <summary>選択中の字幕の位置（上 / 中央 / 下）を変える。</summary>
+    /// <summary>一覧で選んでいる字幕の Id（複数選択。v1.19.0。位置・サイズの一括変更の対象）。</summary>
+    private IReadOnlyList<string> _gridSelectedSubtitleIds = [];
+
+    /// <summary>字幕一覧の選択が変わったとき（Ctrl+クリック・Shift+クリック・Ctrl+A の複数選択を含む）。</summary>
+    public void SetSelectedSubtitles(IEnumerable<string> ids)
+    {
+        _gridSelectedSubtitleIds = ids.ToList();
+        NotifySelectedSubtitle();
+    }
+
+    /// <summary>位置・サイズ・上下のずらしを変える対象。一覧で 2 件以上選んでいればその全部、そうでなければ選択中の 1 件。</summary>
+    private List<SubtitleSegment> SubtitleLayoutTargets()
+    {
+        if (Project is null) return [];
+        if (_gridSelectedSubtitleIds.Count > 1)
+        {
+            var many = Project.SubtitleSegments.Where(s => _gridSelectedSubtitleIds.Contains(s.Id)).ToList();
+            if (many.Count > 1) return many;
+        }
+        return SelectedSubtitle is { } one ? [one] : [];
+    }
+
+    /// <summary>選んでいる字幕（複数選択ならその全部）の位置（上 / 中央 / 下）を変える。</summary>
     [RelayCommand]
     private void SetSubtitlePosition(string? position)
     {
-        if (SelectedSubtitle is not { } s || !Enum.TryParse<SubtitlePosition>(position, out var p)) return;
-        ApplySubtitleLayout(s, p, s.FontSize, s.VerticalOffset);
+        if (!Enum.TryParse<SubtitlePosition>(position, out var p)) return;
+        ApplySubtitleLayout(s => (p, s.FontSize, s.VerticalOffset));
     }
 
-    /// <summary>選択中の字幕を上下に 1 段ずらす（"up" / "down"）。"reset" でずらしをなくす。</summary>
+    /// <summary>選んでいる字幕を上下に 1 段ずらす（"up" / "down"）。"reset" でずらしをなくす。複数選択では、それぞれの今の位置から 1 段ずらす。</summary>
     [RelayCommand]
     private void NudgeSubtitle(string? direction)
-    {
-        if (SelectedSubtitle is not { } s) return;
-        var offset = direction switch
+        => ApplySubtitleLayout(s => (s.Position, s.FontSize, direction switch
         {
             "up" => s.VerticalOffset + SubtitleStyle.OffsetStep,
             "down" => s.VerticalOffset - SubtitleStyle.OffsetStep,
             _ => 0,
-        };
-        ApplySubtitleLayout(s, s.Position, s.FontSize, offset);
-    }
+        }));
 
-    private void ApplySubtitleLayout(SubtitleSegment s, SubtitlePosition position, double fontSize, double offset)
+    private void ApplySubtitleLayout(Func<SubtitleSegment, (SubtitlePosition Position, double FontSize, double VerticalOffset)> change)
     {
         if (Editor is null || !IsSubtitlePhase) return;
-        var r = Editor.SetSubtitleLayout(s.Id, position, fontSize, offset);
+        var targets = SubtitleLayoutTargets();
+        if (targets.Count == 0) return;
+        var r = Editor.SetSubtitlesLayout(targets.Select(t => t.Id).ToList(), change);
         if (!r.Success) { StatusMessage = r.Message; return; }
-        StatusMessage = "字幕の位置・サイズを変更しました（元に戻す: Ctrl+Z）。";
+        StatusMessage = targets.Count > 1
+            ? $"字幕 {targets.Count} 件の位置・サイズを変更しました（元に戻す: Ctrl+Z）。"
+            : "字幕の位置・サイズを変更しました（元に戻す: Ctrl+Z）。";
     }
 
     /// <summary>字幕の欄の［字幕の設定...］: 設定画面の字幕タブを開く。</summary>
@@ -428,22 +453,23 @@ public sealed partial class MainViewModel
         if (_player is not { IsPlaying: true } player) return false;
         var (active, keep) = PlaybackSkipPlan();
         if (!active) return false;
-        if (!EditTimelineCalculator.IsRemoved(sourceTime, keep)) return false;
-        if (EditTimelineCalculator.NextKeepStart(sourceTime, keep) is { } next)
+        switch (EditTimelineCalculator.ResolveSkip(sourceTime, keep, out var target))
         {
-            player.Position = next;
-            CurrentTime = next;
+            case EditTimelineCalculator.SkipKind.Jump:
+                player.Position = target;
+                CurrentTime = target;
+                return true;
+            case EditTimelineCalculator.SkipKind.Stop:
+                // 最後に残る区間より後は出力に含まれないため、そこで止める。
+                player.Pause();
+                IsPlaying = false;
+                var end = keep.Count > 0 ? target : Duration;
+                player.Position = end;
+                CurrentTime = Math.Round(end, 3);
+                return true;
+            default:
+                return false;
         }
-        else
-        {
-            // 最後に残る区間より後は出力に含まれないため、そこで止める。
-            player.Pause();
-            IsPlaying = false;
-            var end = keep.Count > 0 ? keep[^1].End : Duration;
-            player.Position = end;
-            CurrentTime = Math.Round(end, 3);
-        }
-        return true;
     }
 
     public const int TabSubtitles = 2;

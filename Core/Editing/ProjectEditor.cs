@@ -451,15 +451,32 @@ public sealed partial class ProjectEditor
     /// 時刻・文字は変えない。値が変わらなければ記録しない。
     /// </summary>
     public EditResult SetSubtitleLayout(string id, SubtitlePosition position, double fontSize, double verticalOffset)
+        => SetSubtitlesLayout([id], _ => (position, fontSize, verticalOffset));
+
+    /// <summary>
+    /// 字幕を複数まとめて、表示位置・文字サイズ・上下のずらしを変える（v1.19.0。主画面の一覧で複数選択して変える）。
+    /// 新しい値は字幕ごとに <paramref name="change"/> で決める（「今の値から 1 段ずらす」のように字幕ごとに違う値になってもよい）。
+    /// 変わる字幕だけを対象にし、全体で 1 回の元に戻す操作として記録する。時刻・文字は変えない。
+    /// </summary>
+    public EditResult SetSubtitlesLayout(IReadOnlyList<string> ids, Func<SubtitleSegment, (SubtitlePosition Position, double FontSize, double VerticalOffset)> change)
     {
         if (CheckSubtitlePhase() is { } fail) return fail;
-        var seg = Project.SubtitleSegments.FirstOrDefault(s => s.Id == id);
-        if (seg is null) return EditResult.Fail("字幕が見つかりません。");
-        if (!Enum.IsDefined(position)) position = SubtitlePosition.Bottom;
-        fontSize = SubtitleStyle.NormalizeFontSize(fontSize);
-        verticalOffset = SubtitleStyle.NormalizeOffset(verticalOffset);
-        bool pos = seg.Position != position, size = seg.FontSize != fontSize, offset = seg.VerticalOffset != verticalOffset;
-        if (!pos && !size && !offset) return EditResult.Ok();
+        var targets = Project.SubtitleSegments.Where(s => ids.Contains(s.Id)).ToList();
+        if (targets.Count == 0) return EditResult.Fail("字幕が見つかりません。");
+        var plan = new List<(string Id, SubtitlePosition Position, double FontSize, double Offset)>();
+        bool pos = false, size = false, offset = false;
+        foreach (var seg in targets)
+        {
+            var (position, fontSize, verticalOffset) = change(seg);
+            if (!Enum.IsDefined(position)) position = SubtitlePosition.Bottom;
+            fontSize = SubtitleStyle.NormalizeFontSize(fontSize);
+            verticalOffset = SubtitleStyle.NormalizeOffset(verticalOffset);
+            bool p = seg.Position != position, f = seg.FontSize != fontSize, o = seg.VerticalOffset != verticalOffset;
+            if (!p && !f && !o) continue;
+            pos |= p; size |= f; offset |= o;
+            plan.Add((seg.Id, position, fontSize, verticalOffset));
+        }
+        if (plan.Count == 0) return EditResult.Ok();
         var label = (pos, size, offset) switch
         {
             (true, false, false) => "字幕の位置の変更",
@@ -467,12 +484,16 @@ public sealed partial class ProjectEditor
             (false, false, true) => "字幕の上下のずらしの変更",
             _ => "字幕の変更",
         };
+        if (plan.Count > 1) label += $"（{plan.Count} 件）";
         Apply(label, () =>
         {
-            var target = Project.SubtitleSegments.First(s => s.Id == id);
-            target.Position = position;
-            target.FontSize = fontSize;
-            target.VerticalOffset = verticalOffset;
+            foreach (var (id, position, fontSize, verticalOffset) in plan)
+            {
+                var target = Project.SubtitleSegments.First(s => s.Id == id);
+                target.Position = position;
+                target.FontSize = fontSize;
+                target.VerticalOffset = verticalOffset;
+            }
         });
         return EditResult.Ok();
     }

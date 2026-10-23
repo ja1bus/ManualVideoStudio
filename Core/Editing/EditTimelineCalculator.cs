@@ -108,20 +108,60 @@ public static class EditTimelineCalculator
         return list;
     }
 
+    /// <summary>
+    /// 区間に含まれるか。開始側は <see cref="MinRange"/> の許容を持たせる（v1.18.2）。
+    /// プレーヤーの位置は秒⇔時間の変換で 1 tick ほど小さくなることがあり（例: 79.689 → 79.6889999）、
+    /// 削除区間の終端へ飛んだ直後に「まだ削除中」と誤判定して、最後まで飛ばしてしまうのを防ぐ。
+    /// </summary>
+    private static bool Contains(TimeRange r, double sourceTime)
+        => sourceTime >= r.Start - MinRange && sourceTime < r.End;
+
     /// <summary>元動画の時刻が削除される位置なら、次に残る区間の開始時刻を返す（再生時に削除部分を飛ばす）。残る位置・末尾以降なら null。</summary>
     public static double? NextKeepStart(double sourceTime, IReadOnlyList<TimeRange> keepRanges)
     {
         foreach (var r in keepRanges)
         {
-            if (sourceTime < r.Start - MinRange) return r.Start;
-            if (sourceTime < r.End) return null;
+            if (Contains(r, sourceTime)) return null;
+            if (sourceTime < r.Start) return r.Start;
         }
         return null;
     }
 
     /// <summary>元動画の時刻が出力に残る範囲の外（削除区間・短縮で消える部分・最後の残す区間より後）か。</summary>
     public static bool IsRemoved(double sourceTime, IReadOnlyList<TimeRange> keepRanges)
-        => !keepRanges.Any(r => sourceTime >= r.Start && sourceTime < r.End);
+        => !keepRanges.Any(r => Contains(r, sourceTime));
+
+    /// <summary>再生中の位置に対する、削除部分の扱い。</summary>
+    public enum SkipKind
+    {
+        /// <summary>何もしない（残る位置）。</summary>
+        None,
+        /// <summary>次に残る位置へ飛ばす。</summary>
+        Jump,
+        /// <summary>最後に残る区間より後なので、そこで止める。</summary>
+        Stop,
+    }
+
+    /// <summary>
+    /// 再生中の位置で、削除部分を飛ばすか・止めるかを決める（v1.18.2）。
+    /// 次に残る位置が見つからないだけで最後へ飛ばすことはせず、最後に残る区間の終端以降のときだけ止める。
+    /// </summary>
+    public static SkipKind ResolveSkip(double sourceTime, IReadOnlyList<TimeRange> keepRanges, out double target)
+    {
+        target = 0;
+        if (!IsRemoved(sourceTime, keepRanges)) return SkipKind.None;
+        if (NextKeepStart(sourceTime, keepRanges) is { } next)
+        {
+            target = next;
+            return SkipKind.Jump;
+        }
+        if (keepRanges.Count == 0 || sourceTime >= keepRanges[^1].End)
+        {
+            target = keepRanges.Count > 0 ? keepRanges[^1].End : 0;
+            return SkipKind.Stop;
+        }
+        return SkipKind.None; // 想定外の隙間は、飛ばさずそのまま再生する
+    }
 
     /// <summary>編集が何も無い（出力＝元動画全体）か。</summary>
     public static bool IsIdentity(double duration, IReadOnlyList<TimeRange> keepRanges)

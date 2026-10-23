@@ -236,6 +236,9 @@ public partial class MainWindow : Window
     private void CutGrid_SelectionChanged(object sender, SelectionChangedEventArgs e)
         => _vm.SetSelectedCuts(CutGrid.SelectedItems.OfType<CutSegmentItem>().Select(i => i.Id));
 
+    private void SubtitleGrid_SelectionChanged(object sender, SelectionChangedEventArgs e)
+        => _vm.SetSelectedSubtitles(SubtitleGrid.SelectedItems.OfType<SubtitleItem>().Select(i => i.Id));
+
     private void CandidateGrid_SelectionChanged(object sender, SelectionChangedEventArgs e)
         => _vm.SetSelectedCandidates(CandidateGrid.SelectedItems.OfType<CandidateItem>().Select(i => i.Id));
 

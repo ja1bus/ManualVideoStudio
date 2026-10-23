@@ -592,7 +592,7 @@
                                     <StackPanel>
                                         <TextBlock Style="{StaticResource Subtle}" TextWrapping="Wrap" Text="{local:Str Sub.ListHint}" Margin="4,2,4,6"/>
                                         <Grid>
-                                            <DataGrid x:Name="SubtitleGrid" ItemsSource="{Binding SubtitleItems}" IsReadOnly="True" SelectionMode="Extended" SelectedItem="{Binding SelectedSubtitleItem}"
+                                            <DataGrid x:Name="SubtitleGrid" ItemsSource="{Binding SubtitleItems}" IsReadOnly="True" SelectionMode="Extended" SelectedItem="{Binding SelectedSubtitleItem}" SelectionChanged="SubtitleGrid_SelectionChanged"
                                                       MouseDoubleClick="SubtitleGrid_MouseDoubleClick" AutomationProperties.AutomationId="List.Subtitles" AutomationProperties.Name="字幕一覧"
                                                       Height="150" ScrollViewer.CanContentScroll="True">
                                                 <DataGrid.Columns>
