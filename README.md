@@ -24,7 +24,7 @@ ManualVideoStudio は、パソコンの操作を録画し、いらない部分�
 - Windows 11（64 ビット、x64）
 - **FFmpeg（ffmpeg.exe と ffprobe.exe）を別途用意する必要があります。** FFmpeg はアプリにもこのリポジトリにも含まれていません。字幕の焼き込みに libass（`subtitles` フィルター）、録画に `gdigrab`（マイクは `dshow`）が必要なため、full build など字幕機能入りのものを選んでください（確認済み: 9.0.1、gyan.dev の full build）。PATH が通っていれば自動で見つけます。見つからない場合は［ツール］→［設定］→［FFmpeg］で場所を指定します。
 - Microsoft Store 版は .NET を内包しているため、.NET の追加のインストールは不要です。
-- このリポジトリのソースからビルドして実行する場合は、[.NET 8 Desktop Runtime（x64）](https://dotnet.microsoft.com/download/dotnet/8.0) が必要です。
+- このリポジトリのソースからビルドして実行する場合は、[.NET 10 Desktop Runtime（x64）](https://dotnet.microsoft.com/download/dotnet/10.0) が必要です。
 
 ## インストール
 
@@ -50,7 +50,7 @@ ManualVideoStudio は、パソコンの操作を録画し、いらない部分�
 ### 必要な環境
 
 - Windows 11 x64
-- [.NET SDK 8.0](https://dotnet.microsoft.com/download/dotnet/8.0)（確認済み: 8.0.425）
+- [.NET SDK 10.0](https://dotnet.microsoft.com/download/dotnet/10.0)（確認済み: 10.0.402）
 - `dotnet` CLI だけで作れます（Visual Studio は不要）。
 - アプリは NuGet パッケージ `CommunityToolkit.Mvvm`、`Microsoft.Extensions.DependencyInjection`、`Microsoft.Extensions.Logging`（Core は `Microsoft.Extensions.Logging.Abstractions`）を使います。テストは `Microsoft.NET.Test.Sdk`、`xunit`、`xunit.runner.visualstudio` を使います（いずれも初回のビルドで nuget.org から取得）。
 - ビルドと Unit Test に FFmpeg は不要です。Integration Test とアプリの実行には FFmpeg が必要です。
@@ -71,7 +71,7 @@ dotnet run --project ManualVideoStudio.csproj
 dotnet test IntegrationTests/ManualVideoStudio.IntegrationTests.csproj
 ```
 
-配布用のフォルダー（Framework-dependent、win-x64）を作る場合は次を実行します。出力先は `publish\FrameworkDependent\` で、実行には .NET 8 Desktop Runtime（x64）と FFmpeg が必要です。
+配布用のフォルダー（Framework-dependent、win-x64）を作る場合は次を実行します。出力先は `publish\FrameworkDependent\` で、実行には .NET 10 Desktop Runtime（x64）と FFmpeg が必要です。
 
 ```powershell
 dotnet publish ManualVideoStudio.csproj -c Release -p:PublishProfile=FrameworkDependent
@@ -81,11 +81,11 @@ dotnet publish ManualVideoStudio.csproj -c Release -p:PublishProfile=FrameworkDe
 
 | パス | 内容 |
 |---|---|
-| `ManualVideoStudio.csproj` | アプリ本体（WPF、`net8.0-windows`、MVVM） |
+| `ManualVideoStudio.csproj` | アプリ本体（WPF、`net10.0-windows`、MVVM） |
 | `App.xaml(.cs)`, `MainWindow.xaml(.cs)` | 起動処理と主画面 |
 | `ViewModels/`, `Views/`, `Controls/`, `Converters/` | 画面（主画面・録画・設定・注釈・字幕・プロジェクト一覧など）の ViewModel と View |
-| `Core/` | UI に依存しない処理（`net8.0`）。FFmpeg の引数生成と出力の解析、カット・字幕（ASS）・図形・タイトルの編集、録画の状態管理、GIF、AI の回答の解析、プロジェクトと設定の保存 |
-| `Imaging/` | 注釈・図形・タイトルの描画と画像の保存（`net8.0-windows`、WPF の描画） |
+| `Core/` | UI に依存しない処理（`net10.0`）。FFmpeg の引数生成と出力の解析、カット・字幕（ASS）・図形・タイトルの編集、録画の状態管理、GIF、AI の回答の解析、プロジェクトと設定の保存 |
+| `Imaging/` | 注釈・図形・タイトルの描画と画像の保存（`net10.0-windows`、WPF の描画） |
 | `Services/` | ダイアログ・再生・FFmpeg の状態・フォント・ごみ箱・録画対象とマイクの列挙（Win32 / Core Audio）など |
 | `Resources/` | 画面の文言（`Strings.resx`、日本語）、アイコン |
 | `Tests/` | Unit Test（xUnit。FFmpeg 不要） |

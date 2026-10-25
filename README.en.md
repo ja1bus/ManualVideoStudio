@@ -24,7 +24,7 @@ The app does not communicate over the internet. Recordings contain whatever is s
 - Windows 11 (64-bit, x64)
 - **FFmpeg (ffmpeg.exe and ffprobe.exe) must be obtained separately.** FFmpeg is included neither in the app nor in this repository. Burning subtitles needs libass (the `subtitles` filter) and recording needs `gdigrab` (`dshow` for the microphone), so choose a build with these features, such as a full build (verified: 9.0.1, full build from gyan.dev). The app finds FFmpeg on the PATH automatically; otherwise, set its location in Tools → Settings → FFmpeg.
 - The Microsoft Store version includes .NET, so .NET does not need to be installed.
-- To build and run from the source in this repository, the [.NET 8 Desktop Runtime (x64)](https://dotnet.microsoft.com/download/dotnet/8.0) is required.
+- To build and run from the source in this repository, the [.NET 10 Desktop Runtime (x64)](https://dotnet.microsoft.com/download/dotnet/10.0) is required.
 
 ## Installation
 
@@ -50,7 +50,7 @@ See the user guide (Japanese) for details. Help (F1) in the app opens the web ve
 ### Requirements
 
 - Windows 11 x64
-- [.NET SDK 8.0](https://dotnet.microsoft.com/download/dotnet/8.0) (verified: 8.0.425)
+- [.NET SDK 10.0](https://dotnet.microsoft.com/download/dotnet/10.0) (verified: 10.0.402)
 - Only the `dotnet` CLI is needed (Visual Studio is not required).
 - The app uses the NuGet packages `CommunityToolkit.Mvvm`, `Microsoft.Extensions.DependencyInjection` and `Microsoft.Extensions.Logging` (`Microsoft.Extensions.Logging.Abstractions` in Core). The tests use `Microsoft.NET.Test.Sdk`, `xunit` and `xunit.runner.visualstudio`. All are restored from nuget.org on the first build.
 - FFmpeg is not needed to build or to run the unit tests. It is needed for the integration tests and to run the app.
@@ -71,7 +71,7 @@ The integration tests use a real FFmpeg, found on the PATH or given by the envir
 dotnet test IntegrationTests/ManualVideoStudio.IntegrationTests.csproj
 ```
 
-To create the distributable folder (framework-dependent, win-x64), run the following. The output goes to `publish\FrameworkDependent\` and requires the .NET 8 Desktop Runtime (x64) and FFmpeg to run.
+To create the distributable folder (framework-dependent, win-x64), run the following. The output goes to `publish\FrameworkDependent\` and requires the .NET 10 Desktop Runtime (x64) and FFmpeg to run.
 
 ```powershell
 dotnet publish ManualVideoStudio.csproj -c Release -p:PublishProfile=FrameworkDependent
@@ -81,11 +81,11 @@ dotnet publish ManualVideoStudio.csproj -c Release -p:PublishProfile=FrameworkDe
 
 | Path | Contents |
 |---|---|
-| `ManualVideoStudio.csproj` | The app (WPF, `net8.0-windows`, MVVM) |
+| `ManualVideoStudio.csproj` | The app (WPF, `net10.0-windows`, MVVM) |
 | `App.xaml(.cs)`, `MainWindow.xaml(.cs)` | Startup and the main window |
 | `ViewModels/`, `Views/`, `Controls/`, `Converters/` | View models and views (main window, recorder, settings, annotation, subtitles, project list and more) |
-| `Core/` | UI-independent logic (`net8.0`): FFmpeg argument building and output parsing; editing of cuts, subtitles (ASS), shapes and titles; recording state; GIF; parsing AI answers; saving projects and settings |
-| `Imaging/` | Drawing annotations, shapes and titles, and saving images (`net8.0-windows`, WPF rendering) |
+| `Core/` | UI-independent logic (`net10.0`): FFmpeg argument building and output parsing; editing of cuts, subtitles (ASS), shapes and titles; recording state; GIF; parsing AI answers; saving projects and settings |
+| `Imaging/` | Drawing annotations, shapes and titles, and saving images (`net10.0-windows`, WPF rendering) |
 | `Services/` | Dialogs, playback, FFmpeg status, fonts, Recycle Bin, and listing capture targets and microphones (Win32 / Core Audio) |
 | `Resources/` | UI strings (`Strings.resx`, Japanese) and the icon |
 | `Tests/` | Unit tests (xUnit; no FFmpeg needed) |

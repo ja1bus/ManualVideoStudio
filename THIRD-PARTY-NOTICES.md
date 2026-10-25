@@ -16,9 +16,9 @@ FFmpeg のライセンスは GNU LGPL 2.1 以降で、オプションの機能�
 
 ## Runtime / 実行時
 
-ManualVideoStudio runs on .NET 8 and its Windows Desktop shared framework (WPF, System.Text.Json), provided by Microsoft under the MIT License. They are not included in this repository. (The Microsoft Store package includes the .NET runtime.)
+ManualVideoStudio runs on .NET 10 and its Windows Desktop shared framework (WPF, System.Text.Json), provided by Microsoft under the MIT License. They are not included in this repository. (The Microsoft Store package includes the .NET runtime.)
 
-ManualVideoStudio は .NET 8 と Windows Desktop 共有フレームワーク（WPF・System.Text.Json）で動作します。これらは Microsoft が MIT License で提供しているもので、このリポジトリには含まれていません（Microsoft Store のパッケージには .NET のランタイムを含めています）。
+ManualVideoStudio は .NET 10 と Windows Desktop 共有フレームワーク（WPF・System.Text.Json）で動作します。これらは Microsoft が MIT License で提供しているもので、このリポジトリには含まれていません（Microsoft Store のパッケージには .NET のランタイムを含めています）。
 
 - .NET: https://github.com/dotnet/runtime (MIT)
 - WPF: https://github.com/dotnet/wpf (MIT)
@@ -30,9 +30,9 @@ The following NuGet packages are referenced by the app. They are restored from n
 | Package | Version | License | Referenced by |
 |---|---|---|---|
 | CommunityToolkit.Mvvm | 8.3.2 | MIT | `ManualVideoStudio.csproj` |
-| Microsoft.Extensions.DependencyInjection | 8.0.1 | MIT | `ManualVideoStudio.csproj` |
-| Microsoft.Extensions.Logging | 8.0.1 | MIT | `ManualVideoStudio.csproj` |
-| Microsoft.Extensions.Logging.Abstractions | 8.0.2 | MIT | `Core/ManualVideoStudio.Core.csproj` |
+| Microsoft.Extensions.DependencyInjection | 10.0.13 | MIT | `ManualVideoStudio.csproj` |
+| Microsoft.Extensions.Logging | 10.0.13 | MIT | `ManualVideoStudio.csproj` |
+| Microsoft.Extensions.Logging.Abstractions | 10.0.13 | MIT | `Core/ManualVideoStudio.Core.csproj` |
 
 Fonts are not bundled. The app uses fonts installed in Windows (such as Meiryo, Yu Gothic UI and Segoe UI) for its UI, and the font chosen by the user for subtitles.
 

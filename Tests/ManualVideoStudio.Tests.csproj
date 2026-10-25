@@ -1,7 +1,7 @@
 <Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
-    <!-- 注釈の描画（Imaging、WPF）と主画面の ViewModel を試験するため net8.0-windows。FFmpeg は不要。 -->
-    <TargetFramework>net8.0-windows</TargetFramework>
+    <!-- 注釈の描画（Imaging、WPF）と主画面の ViewModel を試験するため net10.0-windows。FFmpeg は不要。 -->
+    <TargetFramework>net10.0-windows</TargetFramework>
     <UseWPF>true</UseWPF>
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>

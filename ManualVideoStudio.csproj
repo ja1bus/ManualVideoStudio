@@ -1,18 +1,18 @@
 <Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
     <OutputType>WinExe</OutputType>
-    <TargetFramework>net8.0-windows</TargetFramework>
+    <TargetFramework>net10.0-windows</TargetFramework>
     <UseWPF>true</UseWPF>
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
     <RootNamespace>ManualVideoStudio</RootNamespace>
     <AssemblyName>ManualVideoStudio</AssemblyName>
-    <Version>1.19.0</Version>
+    <Version>1.19.1</Version>
     <!-- 画面の文言は Resources/Strings.resx（日本語。既定の言語）。英語対応では同じキーの Strings.en.resx を足す（v1.13）。 -->
     <NeutralLanguage>ja</NeutralLanguage>
     <ApplicationIcon>Resources/icon.ico</ApplicationIcon>
 
-    <!-- 配布は Framework-dependent。対象 PC の .NET 8 Desktop Runtime を使い、.NET は内包しない。FFmpeg も同梱しない。 -->
+    <!-- 配布は Framework-dependent。対象 PC の .NET 10 Desktop Runtime を使い、.NET は内包しない。FFmpeg も同梱しない。 -->
     <RuntimeIdentifier>win-x64</RuntimeIdentifier>
     <SelfContained>false</SelfContained>
     <PublishSingleFile>false</PublishSingleFile>
@@ -22,7 +22,7 @@
   </PropertyGroup>
   <!--
     Microsoft Store 用の MSIX（v1.16.1〜。仕様書 §39）。installer/msix/build-msix.ps1 が -p:ManualVideoStudioMsix=true で publish する。
-    Store から入れた PC に .NET 8 Desktop Runtime があるとは限らないため、MSIX の中身だけは .NET を内包する（Self-contained・複数ファイル）。
+    Store から入れた PC に .NET 10 Desktop Runtime があるとは限らないため、MSIX の中身だけは .NET を内包する（Self-contained・複数ファイル）。
     直接配布（フォルダー一式・Inno Setup）は従来どおり Framework-dependent で、この設定の影響を受けない。
   -->
   <PropertyGroup Condition="'$(ManualVideoStudioMsix)' == 'true'">
@@ -30,8 +30,8 @@
   </PropertyGroup>
   <ItemGroup>
     <PackageReference Include="CommunityToolkit.Mvvm" Version="8.3.2" />
-    <PackageReference Include="Microsoft.Extensions.DependencyInjection" Version="8.0.1" />
-    <PackageReference Include="Microsoft.Extensions.Logging" Version="8.0.1" />
+    <PackageReference Include="Microsoft.Extensions.DependencyInjection" Version="10.0.13" />
+    <PackageReference Include="Microsoft.Extensions.Logging" Version="10.0.13" />
   </ItemGroup>
   <!--
     ライセンス表記（v1.17.0）。MIT License の全文と第三者のソフトウェアの表記を、配布物（Inno Setup のインストール先・MSIX）の exe と同じフォルダーへ入れる。
