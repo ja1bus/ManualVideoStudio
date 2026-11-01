@@ -44,6 +44,7 @@ ManualVideoStudio は、パソコンの操作を録画し、いらない部分�
 詳しくは取扱説明書をご覧ください。アプリの［ヘルプ］（F1）からは Web 版が開きます。［ヘルプ］の一番下の［バージョン情報…］に、版・MIT License・ライセンス全文があります。
 
 - 取扱説明書: https://www.ja1bus.com/manualvideostudio/manual/
+- 使い方の動画（YouTube・全 7 本。音声なし・日本語字幕）: https://www.ja1bus.com/manualvideostudio/videos/
 
 ## ビルド方法
 
@@ -114,6 +115,7 @@ FFmpeg・NuGet パッケージなど第三者のソフトウェアについて�
 
 - Web ページ: https://www.ja1bus.com/manualvideostudio/
 - 取扱説明書: https://www.ja1bus.com/manualvideostudio/manual/
+- 使い方の動画: https://www.ja1bus.com/manualvideostudio/videos/
 - 更新履歴: https://www.ja1bus.com/manualvideostudio/changelog/
 - プライバシーポリシー: https://www.ja1bus.com/manualvideostudio/privacy/
 - Microsoft Store: https://apps.microsoft.com/detail/9N33XK4M3JFJ
