@@ -6,13 +6,31 @@
         Width="520" SizeToContent="Height" ResizeMode="NoResize" WindowStartupLocation="CenterOwner" ShowInTaskbar="False"
         AutomationProperties.AutomationId="About.Window">
     <StackPanel Margin="18">
-        <TextBlock Text="{Binding VersionText}" FontSize="18" FontWeight="SemiBold" AutomationProperties.AutomationId="About.Version"/>
-        <TextBlock Text="{Binding LicenseText}" Style="{StaticResource Subtle}" TextWrapping="Wrap" Margin="0,10,0,0" AutomationProperties.AutomationId="About.License"/>
-        <WrapPanel Margin="0,12,0,0">
-            <Button Content="{local:Str About.OpenRepository}" Command="{Binding OpenRepositoryCommand}" ToolTip="{Binding RepositoryUrl}" AutomationProperties.AutomationId="About.Repository"/>
-            <Button Content="{local:Str About.ShowLicense}" Command="{Binding ShowLicenseCommand}" AutomationProperties.AutomationId="About.ShowLicense"/>
-            <Button Content="{local:Str About.OpenNotices}" Command="{Binding OpenNoticesCommand}" AutomationProperties.AutomationId="About.OpenNotices"/>
-        </WrapPanel>
+        <!-- 他のアプリ（TimeInset）のバージョン情報と同じ並び: 名前・版・著作権・リンク・設定ファイル・プライバシーの注記。 -->
+        <TextBlock Text="{Binding AppName}" FontSize="20" FontWeight="SemiBold" AutomationProperties.AutomationId="About.AppName"/>
+        <TextBlock Text="{Binding VersionText}" Margin="0,4,0,0" Foreground="#555" AutomationProperties.AutomationId="About.Version"/>
+        <TextBlock Text="{Binding CopyrightText}" Margin="0,2,0,0" Foreground="#555" AutomationProperties.AutomationId="About.Copyright"/>
+        <TextBlock Margin="0,16,0,0">
+            <Hyperlink Command="{Binding OpenWebsiteCommand}" AutomationProperties.AutomationId="About.Website"><Run Text="{local:Str About.OpenWebsite}"/></Hyperlink>
+        </TextBlock>
+        <TextBlock Margin="0,8,0,0">
+            <Hyperlink Command="{Binding OpenManualCommand}" AutomationProperties.AutomationId="About.Manual"><Run Text="{local:Str About.OpenManual}"/></Hyperlink>
+        </TextBlock>
+        <TextBlock Margin="0,8,0,0">
+            <Hyperlink Command="{Binding OpenPrivacyCommand}" AutomationProperties.AutomationId="About.Privacy"><Run Text="{local:Str About.OpenPrivacy}"/></Hyperlink>
+        </TextBlock>
+        <TextBlock Margin="0,8,0,0">
+            <Hyperlink Command="{Binding ShowLicenseCommand}" ToolTip="{Binding LicenseText}" AutomationProperties.AutomationId="About.ShowLicense"><Run Text="{local:Str About.ShowLicense}"/></Hyperlink>
+        </TextBlock>
+        <TextBlock Margin="0,8,0,0">
+            <Hyperlink Command="{Binding OpenRepositoryCommand}" ToolTip="{Binding RepositoryUrl}" AutomationProperties.AutomationId="About.Repository"><Run Text="{local:Str About.OpenRepository}"/></Hyperlink>
+        </TextBlock>
+        <TextBlock Margin="0,8,0,0">
+            <Hyperlink Command="{Binding OpenNoticesCommand}" ToolTip="{local:Str About.NoticesTip}" AutomationProperties.AutomationId="About.OpenNotices"><Run Text="{local:Str About.OpenNotices}"/></Hyperlink>
+        </TextBlock>
+        <TextBlock Text="{local:Str About.SettingsPath}" FontWeight="SemiBold" Margin="0,20,0,4"/>
+        <TextBox Text="{Binding SettingsPath, Mode=OneWay}" IsReadOnly="True" TextWrapping="Wrap" BorderThickness="0" Background="Transparent" AutomationProperties.AutomationId="About.SettingsPath"/>
+        <TextBlock Text="{Binding PrivacyNote}" Style="{StaticResource Subtle}" TextWrapping="Wrap" Margin="0,16,0,0" AutomationProperties.AutomationId="About.License"/>
         <DockPanel Margin="0,16,0,0">
             <Button DockPanel.Dock="Right" Content="{local:Str About.Close}" IsCancel="True" IsDefault="True" MinWidth="90" Click="Close_Click" AutomationProperties.AutomationId="About.Close"/>
             <TextBlock/>

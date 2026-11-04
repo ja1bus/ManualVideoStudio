@@ -91,7 +91,9 @@ public static class AnnotationGeometry
     public static ImageRect TextBounds(TextAnnotation t, double styleScale, TextMeasurer measure)
     {
         var (w, h) = measure(t, styleScale);
-        return new ImageRect(t.X, t.Y, w, h);
+        // 帯があるときは、帯の余白まで含めて選択・移動の範囲にする。
+        var pad = t.Band == TextBandStyle.None ? 0 : AnnotationStyle.BandPadding(t.FontSize * styleScale);
+        return new ImageRect(t.X - pad, t.Y - pad, w + 2 * pad, h + 2 * pad);
     }
 
     /// <summary>点が注釈に当たるか。四角形は枠線付近、矢印・直線は線の近く、文字・モザイクは範囲内。tolerance は画像 px。</summary>

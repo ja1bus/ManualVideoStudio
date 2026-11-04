@@ -467,6 +467,32 @@ public class ShapeImageTests
     });
 
     [Fact]
+    public Task TextBandIsIncludedInTheOverlayImageAndInTheCrop() => StaThread.RunAsync(() =>
+    {
+        // 動画へ重ねる画像にも帯が入る（編集画面と同じ描画）。帯の分だけ文字より外まで切り出し、帯なしのときは透明のまま。
+        (int X, int Y, BitmapSource Img) Make(TextBandStyle band)
+        {
+            var r = ShapeOverlayRenderer.Render(
+                [new TextAnnotation { X = 100, Y = 100, Text = "設定", FontSize = 24, Color = AnnotationColor.Red, Band = band }],
+                960, 540, 960, 540);
+            Assert.NotNull(r);
+            return (r!.Value.X, r.Value.Y, Decode(r.Value.Png));
+        }
+        var none = Make(TextBandStyle.None);
+        var opaque = Make(TextBandStyle.Opaque);
+        var translucent = Make(TextBandStyle.Translucent);
+        Assert.True(opaque.X < none.X);
+        var pad = AnnotationStyle.BandPadding(24);
+        // 文字の左 3px（帯の余白の中）
+        Assert.Equal(0, Argb(none.Img, 97 - none.X, 110 - none.Y).A);
+        var o = Argb(opaque.Img, 97 - opaque.X, 110 - opaque.Y);
+        Assert.True(o.A > 250 && o.R > 250 && o.G > 250 && o.B > 250, $"opaque {o}");
+        var t = Argb(translucent.Img, 97 - translucent.X, 110 - translucent.Y);
+        Assert.InRange((int)t.A, 140, 175);
+        Assert.True(pad > 3);
+    });
+
+    [Fact]
     public Task MosaicOnlyGroupHasNoImage() => StaThread.RunAsync(() =>
     {
         Assert.Null(ShapeOverlayRenderer.Render([new MosaicAnnotation { Width = 50, Height = 50 }], 100, 100, 100, 100));

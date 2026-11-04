@@ -64,6 +64,27 @@ public static class AnnotationStyle
             : strokeWidth >= (MediumStroke + ThickStroke) / 2 ? StrokeWidthLevel.Thick
             : StrokeWidthLevel.Medium;
 
+    /// <summary>帯の不透明度（0～255）。半透明は字幕の「半透明の帯」（ASS の透明度 0x60）と同じ濃さ。</summary>
+    public static byte BandOpacity(TextBandStyle band) => band switch
+    {
+        TextBandStyle.Translucent => 255 - 0x60,
+        TextBandStyle.Opaque => 255,
+        _ => 0,
+    };
+
+    /// <summary>帯の色（白）。赤・黒・青のどの文字色でも、黒い画面の上で読める。</summary>
+    public const string BandHex = "#FFFFFF";
+
+    /// <summary>帯の余白（文字の周り）。描画上の文字サイズに比例させる。</summary>
+    public static double BandPadding(double fontSizePx) => Math.Max(2, fontSizePx * 0.3);
+
+    public static string Label(TextBandStyle band) => band switch
+    {
+        TextBandStyle.Translucent => "半透明",
+        TextBandStyle.Opaque => "不透明",
+        _ => "なし",
+    };
+
     public static string Label(StrokeWidthLevel level) => level switch
     {
         StrokeWidthLevel.Thin => "細",

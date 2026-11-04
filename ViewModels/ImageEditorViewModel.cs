@@ -258,6 +258,7 @@ public sealed partial class ImageEditorViewModel : ObservableObject
     [ObservableProperty] private StrokeWidthLevel _strokeLevel = StrokeWidthLevel.Medium;
     [ObservableProperty] private double _fontSize = AnnotationStyle.DefaultFontSize;
     [ObservableProperty] private bool _isBold;
+    [ObservableProperty] private TextBandStyle _band = TextBandStyle.None;
     [ObservableProperty] private string _statusText;
     /// <summary>表示倍率（1 = 100%）。IsFit のときは画面に合わせた実際の倍率が入る。</summary>
     [ObservableProperty] private double _zoom = 1;
@@ -324,6 +325,14 @@ public sealed partial class ImageEditorViewModel : ObservableObject
         if (Session.SelectedId is { } id) Session.SetBold(id, bold);
     }
 
+    /// <summary>文字の帯（なし / 半透明 / 不透明）の切り替え。文字を選択中なら、その文字にも適用する（Undo 対象）。</summary>
+    [RelayCommand]
+    private void SetBand(TextBandStyle band)
+    {
+        Band = band;
+        if (Session.SelectedId is { } id) Session.SetBand(id, band);
+    }
+
     partial void OnStrokeLevelChanged(StrokeWidthLevel value) => OnPropertyChanged(nameof(StrokeWidthValue));
     partial void OnZoomChanged(double value)
     {
@@ -383,11 +392,12 @@ public sealed partial class ImageEditorViewModel : ObservableObject
         text = AnnotationSession.NormalizeText(text);
         if (text.Length == 0) return;
         p = AnnotationGeometry.Clamp(p, Session.ImageWidth, Session.ImageHeight);
-        var t = new TextAnnotation { X = p.X, Y = p.Y, Text = text, FontSize = FontSize, Bold = IsBold, Color = Color };
+        var t = new TextAnnotation { X = p.X, Y = p.Y, Text = text, FontSize = FontSize, Bold = IsBold, Color = Color, Band = Band };
         // 右端・下端からはみ出す場合は内側へ寄せる。
         var (w, h) = AnnotationDrawing.MeasureText(t, Session.StyleScale);
-        t.X = Math.Max(0, Math.Min(t.X, Session.ImageWidth - w));
-        t.Y = Math.Max(0, Math.Min(t.Y, Session.ImageHeight - h));
+        var pad = t.Band == TextBandStyle.None ? 0 : AnnotationStyle.BandPadding(t.FontSize * Session.StyleScale);
+        t.X = Math.Max(pad, Math.Min(t.X, Session.ImageWidth - w - pad));
+        t.Y = Math.Max(pad, Math.Min(t.Y, Session.ImageHeight - h - pad));
         Session.Add(t);
         Session.Select(null);
         StatusText = "文字を追加しました。選択ツールでダブルクリックすると編集できます。";
@@ -410,6 +420,7 @@ public sealed partial class ImageEditorViewModel : ObservableObject
                 Color = t.Color;
                 FontSize = t.FontSize;
                 IsBold = t.Bold;
+                Band = t.Band;
                 break;
         }
     }

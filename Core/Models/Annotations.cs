@@ -131,6 +131,17 @@ public sealed class ArrowAnnotation : SegmentAnnotation;
 /// <summary>矢じりの無い実線（v1.6。操作・色・線幅は矢印と同じ）。</summary>
 public sealed class LineAnnotation : SegmentAnnotation;
 
+/// <summary>文字の背後に敷く帯（v1.20.0。保存は帯ありのときだけ "band" を書く）。色は文字色に関わらず白（暗い背景でも文字を読めるようにする）。</summary>
+public enum TextBandStyle
+{
+    /// <summary>帯なし（従来の見た目）。</summary>
+    None,
+    /// <summary>半透明（字幕の「半透明の帯」と同じ濃さ）。</summary>
+    Translucent,
+    /// <summary>不透明。</summary>
+    Opaque,
+}
+
 /// <summary>文字。X / Y は文字列の左上。複数行可（改行）。</summary>
 public sealed class TextAnnotation : Annotation
 {
@@ -144,6 +155,9 @@ public sealed class TextAnnotation : Annotation
     /// <summary>太字なら true（既定は普通の太さ）。</summary>
     public bool Bold { get; set; }
     public AnnotationColor Color { get; set; } = AnnotationColor.Red;
+    /// <summary>文字の背後の帯（既定は帯なし。v1.20.0 より前のファイルには無く、読み込むと帯なしになる）。</summary>
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingDefault)]
+    public TextBandStyle Band { get; set; } = TextBandStyle.None;
 
     public override void Offset(double dx, double dy)
     {

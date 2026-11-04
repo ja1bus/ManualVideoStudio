@@ -111,6 +111,26 @@ public sealed class ImagingTests : IDisposable
     });
 
     [Fact]
+    public Task TextBandIsWhiteBehindTheTextAndTranslucentLetsTheBackgroundShow() => Sta(() =>
+    {
+        // 黒い背景に赤い文字。帯の余白（文字の左）の画素で、帯なし = 黒、半透明 = 灰色、不透明 = 白 になる。
+        var stride = 200 * 4;
+        var px = new byte[stride * 80];
+        for (int i = 0; i < px.Length; i += 4) px[i + 3] = 255;
+        var black = BitmapSource.Create(200, 80, 96, 96, PixelFormats.Bgra32, null, px, stride);
+        (int R, int G, int B) At(TextBandStyle band)
+        {
+            var result = AnnotationRenderer.Render(black, [new TextAnnotation { X = 20, Y = 20, Text = "設定", FontSize = 24, Color = AnnotationColor.Red, Band = band }], 200, 80);
+            return Pixel(result, 17, 30);   // 文字の左 3px（余白は 24 × 0.3 = 7.2px）
+        }
+        Assert.Equal((0, 0, 0), At(TextBandStyle.None));
+        Assert.Equal((255, 255, 255), At(TextBandStyle.Opaque));
+        var t = At(TextBandStyle.Translucent);
+        Assert.InRange(t.R, 140, 175);
+        Assert.Equal(t.R, t.G);
+    });
+
+    [Fact]
     public Task TextIsDrawnWithoutOutline() => Sta(() =>
     {
         // 濃い背景（青）に赤い文字: 縁取りをしないので、文字の周りに白い画素が出ない

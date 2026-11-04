@@ -1102,22 +1102,34 @@ public class ScreenRefinementTests
     }
 
     [Fact]
-    public async Task PreviousAndNextCutButtonsJumpBetweenConfirmedCutStarts()
+    public async Task PreviousAndNextCutButtonsStopAtEachConfirmedCutStartAndEnd()
     {
         var (vm, _) = await OpenAsync();
         vm.Editor!.AddCut(10, 14, SegmentAction.Remove, 0);
         vm.Editor.AddCut(30, 34, SegmentAction.Remove, 0);
         vm.SeekTo(0);
-        vm.SeekNextCutCommand.Execute(null);
-        Assert.Equal(10, vm.CurrentTime, 3);
-        vm.SeekNextCutCommand.Execute(null);
-        Assert.Equal(30, vm.CurrentTime, 3);
+        foreach (var expected in new[] { 10.0, 14.0, 30.0, 34.0 })
+        {
+            vm.SeekNextCutCommand.Execute(null);
+            Assert.Equal(expected, vm.CurrentTime, 3);
+        }
         vm.SeekNextCutCommand.Execute(null);
         Assert.Contains("次のカット位置はありません", vm.StatusMessage);
-        vm.SeekPrevCutCommand.Execute(null);
-        Assert.Equal(10, vm.CurrentTime, 3);
+        foreach (var expected in new[] { 30.0, 14.0, 10.0 })
+        {
+            vm.SeekPrevCutCommand.Execute(null);
+            Assert.Equal(expected, vm.CurrentTime, 3);
+        }
         vm.SeekPrevCutCommand.Execute(null);
         Assert.Contains("前のカット位置はありません", vm.StatusMessage);
+    }
+
+    [Fact]
+    public void CutStopsMergeNearlyEqualPositions()
+    {
+        // つながったカット（終了＝次の開始）や 0.01 秒以内の重なりは 1 か所にまとめる。
+        var stops = MainViewModel.CutStops([30, 10, 14, 14, 14.005, 30]);
+        Assert.Equal([10.0, 14.0, 30.0], stops);
     }
 
     [Fact]
@@ -1317,7 +1329,10 @@ public class ScreenRefinementTests
     {
         var (vm, dialogs) = await OpenAsync();
         var about = new AboutViewModel(dialogs);
-        Assert.Contains("© ja1bus", about.VersionText);
+        Assert.Equal("© ja1bus", about.CopyrightText);
+        Assert.StartsWith("Version ", about.VersionText);
+        Assert.Equal("https://www.ja1bus.com/manualvideostudio/", AboutViewModel.SiteUrl);
+        Assert.EndsWith("settings.json", about.SettingsPath);
         Assert.Contains("MIT License", about.LicenseText);
         Assert.Equal("https://github.com/ja1bus/ManualVideoStudio", about.RepositoryUrl);
         about.ShowLicenseCommand.Execute(null);

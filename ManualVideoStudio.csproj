@@ -7,7 +7,7 @@
     <Nullable>enable</Nullable>
     <RootNamespace>ManualVideoStudio</RootNamespace>
     <AssemblyName>ManualVideoStudio</AssemblyName>
-    <Version>1.19.1</Version>
+    <Version>1.20.0</Version>
     <!-- 画面の文言は Resources/Strings.resx（日本語。既定の言語）。英語対応では同じキーの Strings.en.resx を足す（v1.13）。 -->
     <NeutralLanguage>ja</NeutralLanguage>
     <ApplicationIcon>Resources/icon.ico</ApplicationIcon>
@@ -17,8 +17,8 @@
     <SelfContained>false</SelfContained>
     <PublishSingleFile>false</PublishSingleFile>
 
-    <!-- Core / Imaging / Tests / IntegrationTests は別 csproj。既定の Compile 対象から除外する。 -->
-    <DefaultItemExcludes>$(DefaultItemExcludes);Core/**;Imaging/**;Tests/**;IntegrationTests/**</DefaultItemExcludes>
+    <!-- Core / Imaging / Tests / IntegrationTests / tools（実演動画の録画用プログラム demo-video など）は別 csproj。既定の Compile 対象から除外する。 -->
+    <DefaultItemExcludes>$(DefaultItemExcludes);Core/**;Imaging/**;Tests/**;IntegrationTests/**;tools/**</DefaultItemExcludes>
   </PropertyGroup>
   <!--
     Microsoft Store 用の MSIX（v1.16.1〜。仕様書 §39）。installer/msix/build-msix.ps1 が -p:ManualVideoStudioMsix=true で publish する。

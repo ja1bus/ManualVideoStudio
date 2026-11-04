@@ -79,9 +79,19 @@ public static class AnnotationDrawing
         dc.DrawGeometry(brush, edge, head);
     }
 
-    /// <summary>文字は縁取り・影などの装飾をせず、指定の色でそのまま描く。</summary>
+    /// <summary>文字は縁取り・影などの装飾をせず、指定の色でそのまま描く。帯があるときは、文字の背後に白い帯を敷く。</summary>
     private static void DrawText(DrawingContext dc, TextAnnotation t, double styleScale)
-        => dc.DrawText(CreateText(t, styleScale), new Point(t.X, t.Y));
+    {
+        var text = CreateText(t, styleScale);
+        if (t.Band != TextBandStyle.None)
+        {
+            var pad = AnnotationStyle.BandPadding(t.FontSize * styleScale);
+            var band = new SolidColorBrush(Color.FromArgb(AnnotationStyle.BandOpacity(t.Band), 255, 255, 255));
+            band.Freeze();
+            dc.DrawRectangle(band, null, new Rect(t.X - pad, t.Y - pad, text.WidthIncludingTrailingWhitespace + 2 * pad, text.Height + 2 * pad));
+        }
+        dc.DrawText(text, new Point(t.X, t.Y));
+    }
 
     public static FormattedText CreateText(TextAnnotation t, double styleScale)
     {

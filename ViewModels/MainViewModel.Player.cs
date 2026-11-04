@@ -127,11 +127,11 @@ public sealed partial class MainViewModel
     [RelayCommand] private void SeekStart() { PauseIfPlaying(); SeekTo(0); }
     [RelayCommand] private void SeekEnd() { PauseIfPlaying(); SeekTo(Duration); }
 
-    /// <summary>前のカット位置（確定カットの開始）へ移動する。</summary>
+    /// <summary>前のカット位置へ移動する。確定カットの終了（実際に使われる部分の先頭）、開始の順に戻る。</summary>
     [RelayCommand]
     private void SeekPrevCut() => SeekToCutBoundary(next: false);
 
-    /// <summary>次のカット位置（確定カットの開始）へ移動する。</summary>
+    /// <summary>次のカット位置へ移動する。確定カットの開始、終了（実際に使われる部分の先頭）の順に進む。</summary>
     [RelayCommand]
     private void SeekNextCut() => SeekToCutBoundary(next: true);
 
@@ -139,7 +139,8 @@ public sealed partial class MainViewModel
     {
         if (Project is null) return;
         PauseIfPlaying();
-        var starts = Project.CutSegments.Select(c => c.Start).OrderBy(x => x).ToList();
+        // 開始と終了の両方に止まる。つながったカットの境目など、ほぼ同じ位置は 1 つにまとめる。
+        var starts = CutStops(Project.CutSegments.SelectMany(c => new[] { c.Start, c.End }));
         double? target = next
             ? starts.Where(t => t > CurrentTime + 0.01).Cast<double?>().FirstOrDefault()
             : starts.Where(t => t < CurrentTime - 0.01).Cast<double?>().LastOrDefault();
@@ -149,6 +150,15 @@ public sealed partial class MainViewModel
             return;
         }
         SeekTo(target.Value);
+    }
+
+    /// <summary>カット位置の一覧（昇順。0.01 秒以内の重なりは 1 つ）。</summary>
+    public static List<double> CutStops(IEnumerable<double> positions)
+    {
+        var result = new List<double>();
+        foreach (var t in positions.OrderBy(x => x))
+            if (result.Count == 0 || t - result[^1] > 0.01) result.Add(t);
+        return result;
     }
 
     /// <summary>プレビュー再生できない動画の代替表示（現在位置の静止画）。連続シーク時は最後の要求だけ反映する。</summary>

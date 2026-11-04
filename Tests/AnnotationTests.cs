@@ -369,6 +369,46 @@ public class AnnotationSessionTests
     }
 
     [Fact]
+    public void TextBandDefaultsToNoneAndIsSavedAsCamelCaseName()
+    {
+        var old = (TextAnnotation)JsonSerializer.Deserialize<Annotation>(
+            """{ "type": "text", "id": "x", "x": 1, "y": 2, "text": "a", "fontFamily": "Meiryo", "fontSize": 20, "color": "red" }""", JsonDefaults.Options)!;
+        Assert.Equal(TextBandStyle.None, old.Band);                  // v1.20.0 より前のファイルは帯なし
+        Assert.DoesNotContain("band", JsonSerializer.Serialize<Annotation>(old, JsonDefaults.Options));   // 帯なしは書かない（従来のファイルと同じ）
+        var json = JsonSerializer.Serialize<Annotation>(new TextAnnotation { Text = "b", Band = TextBandStyle.Translucent }, JsonDefaults.Options);
+        Assert.Contains("\"band\": \"translucent\"", json);
+        var back = (TextAnnotation)JsonSerializer.Deserialize<Annotation>(json, JsonDefaults.Options)!;
+        Assert.Equal(TextBandStyle.Translucent, back.Band);
+    }
+
+    [Fact]
+    public void BandIsUndoableAndOnlyForText()
+    {
+        var s = NewSession([new TextAnnotation { Text = "a" }, new RectangleAnnotation { Width = 10, Height = 10 }]);
+        var id = s.Items[0].Id;
+        Assert.True(s.SetBand(id, TextBandStyle.Opaque));
+        Assert.False(s.SetBand(id, TextBandStyle.Opaque));
+        Assert.False(s.SetBand(s.Items[1].Id, TextBandStyle.Opaque));
+        Assert.Equal("帯の変更", s.History.UndoLabel);
+        s.Undo();
+        Assert.Equal(TextBandStyle.None, ((TextAnnotation)s.Items[0]).Band);
+    }
+
+    [Fact]
+    public void BandWidensTheTextBoundsByItsPadding()
+    {
+        static (double, double) Measure(TextAnnotation t, double scale) => (100, 20);
+        var t = new TextAnnotation { X = 50, Y = 40, FontSize = 20, Text = "a" };
+        var plain = AnnotationGeometry.TextBounds(t, 1, Measure);
+        t.Band = TextBandStyle.Opaque;
+        var band = AnnotationGeometry.TextBounds(t, 1, Measure);
+        var pad = AnnotationStyle.BandPadding(20);
+        Assert.Equal(plain.X - pad, band.X, 6);
+        Assert.Equal(plain.Width + 2 * pad, band.Width, 6);
+        Assert.Equal(plain.Height + 2 * pad, band.Height, 6);
+    }
+
+    [Fact]
     public void BoldIsUndoable()
     {
         var s = NewSession([new TextAnnotation { Text = "a" }, new RectangleAnnotation { Width = 10, Height = 10 }]);

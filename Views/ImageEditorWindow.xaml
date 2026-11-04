@@ -114,6 +114,16 @@
                 <Button Style="{StaticResource ToolButton}" Content="太字" FontWeight="Bold" ToolTip="太字（選択中の文字にも適用）"
                         Tag="{Binding IsBold}"
                         Command="{Binding SetBoldCommand}" CommandParameter="{StaticResource True}"/>
+                <TextBlock Text="帯" Style="{StaticResource GroupLabel}"/>
+                <Button Style="{StaticResource ToolButton}" Content="なし" ToolTip="文字の背後に帯を付けない（選択中の文字にも適用）"
+                        Tag="{Binding Band, Converter={StaticResource EnumEquals}, ConverterParameter=None}"
+                        Command="{Binding SetBandCommand}" CommandParameter="{x:Static core:TextBandStyle.None}"/>
+                <Button Style="{StaticResource ToolButton}" Content="半透明" ToolTip="文字の背後に白い半透明の帯を付ける。暗い背景で読みやすくなります（選択中の文字にも適用）"
+                        Tag="{Binding Band, Converter={StaticResource EnumEquals}, ConverterParameter=Translucent}"
+                        Command="{Binding SetBandCommand}" CommandParameter="{x:Static core:TextBandStyle.Translucent}"/>
+                <Button Style="{StaticResource ToolButton}" Content="不透明" ToolTip="文字の背後に白い不透明の帯を付ける（選択中の文字にも適用）"
+                        Tag="{Binding Band, Converter={StaticResource EnumEquals}, ConverterParameter=Opaque}"
+                        Command="{Binding SetBandCommand}" CommandParameter="{x:Static core:TextBandStyle.Opaque}"/>
                 <TextBlock Text="サイズ" Style="{StaticResource GroupLabel}" Margin="8,0,4,0"/>
                 <ComboBox x:Name="FontSizeBox" Width="70" VerticalAlignment="Center" ToolTip="文字サイズ（選択中の文字にも適用）"
                           AutomationProperties.Name="文字サイズ"

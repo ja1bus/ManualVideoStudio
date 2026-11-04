@@ -10,7 +10,15 @@ namespace ManualVideoStudio.ViewModels;
 /// </summary>
 public sealed partial class AboutViewModel(IDialogService dialogs)
 {
-    public string VersionText => $"Manual Video Studio v{ProjectService.AppVersion}　© ja1bus";
+    /// <summary>画面の見出し（アプリ名）。</summary>
+    public string AppName => "Manual Video Studio";
+    public string VersionText => $"Version {ProjectService.AppVersion}";
+    public string CopyrightText => "© ja1bus";
+    /// <summary>Web サイト（取扱説明書・プライバシーポリシーの親）。</summary>
+    public const string SiteUrl = "https://www.ja1bus.com/manualvideostudio/";
+    /// <summary>設定ファイルの保管場所（Store 版では実際の保存先）。</summary>
+    public string SettingsPath => AppPaths.Current.SettingsFile;
+    public string PrivacyNote => Loc.Get("About.PrivacyNote");
     public string LicenseText => Loc.Get("About.License");
     public string RepositoryUrl => LicenseFiles.RepositoryUrl;
 
@@ -30,12 +38,23 @@ public sealed partial class AboutViewModel(IDialogService dialogs)
     }
 
     [RelayCommand]
-    private void OpenRepository()
+    private void OpenRepository() => OpenUrl(LicenseFiles.RepositoryUrl);
+
+    [RelayCommand]
+    private void OpenWebsite() => OpenUrl(SiteUrl);
+
+    [RelayCommand]
+    private void OpenManual() => OpenUrl(HelpManual.WebUrl);
+
+    [RelayCommand]
+    private void OpenPrivacy() => OpenUrl(SiteUrl + "privacy/");
+
+    private void OpenUrl(string url)
     {
-        try { System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo(LicenseFiles.RepositoryUrl) { UseShellExecute = true })?.Dispose(); }
+        try { System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo(url) { UseShellExecute = true })?.Dispose(); }
         catch (Exception ex) when (ex is System.ComponentModel.Win32Exception or InvalidOperationException)
         {
-            dialogs.ShowError(Loc.Get("About.RepositoryFailed") + Environment.NewLine + LicenseFiles.RepositoryUrl, ex.Message);
+            dialogs.ShowError(Loc.Get("About.RepositoryFailed") + Environment.NewLine + url, ex.Message);
         }
     }
 }

@@ -123,6 +123,13 @@ public sealed class AnnotationSession
         return true;
     });
 
+    public bool SetBand(string id, TextBandStyle band) => Change(id, "帯の変更", a =>
+    {
+        if (a is not TextAnnotation t || t.Band == band) return false;
+        t.Band = band;
+        return true;
+    });
+
     /// <summary>文字を変更する。空文字にした場合は注釈を削除する。</summary>
     public bool SetText(string id, string text)
     {
