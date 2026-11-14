@@ -46,7 +46,7 @@ This GitHub repository does not distribute executables (binaries).
 See the user guide (Japanese) for details. Help (F1) in the app opens the web version. Help > About (at the bottom) shows the version, the MIT License and its full text.
 
 - User guide: https://www.ja1bus.com/manualvideostudio/manual/
-- How-to videos (YouTube, 7 videos, no audio, Japanese subtitles): https://www.ja1bus.com/manualvideostudio/videos/
+- How-to videos (YouTube, 8 videos, no audio, Japanese subtitles): https://www.ja1bus.com/manualvideostudio/videos/
 
 ## Building
 
