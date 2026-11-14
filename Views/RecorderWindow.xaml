@@ -78,6 +78,7 @@
                 <RowDefinition Height="Auto"/>
                 <RowDefinition Height="Auto"/>
                 <RowDefinition Height="Auto"/>
+                <RowDefinition Height="Auto"/>
             </Grid.RowDefinitions>
 
             <!-- 録画対象 -->
@@ -186,8 +187,17 @@
             <TextBlock Grid.Row="3" Text="カーソル" Style="{StaticResource Label}"/>
             <CheckBox Grid.Row="3" Grid.Column="1" Content="マウスカーソルを録画する" IsChecked="{Binding DrawCursor}" AutomationProperties.Name="マウスカーソルを録画する"/>
 
-            <TextBlock Grid.Row="4" Text="音声" Style="{StaticResource Label}" VerticalAlignment="Top"/>
-            <StackPanel Grid.Row="4" Grid.Column="1">
+            <!-- 操作の記録（v1.21）。クリック位置と入力の時刻だけを録画フォルダーに残す。不要マーカーは OFF でも記録する。 -->
+            <TextBlock Grid.Row="4" Text="{local:Str Rec.LogInput.Label}" Style="{StaticResource Label}" VerticalAlignment="Top"/>
+            <StackPanel Grid.Row="4" Grid.Column="1" Margin="0,6,0,4">
+                <CheckBox Content="{local:Str Rec.LogInput}" IsChecked="{Binding LogInput}"
+                          AutomationProperties.Name="{local:Str Rec.LogInput}" AutomationProperties.AutomationId="Recorder.LogInput"/>
+                <TextBlock Style="{StaticResource Subtle}" FontSize="11" TextWrapping="Wrap" Margin="20,2,0,0" Text="{Binding LogInputNote}"
+                           AutomationProperties.AutomationId="Recorder.LogInputNote"/>
+            </StackPanel>
+
+            <TextBlock Grid.Row="5" Text="音声" Style="{StaticResource Label}" VerticalAlignment="Top"/>
+            <StackPanel Grid.Row="5" Grid.Column="1">
                 <StackPanel Orientation="Horizontal" IsEnabled="{Binding CanChooseAudio}">
                     <RadioButton Content="なし" AutomationProperties.Name="音声なし"
                                  IsChecked="{Binding MicrophoneEnabled, Converter={StaticResource InverseBool}}"/>
@@ -198,17 +208,17 @@
                 </StackPanel>
                 <TextBlock Text="{Binding MicrophoneMessage}" Style="{StaticResource Subtle}" FontSize="11"
                            Visibility="{Binding MicrophoneMessage, Converter={StaticResource EmptyToCollapsed}}"/>
-                <TextBlock Style="{StaticResource Subtle}" FontSize="11" Text="通常は「なし」で録画します。説明の音声を一緒に録る場合だけ「マイク」を選んでください（毎回「なし」から始まります）。"/>
+                <TextBlock Style="{StaticResource Subtle}" FontSize="11" Text="通常は「なし」で録画します。"/>
             </StackPanel>
 
-            <TextBlock Grid.Row="5" Text="開始" Style="{StaticResource Label}"/>
-            <CheckBox Grid.Row="5" Grid.Column="1" Content="録画開始前に 3 秒カウントダウンする" IsChecked="{Binding Countdown}" AutomationProperties.Name="カウントダウン"/>
+            <TextBlock Grid.Row="6" Text="開始" Style="{StaticResource Label}"/>
+            <CheckBox Grid.Row="6" Grid.Column="1" Content="録画開始前に 3 秒カウントダウンする" IsChecked="{Binding Countdown}" AutomationProperties.Name="カウントダウン"/>
 
-            <TextBlock Grid.Row="6" Text="保存先" Style="{StaticResource Label}"/>
-            <DockPanel Grid.Row="6" Grid.Column="1">
-                <Button DockPanel.Dock="Right" Content="参照..." Padding="8,3" MinHeight="26" Command="{Binding BrowseOutputCommand}"/>
+            <TextBlock Grid.Row="7" Text="保存先" Style="{StaticResource Label}"/>
+            <DockPanel Grid.Row="7" Grid.Column="1">
+                <Button DockPanel.Dock="Right" Content="参照…" Padding="8,3" MinHeight="26" Command="{Binding BrowseOutputCommand}"/>
                 <TextBox Text="{Binding OutputDirectory, UpdateSourceTrigger=PropertyChanged}" AutomationProperties.Name="保存先"
-                         ToolTip="録画が終わるとこの中に「日時_プロジェクト名」のフォルダーを作り、録画ファイルを入れます"/>
+                         ToolTip="録画ごとに、この中の「日時_プロジェクト名」のフォルダーへ保存します"/>
             </DockPanel>
         </Grid>
 
@@ -221,7 +231,7 @@
                 <TextBlock Text="● 録画開始"/>
             </Button>
             <TextBlock Style="{StaticResource Subtle}" FontSize="11" VerticalAlignment="Center" Margin="10,0"
-                       Text="Ctrl+Shift+F9: 録画開始 / 停止&#10;Ctrl+Shift+F8: 一時停止 / 再開"/>
+                       Text="{Binding ShortcutHint}" AutomationProperties.AutomationId="Recorder.ShortcutHint"/>
         </DockPanel>
     </StackPanel>
 </Window>

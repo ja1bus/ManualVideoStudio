@@ -66,6 +66,16 @@ public sealed class RecordingSettings
     /// <summary>最後に選んだモニターのデバイス名（\\.\DISPLAY1 など）。</summary>
     public string MonitorDevice { get; set; } = "";
 
+    /// <summary>
+    /// 録画中のクリック位置と入力の時刻を記録する（v1.21。既定 OFF。2026-11-14 利用者決定: 利用者が選んで ON にする）。
+    /// キーの種類・内容は記録しない。記録は録画フォルダーの「動画名.events.json」に置き、PC の外へは送らない。
+    /// 不要マーカーはこの設定に関わらず記録する。
+    /// </summary>
+    public bool LogInput { get; set; }
+
+    /// <summary>録画のショートカット（v1.21。旧設定には無く、既定値で読む）。</summary>
+    public RecordingHotkeys Hotkeys { get; set; } = new();
+
     /// <summary>設定ファイルから読んだ値を整える。マイク録音は常に OFF にする（前回 ON でも自動では ON にしない）。</summary>
     public void NormalizeOnLoad()
     {
@@ -77,6 +87,8 @@ public sealed class RecordingSettings
         MicrophoneDevice ??= "";
         OutputDirectory ??= "";
         MonitorDevice ??= "";
+        Hotkeys ??= new RecordingHotkeys();
+        Hotkeys.Normalize();
         if (RegionWidth < MinRegionSize || RegionHeight < MinRegionSize)
         {
             RegionWidth = 0;
@@ -84,7 +96,12 @@ public sealed class RecordingSettings
         }
     }
 
-    public RecordingSettings Clone() => (RecordingSettings)MemberwiseClone();
+    public RecordingSettings Clone()
+    {
+        var c = (RecordingSettings)MemberwiseClone();
+        c.Hotkeys = (Hotkeys ?? new RecordingHotkeys()).Clone();
+        return c;
+    }
 
     /// <summary>既定の保存先（ビデオ\ManualVideoStudio）。</summary>
     public static string DefaultOutputDirectory()
@@ -95,6 +112,78 @@ public sealed class RecordingSettings
 
     /// <summary>録画ファイル名（rec_yyyyMMdd_HHmmss.mp4）。</summary>
     public static string BuildFileName(DateTime time) => $"rec_{time:yyyyMMdd_HHmmss}.mp4";
+}
+
+/// <summary>録画のショートカットの修飾キー（v1.21）。誤操作を避けるため、2 つ以上の組み合わせだけを選べる。</summary>
+public enum HotkeyModifiers
+{
+    CtrlShift,
+    CtrlAlt,
+    CtrlAltShift,
+}
+
+/// <summary>録画のショートカットのキー（v1.21）。F1～F12・A～Z・0～9。仮想キーコードへの変換は Services 側。</summary>
+public enum HotkeyKey
+{
+    F1, F2, F3, F4, F5, F6, F7, F8, F9, F10, F11, F12,
+    A, B, C, D, E, F, G, H, I, J, K, L, M, N, O, P, Q, R, S, T, U, V, W, X, Y, Z,
+    D0, D1, D2, D3, D4, D5, D6, D7, D8, D9,
+}
+
+/// <summary>録画のショートカット 1 つ（v1.21）。</summary>
+public sealed record RecordingHotkey(HotkeyModifiers Modifiers, HotkeyKey Key)
+{
+    /// <summary>画面に出す文字（例: Ctrl+Shift+F9）。</summary>
+    public string DisplayText => $"{ModifiersText(Modifiers)}+{KeyText(Key)}";
+
+    public static string ModifiersText(HotkeyModifiers m) => m switch
+    {
+        HotkeyModifiers.CtrlAlt => "Ctrl+Alt",
+        HotkeyModifiers.CtrlAltShift => "Ctrl+Alt+Shift",
+        _ => "Ctrl+Shift",
+    };
+
+    public static string KeyText(HotkeyKey k) => k is >= HotkeyKey.D0 and <= HotkeyKey.D9
+        ? ((int)k - (int)HotkeyKey.D0).ToString(System.Globalization.CultureInfo.InvariantCulture)
+        : k.ToString();
+
+    public bool IsValid => Enum.IsDefined(Modifiers) && Enum.IsDefined(Key);
+
+    public override string ToString() => DisplayText;
+}
+
+/// <summary>
+/// 録画のショートカット（v1.21）。録画開始・停止、一時停止・再開、不要マーカーの 3 つを設定で選べる。
+/// 既定は従来と同じ Ctrl+Shift+F9 / Ctrl+Shift+F8 と、マーカーの Ctrl+Shift+F7。
+/// </summary>
+public sealed class RecordingHotkeys
+{
+    public static readonly RecordingHotkey DefaultStartStop = new(HotkeyModifiers.CtrlShift, HotkeyKey.F9);
+    public static readonly RecordingHotkey DefaultPause = new(HotkeyModifiers.CtrlShift, HotkeyKey.F8);
+    public static readonly RecordingHotkey DefaultMarker = new(HotkeyModifiers.CtrlShift, HotkeyKey.F7);
+
+    public RecordingHotkey StartStop { get; set; } = DefaultStartStop;
+    public RecordingHotkey Pause { get; set; } = DefaultPause;
+    public RecordingHotkey Marker { get; set; } = DefaultMarker;
+
+    /// <summary>3 つが互いに違うか（同じ組み合わせは保存できない）。</summary>
+    public static bool AreDistinct(RecordingHotkey a, RecordingHotkey b, RecordingHotkey c) => a != b && a != c && b != c;
+
+    /// <summary>不正な値（null・範囲外）は既定へ戻す。重なりがあれば 3 つとも既定へ戻す（設定ファイルの手編集などの対策）。</summary>
+    public void Normalize()
+    {
+        if (StartStop is not { IsValid: true }) StartStop = DefaultStartStop;
+        if (Pause is not { IsValid: true }) Pause = DefaultPause;
+        if (Marker is not { IsValid: true }) Marker = DefaultMarker;
+        if (!AreDistinct(StartStop, Pause, Marker))
+        {
+            StartStop = DefaultStartStop;
+            Pause = DefaultPause;
+            Marker = DefaultMarker;
+        }
+    }
+
+    public RecordingHotkeys Clone() => new() { StartStop = StartStop, Pause = Pause, Marker = Marker };
 }
 
 /// <summary>録画から作ったプロジェクトに残す記録（参考情報。読み込み時に設定へは反映しない）。</summary>

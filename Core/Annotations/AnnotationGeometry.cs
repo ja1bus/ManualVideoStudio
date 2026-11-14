@@ -82,6 +82,7 @@ public static class AnnotationGeometry
     {
         RectangleAnnotation r => new ImageRect(r.X, r.Y, r.Width, r.Height).Inflate(r.StrokeWidth * styleScale / 2),
         MosaicAnnotation m => new ImageRect(m.X, m.Y, m.Width, m.Height),
+        ZoomAnnotation z => new ImageRect(z.X, z.Y, z.Width, z.Height),
         ArrowAnnotation ar => ImageRect.FromPoints(new(ar.X1, ar.Y1), new(ar.X2, ar.Y2)).Inflate(ArrowHeadLength(ar.StrokeWidth * styleScale) / 2),
         LineAnnotation l => ImageRect.FromPoints(new(l.X1, l.Y1), new(l.X2, l.Y2)).Inflate(l.StrokeWidth * styleScale / 2),
         TextAnnotation t => TextBounds(t, styleScale, measure),
@@ -115,6 +116,14 @@ public static class AnnotationGeometry
                 return DistanceToSegment(p, new(l.X1, l.Y1), new(l.X2, l.Y2)) <= l.StrokeWidth * styleScale / 2 + tolerance;
             case MosaicAnnotation m:
                 return new ImageRect(m.X, m.Y, m.Width, m.Height).Inflate(tolerance).Contains(p);
+            case ZoomAnnotation z:
+            {
+                // 拡大の範囲は画面の大部分を占めるため、枠線の近くだけで当てる（中の図形を選べるように）。
+                var edge = Math.Max(2, 2 * styleScale) + tolerance;
+                var outer = new ImageRect(z.X, z.Y, z.Width, z.Height).Inflate(edge);
+                var inner = new ImageRect(z.X + edge, z.Y + edge, z.Width - 2 * edge, z.Height - 2 * edge);
+                return outer.Contains(p) && !(inner.Width > 0 && inner.Height > 0 && inner.Contains(p));
+            }
             case TextAnnotation t:
                 return TextBounds(t, styleScale, measure).Inflate(tolerance).Contains(p);
             default:
@@ -160,6 +169,10 @@ public static class AnnotationGeometry
         p = Clamp(p, imageWidth, imageHeight);
         switch (original, target)
         {
+            case (ZoomAnnotation o, ZoomAnnotation t):
+                // 拡大は縦横比・大きさの制限を保つ（v1.21）。
+                ZoomGeometry.Resize(o, t, handle, p, imageWidth, imageHeight);
+                break;
             case (BoxAnnotation o, BoxAnnotation t):
             {
                 var anchor = handle switch

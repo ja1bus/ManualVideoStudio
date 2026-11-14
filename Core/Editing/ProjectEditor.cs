@@ -20,6 +20,7 @@ public sealed class EditState
     public List<ShapeGroup> ShapeGroups { get; set; } = [];
     public EditPhase EditPhase { get; set; } = EditPhase.Cut;
     public VideoTitle Title { get; set; } = new();
+    public ClickHighlightSettings ClickHighlight { get; set; } = new();
 }
 
 /// <summary>
@@ -94,6 +95,7 @@ public sealed partial class ProjectEditor
         ShapeGroups = Project.ShapeGroups,
         EditPhase = Project.EditPhase,
         Title = Project.Title,
+        ClickHighlight = Project.ClickHighlight,
     });
 
     private void Restore(EditState state)
@@ -114,6 +116,7 @@ public sealed partial class ProjectEditor
         Project.ShapeGroups = state.ShapeGroups;
         Project.EditPhase = state.EditPhase;
         Project.Title = state.Title ?? new VideoTitle();
+        Project.ClickHighlight = state.ClickHighlight ?? new ClickHighlightSettings();
         Resequence();
         IsDirty = true;
         Changed?.Invoke(this, EventArgs.Empty);
@@ -510,8 +513,10 @@ public sealed partial class ProjectEditor
         if (list.Count == 0) return (EditResult.Fail("図形がありません。四角形・矢印などを描いてから OK を押してください。"), null);
         start = Math.Round(start, 3);
         end = Math.Round(end, 3);
-        var v = ShapeGroupValidator.Validate(start, end, OutputDuration, imageWidth, imageHeight);
+        var v = ShapeGroupValidator.Validate(start, end, OutputDuration, imageWidth, imageHeight, list);
         if (!v.IsValid) return (EditResult.Fail(v.Message), null);
+        if (ShapeGroupValidator.ZoomOverlaps(start, end, list, Project.ShapeGroups))
+            return (EditResult.Fail(ShapeGroupValidator.ZoomOverlapMessage), null);
         var group = new ShapeGroup { Start = start, End = end, Shapes = list, ImageWidth = imageWidth, ImageHeight = imageHeight };
         Apply("図形の追加", () =>
         {
@@ -533,8 +538,10 @@ public sealed partial class ProjectEditor
         if (list.Count == 0) return RemoveShapeGroups([id]);
         start = Math.Round(start, 3);
         end = Math.Round(end, 3);
-        var v = ShapeGroupValidator.Validate(start, end, OutputDuration, imageWidth, imageHeight);
+        var v = ShapeGroupValidator.Validate(start, end, OutputDuration, imageWidth, imageHeight, list);
         if (!v.IsValid) return EditResult.Fail(v.Message);
+        if (ShapeGroupValidator.ZoomOverlaps(start, end, list, Project.ShapeGroups, id))
+            return EditResult.Fail(ShapeGroupValidator.ZoomOverlapMessage);
         bool timeChanged = group.Start != start || group.End != end;
         bool shapesChanged = ShapeJson(group.Shapes) != ShapeJson(list) || group.ImageWidth != imageWidth || group.ImageHeight != imageHeight;
         if (!timeChanged && !shapesChanged) return EditResult.Ok();

@@ -93,6 +93,7 @@ public sealed partial class MainViewModel
     private void BeginPreview(IReadOnlyList<TimeRange> keep, double startSource, double stopSource, string banner)
     {
         PauseIfPlaying();
+        ResetPlaybackRate(); // 試し再生・つなぎ目の再生は ×1 で行う（v1.21）
         _previewKeep = keep;
         _previewStopSource = stopSource;
         PreviewBannerText = banner;

@@ -4,6 +4,9 @@ using System.Text.Json;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using ManualVideoStudio.Core.Ai;
+using ManualVideoStudio.Core.Export;
+using ManualVideoStudio.Core.Guidance;
+using ManualVideoStudio.Core.Logging;
 using ManualVideoStudio.Core.Models;
 using ManualVideoStudio.Core.Naming;
 using ManualVideoStudio.Core.Persistence;
@@ -69,6 +72,20 @@ public sealed partial class CutRowViewModel(AiCutRow row) : ObservableObject
     public string Reason => Row.Reason;
     public string Note => Row.Note;
     public bool IsValid => Row.IsValid;
+    /// <summary>区間方式（v1.21）の種類（待ち・やり直しなど。時刻方式・未知の category は空 / そのまま）。</summary>
+    public string CategoryText => Row.Category.Length == 0 ? "" : AiCutImporter.CategoryLabel(Row.Category) ?? Row.Category;
+    /// <summary>区間方式（v1.21）で元にした区間の番号（「12〜14」「12, 15」。時刻方式では空）。</summary>
+    public string SegmentIdsText => SegmentIds(Row.SegmentIds);
+    /// <summary>取り込まない行（カット済み・重複）。一覧では灰色にする。</summary>
+    public bool IsExcluded => Row.Excluded;
+
+    public static string SegmentIds(IReadOnlyList<int> ids)
+    {
+        if (ids.Count == 0) return "";
+        if (ids.Count == 1) return ids[0].ToString(System.Globalization.CultureInfo.InvariantCulture);
+        bool consecutive = ids.Zip(ids.Skip(1)).All(p => p.Second == p.First + 1);
+        return consecutive ? $"{ids[0]}〜{ids[^1]}" : string.Join(", ", ids);
+    }
 
     [ObservableProperty] private bool _include = row.Include;
 
@@ -80,6 +97,26 @@ public sealed partial class CutRowViewModel(AiCutRow row) : ObservableObject
 }
 
 public sealed record ReviewRow(string TargetId, string Target, string Verdict, string Comment, string Suggestion);
+
+/// <summary>
+/// 不要区間の解析の依頼用動画（時刻と区間番号入り。v1.21）の状態。アプリに 1 つ（AI 連携の画面を閉じても残る。アプリの終了で失われる）。
+/// 字幕依頼用動画（<see cref="CaptionRequestSession"/>）と同じく、使えなくなった動画は確認なしに消さず <see cref="Orphans"/> に残す。
+/// </summary>
+public sealed class CutRequestSession
+{
+    /// <summary>準備済みの依頼用動画（無ければ null）。</summary>
+    public CaptionRequestVideo? Video { get; set; }
+
+    /// <summary>使えなくなったが、まだ削除していない依頼用動画（このアプリが作ったもの）。</summary>
+    public List<CaptionRequestVideo> Orphans { get; } = [];
+
+    /// <summary>準備済みの動画を使わなくする（作り直すとき）。ファイルが残っていれば削除の確認用に残す。</summary>
+    public void Invalidate()
+    {
+        if (Video is { } v && File.Exists(v.Path)) Orphans.Add(v);
+        Video = null;
+    }
+}
 
 /// <summary>
 /// Gemini Chat との手動連携。アプリはプロンプト生成・コピー・回答の解析・確認後の取り込みまでを行う。
@@ -103,11 +140,23 @@ public sealed partial class AiAssistViewModel : ObservableObject
     private readonly IDialogService _dialogs;
     private readonly IShellService _shell;
     private readonly ILogger<AiAssistViewModel> _logger;
+    private readonly AiRequestVideoService? _requestVideos;
+    private readonly CaptionRequestStore? _store;
+    private readonly IWindowService? _windows;
+    private readonly CutRequestSession _requestSession;
     private AiHistoryEntry? _entry;
     private List<CutRowViewModel> _pendingCuts = [];
+    /// <summary>表示中のプロンプトに使った区間表（不要区間の解析のときだけ）。</summary>
+    private SegmentTable? _table;
+    /// <summary>この画面で簡易解析の自動実行を試したか（キャンセル・失敗でも繰り返さない）。</summary>
+    private bool _analysisAttempted;
 
+    /// <param name="requestVideos">依頼用動画（時刻と区間番号入り）の作成。null なら作成のボタンは使えない。</param>
+    /// <param name="requestSession">依頼用動画の状態（アプリに 1 つ）。null なら画面ごとに持つ。</param>
     public AiAssistViewModel(MainViewModel main, IPromptTemplateService templates, ISettingsService settings,
-        IClipboardService clipboard, IDialogService dialogs, IShellService shell, ILogger<AiAssistViewModel> logger)
+        IClipboardService clipboard, IDialogService dialogs, IShellService shell, ILogger<AiAssistViewModel> logger,
+        AiRequestVideoService? requestVideos = null, CaptionRequestStore? store = null, IWindowService? windows = null,
+        CutRequestSession? requestSession = null)
     {
         _main = main;
         _templates = templates;
@@ -116,12 +165,26 @@ public sealed partial class AiAssistViewModel : ObservableObject
         _dialogs = dialogs;
         _shell = shell;
         _logger = logger;
+        _requestVideos = requestVideos;
+        _store = store;
+        _windows = windows;
+        _requestSession = requestSession ?? new CutRequestSession();
+        RunLocalAnalysis = async () =>
+        {
+            if (_main.RunAnalysisCommand.CanExecute(null)) await _main.RunAnalysisCommand.ExecuteAsync(null);
+        };
         // 解析候補の［AI に聞く］からは「不要区間の解析」で開く。簡易モードも同じ。
         var start = main.TakePendingAiPurpose() ?? (main.IsSimpleMode ? AiPurpose.CutAnalysis : (AiPurpose?)null);
         if (start is { } p) _purpose = p;
-        GeneratePrompt();
+        RenderPrompt();
         RefreshHistory();
     }
+
+    /// <summary>
+    /// 簡易解析を実行する処理（既定は主画面の［簡易解析］と同じコマンド。キャンセル・失敗は主画面側で案内する）。
+    /// 試験で差し替えられるよう公開している。
+    /// </summary>
+    public Func<Task> RunLocalAnalysis { get; set; }
 
     /// <summary>選べる用途。簡易モードでは「不要区間の解析」だけ（v1.17.0）。</summary>
     public IReadOnlyList<Choice<AiPurpose>> Purposes => _main.IsSimpleMode ? PurposeChoices.Where(c => c.Value == AiPurpose.CutAnalysis).ToList() : PurposeChoices;
@@ -167,23 +230,95 @@ public sealed partial class AiAssistViewModel : ObservableObject
         OnPropertyChanged(nameof(IsReviewMode));
         OnPropertyChanged(nameof(StepText));
         ClearResult();
-        GeneratePrompt();
+        RenderPrompt();
     }
 
+    // ---------------- 区間表（不要区間の解析。v1.21） ----------------
+
+    /// <summary>表示中のプロンプトの区間表（不要区間の解析のときだけ。それ以外は null）。</summary>
+    public SegmentTable? SegmentTable => _table;
+
+    /// <summary>区間表の区間の数と、回答の受け取り方の説明（不要区間の解析のときだけ）。</summary>
+    [ObservableProperty] private string _segmentInfo = "";
+
+    public bool HasSegmentInfo => SegmentInfo.Length > 0;
+    partial void OnSegmentInfoChanged(string value) => OnPropertyChanged(nameof(HasSegmentInfo));
+
+    /// <summary>不要区間の解析のテンプレートが区間表（{{SEGMENT_TABLE}}）を使うか。</summary>
+    private bool TemplateUsesSegments => Purpose == AiPurpose.CutAnalysis
+        && _templates.Get(AiPurpose.CutAnalysis).Contains("{{" + PromptVariables.SegmentTable + "}}", StringComparison.Ordinal);
+
+    /// <summary>
+    /// 区間表を作る前に簡易解析を実行するか（不要区間の解析で区間表を使い、画面変化が無く、簡易解析を一度も実行していない。
+    /// この画面で一度試したら、キャンセル・失敗でも繰り返さない）。
+    /// </summary>
+    public bool NeedsLocalAnalysis
+    {
+        get
+        {
+            if (_analysisAttempted || !TemplateUsesSegments || _main.Project is not { } project) return false;
+            if (project.SceneChanges.Count > 0) return false;
+            var local = project.CutCandidates.Count(c => c.Source == SegmentSource.LocalAnalysis);
+            return WorkflowGuide.InferAnalysisState(project.SceneChanges.Count, local) == AnalysisRunState.NotRun;
+        }
+    }
+
+    /// <summary>必要なら簡易解析を先に実行し、プロンプト（区間表）を作り直す。実行したかどうかを状態の文字で知らせる。</summary>
+    private async Task EnsureSegmentTableAsync()
+    {
+        if (!NeedsLocalAnalysis) return;
+        _analysisAttempted = true;
+        CopyMessage = Loc.Get("Ai.Seg.Analysis.Running");
+        try
+        {
+            await RunLocalAnalysis();
+        }
+        catch (Exception ex)
+        {
+            // 解析できなくても、画面変化なしの区間表で続ける。
+            _logger.LogWarning(ex, "Local analysis before the segment table failed");
+        }
+        RenderPrompt();
+        var project = _main.Project;
+        var ran = project is not null && (project.SceneChanges.Count > 0 || project.CutCandidates.Any(c => c.Source == SegmentSource.LocalAnalysis));
+        CopyMessage = ran
+            ? Loc.Format("Ai.Seg.Analysis.Done", project!.SceneChanges.Count)
+            : Loc.Get("Ai.Seg.Analysis.Skipped");
+    }
+
+    /// <summary>［再生成］: 必要なら簡易解析を実行してから、最新の内容でプロンプトを作り直す。</summary>
     [RelayCommand]
-    private void GeneratePrompt()
+    private async Task GeneratePromptAsync()
+    {
+        RenderPrompt();
+        await EnsureSegmentTableAsync();
+    }
+
+    private void RenderPrompt()
     {
         _entry = null;
         CopyMessage = "";
+        _table = null;
+        SegmentInfo = "";
         var project = _main.Project;
         if (project is null)
         {
             PromptText = "";
             PromptWarning = "動画またはプロジェクトを開いてください。";
+            OnPropertyChanged(nameof(SegmentTable));
+            RefreshRequestVideo();
             return;
         }
         var template = _templates.Get(Purpose);
-        var vars = PromptVariables.Build(project, _settings.Current.Language);
+        if (Purpose == AiPurpose.CutAnalysis)
+        {
+            _table = SegmentTableBuilder.FromProject(project,
+                _main.InputIdleRanges(_settings.Current.Analysis.FreezeMinSeconds), _main.RecordingMarkers);
+            SegmentInfo = TemplateUsesSegments
+                ? Loc.Format("Ai.Seg.Count", _table.Count)
+                : Loc.Get("Ai.Seg.NoTableInTemplate");
+        }
+        var vars = PromptVariables.Build(project, _settings.Current.Language, _table);
         var r = PromptRenderer.Render(template, vars);
         PromptText = r.Text;
         var warnings = new List<string>();
@@ -192,31 +327,213 @@ public sealed partial class AiAssistViewModel : ObservableObject
         if (missing.Count > 0) warnings.Add("テンプレートに必要な変数がありません: " + string.Join(", ", missing));
         if (Purpose == AiPurpose.CaptureCaption && project.CapturePoints.Count == 0) warnings.Add("手順書画像が登録されていません。先に画像ポイントを登録してください。");
         if (Purpose == AiPurpose.CutReview && project.CutSegments.Count == 0) warnings.Add("確定したカット区間がありません。");
+        if (NeedsLocalAnalysis) warnings.Add(Loc.Get("Ai.Seg.Analysis.Pending"));
         PromptWarning = string.Join(Environment.NewLine, warnings);
+        OnPropertyChanged(nameof(SegmentTable));
         OnPropertyChanged(nameof(VideoPath));
         OnPropertyChanged(nameof(VideoFileName));
+        RefreshRequestVideo();
     }
 
     [RelayCommand]
-    private void CopyPrompt()
+    private async Task CopyPromptAsync()
     {
+        // 画面変化が未解析なら、区間表を作る前に簡易解析を実行する（設計 4.1）。
+        await EnsureSegmentTableAsync();
+        var before = CopyMessage;
         if (string.IsNullOrEmpty(PromptText)) return;
         if (!_clipboard.SetText(PromptText))
         {
             CopyMessage = "クリップボードにコピーできませんでした。もう一度お試しください。";
             return;
         }
-        // 実際に Gemini へ渡したプロンプトを履歴に残す。
+        // 実際に Gemini へ渡したプロンプトを履歴に残す。区間表もこの時点のものを残し、取り込みで番号を時刻へ戻すのに使う。
         _entry = new AiHistoryEntry
         {
             Purpose = Purpose,
             TemplateName = PromptTemplateService.TemplateName(Purpose) + (_templates.IsCustomized(Purpose) ? "（編集済み）" : ""),
             Prompt = PromptText,
             PromptCreatedAt = DateTimeOffset.Now,
+            Segments = CurrentSegments(),
         };
         _main.Editor?.UpsertAiHistory(_entry);
         RefreshHistory();
-        CopyMessage = $"コピーしました（{DateTime.Now:HH:mm:ss}）。Gemini に動画をアップロードし、このプロンプトを貼り付けて送信してください。";
+        var copied = $"コピーしました（{DateTime.Now:HH:mm:ss}）。Gemini に動画をアップロードし、このプロンプトを貼り付けて送信してください。";
+        CopyMessage = before.Length > 0 ? before + Environment.NewLine + copied : copied;
+    }
+
+    /// <summary>履歴に残す区間表（不要区間の解析のときだけ。それ以外は空）。</summary>
+    private List<AiSegment> CurrentSegments() => Purpose == AiPurpose.CutAnalysis && _table is { } t ? t.ToHistory() : [];
+
+    // ---------------- 依頼用動画（時刻と区間番号入り。v1.21） ----------------
+
+    [ObservableProperty] private string _requestVideoStatus = "";
+    [ObservableProperty] private string _requestVideoMessage = "";
+    [ObservableProperty] private string _requestOrphanText = "";
+
+    public bool HasRequestVideo => _requestSession.Video is not null;
+    public bool HasRequestOrphans => _requestSession.Orphans.Count > 0;
+    public string RequestVideoPath => _requestSession.Video?.Path ?? "";
+    public bool CanMakeRequestVideo => _requestVideos is not null && _store is not null && _windows is not null;
+    public bool IsCutAnalysisMode => Purpose == AiPurpose.CutAnalysis;
+
+    /// <summary>依頼用動画の状態の表示を更新する。</summary>
+    private void RefreshRequestVideo()
+    {
+        var project = _main.Project;
+        if (_requestSession.Video is { } v && !File.Exists(v.Path)) _requestSession.Video = null;
+        _requestSession.Orphans.RemoveAll(o => !File.Exists(o.Path));
+        if (_requestSession.Video is { } video)
+        {
+            var size = new FileInfo(video.Path).Length / 1024.0 / 1024.0;
+            RequestVideoStatus = project is not null && _table is { } t && AiRequestVideoService.IsCurrent(video, project, t.ToHistory())
+                ? Loc.Format("Ai.Seg.Video.Ready", Path.GetFileName(video.Path), size)
+                : Loc.Get("Ai.Seg.Video.Stale");
+        }
+        else RequestVideoStatus = Loc.Get("Ai.Seg.Video.None");
+        RequestOrphanText = _requestSession.Orphans.Count == 0 ? "" : Loc.Format("Ai.Seg.Video.Orphans", _requestSession.Orphans.Count);
+        OnPropertyChanged(nameof(HasRequestVideo));
+        OnPropertyChanged(nameof(HasRequestOrphans));
+        OnPropertyChanged(nameof(RequestVideoPath));
+        OnPropertyChanged(nameof(IsCutAnalysisMode));
+    }
+
+    /// <summary>
+    /// ［依頼用動画を作る（時刻と区間番号入り）］: 元動画の下に区間の番号と時刻の帯を足した動画を作る（カットは適用しない）。
+    /// 今の区間表で作った動画があれば、作り直さずに使う。動画はプロジェクトフォルダーに作るため、未保存なら先に保存する。
+    /// </summary>
+    [RelayCommand]
+    private async Task PrepareRequestVideoAsync()
+    {
+        if (_requestVideos is null || _store is null || _windows is null || Purpose != AiPurpose.CutAnalysis) return;
+        await EnsureSegmentTableAsync();
+        var project = _main.Project;
+        if (project is null || _table is null) return;
+        var segments = _table.ToHistory();
+        if (AiRequestVideoService.IsCurrent(_requestSession.Video, project, segments))
+        {
+            RequestVideoMessage = Loc.Get("Ai.Seg.Video.Reused");
+            RefreshRequestVideo();
+            return;
+        }
+        if (_main.FFmpeg.FfmpegPath is not { Length: > 0 } ffmpeg)
+        {
+            _dialogs.ShowError(Loc.Get("Ai.Seg.Video.NoFFmpeg"));
+            return;
+        }
+        if (_main.ProjectPath is null)
+        {
+            _main.SaveProjectCommand.Execute(null);
+            if (_main.ProjectPath is null)
+            {
+                RequestVideoMessage = Loc.Get("Ai.Seg.Video.NeedSave");
+                return;
+            }
+        }
+        // 作り直す場合、前の動画は使わなくなる（確認して削除できるよう残す）。
+        if (_requestSession.Video is not null) _requestSession.Invalidate();
+
+        var name = ProjectFolders.DefaultOutputBaseName(_main.VideoPath, _main.ProjectPath);
+        var location = CaptionRequestStore.ProjectLocation(_main.ProjectPath);
+        CaptionRequestVideo? video = null;
+        try
+        {
+            var completed = await _windows.RunWithProgressAsync(Loc.Get("Ai.Seg.Video.ProgressTitle"), async (progress, ct) =>
+            {
+                var p = new Progress<VideoExportProgress>(x => progress.Report(new ProgressInfo(x.Ratio,
+                    Loc.Format("Ai.Seg.Video.Progress", TimeFormat.Format(x.ProcessedSeconds), TimeFormat.Format(x.TotalSeconds), x.Ratio))));
+                video = await _requestVideos.PrepareAsync(ffmpeg, project, segments, name, location, p, ct);
+            });
+            if (!completed || video is null)
+            {
+                RequestVideoMessage = Loc.Get("Ai.Seg.Video.Cancelled");
+                RefreshRequestVideo();
+                return;
+            }
+        }
+        catch (PathStageException ex)
+        {
+            _dialogs.ShowError(Loc.Get("Ai.Seg.Video.Failed") + Environment.NewLine + ex.Message, LogHint());
+            RequestVideoMessage = Loc.Format("Ai.Seg.Video.FailedStage", ex.Stage);
+            RefreshRequestVideo();
+            return;
+        }
+        catch (FFmpegException ex)
+        {
+            _dialogs.ShowError(ex.Message, ex.ErrorDetail + Environment.NewLine + LogHint());
+            RequestVideoMessage = Loc.Format("Ai.Seg.Video.FailedStage", "FFmpeg");
+            RefreshRequestVideo();
+            return;
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            _logger.LogError(ex, "Cut request video failed");
+            _dialogs.ShowError(Loc.Get("Ai.Seg.Video.Failed"), ex.Message + Environment.NewLine + LogHint());
+            RefreshRequestVideo();
+            return;
+        }
+        _requestSession.Video = video;
+        RequestVideoMessage = Loc.Get("Ai.Seg.Video.Done") + (video.Notice.Length > 0 ? Environment.NewLine + video.Notice : "");
+        RefreshRequestVideo();
+    }
+
+    /// <summary>エラー表示に添える、ログの保存先の案内。</summary>
+    private static string LogHint()
+    {
+        var dir = AppPaths.Current.LogDirectory;
+        return FileLoggerProvider.LastWriteError is { } err
+            ? $"ログを保存できていません（{dir}: {err}）。"
+            : $"詳しい経過はログに記録しています: {dir}";
+    }
+
+    /// <summary>［フォルダーを開く］: 依頼用動画をエクスプローラーで選んだ状態で開く。</summary>
+    [RelayCommand]
+    private void OpenRequestVideoFolder()
+    {
+        if (_requestSession.Video is { } v && File.Exists(v.Path)) _shell.RevealFile(v.Path);
+    }
+
+    [RelayCommand]
+    private void CopyRequestVideoPath()
+    {
+        if (_requestSession.Video is { } v && _clipboard.SetText(v.Path)) RequestVideoMessage = Loc.Get("Ai.Seg.Video.PathCopied");
+    }
+
+    /// <summary>使えなくなった古い依頼用動画を、1 件ずつ確認して削除する。</summary>
+    [RelayCommand]
+    private void DeleteRequestOrphans()
+    {
+        if (_windows is null || _store is null) return;
+        foreach (var o in _requestSession.Orphans.ToList())
+        {
+            if (!File.Exists(o.Path)) { _requestSession.Orphans.Remove(o); continue; }
+            if (_windows.ConfirmDeleteRequestVideo(Loc.Get("Ai.Seg.Video.OrphanAsk"), o.Path) != true) continue;
+            var r = _store.Delete(o.Path);
+            if (r.Success) _requestSession.Orphans.Remove(o);
+            else _dialogs.ShowError(Loc.Get("Ai.Seg.Video.DeleteFailed") + Environment.NewLine + o.Path, r.Message);
+        }
+        RefreshRequestVideo();
+    }
+
+    /// <summary>
+    /// AI 候補の取り込みの後に、依頼用動画を削除するか確認する（字幕依頼用動画と同じ。既定は［削除する］、
+    /// ［削除しない］・閉じるだけでは削除しない）。失敗しても取り込んだ候補はそのまま。結果の文を返す（何もしなければ空）。
+    /// </summary>
+    private string AskDeleteRequestVideo()
+    {
+        if (_windows is null || _store is null || _requestSession.Video is not { } v) return "";
+        if (!File.Exists(v.Path)) { _requestSession.Video = null; return ""; }
+        var answer = _windows.ConfirmDeleteRequestVideo(Loc.Get("Ai.Seg.Video.DeleteAsk"), v.Path);
+        if (answer != true) return Loc.Get("Ai.Seg.Video.Kept");
+        var d = _store.Delete(v.Path);
+        if (d.Success)
+        {
+            _requestSession.Video = null;
+            return Loc.Get("Ai.Seg.Video.Deleted");
+        }
+        _logger.LogWarning("Cut request video delete failed: {Path}: {Reason}", v.Path, d.Message);
+        _dialogs.ShowError(Loc.Get("Ai.Seg.Video.DeleteFailed") + Environment.NewLine + v.Path, d.Message);
+        return Loc.Get("Ai.Seg.Video.DeleteFailedShort");
     }
 
     [RelayCommand] private void OpenGemini() => _shell.OpenUrl(GeminiUrl);
@@ -288,6 +605,8 @@ public sealed partial class AiAssistViewModel : ObservableObject
             TemplateName = PromptTemplateService.TemplateName(Purpose),
             Prompt = PromptText,
             PromptCreatedAt = DateTimeOffset.Now,
+            // コピーせずに解析した場合は、表示中のプロンプトの区間表を使う。
+            Segments = CurrentSegments(),
         };
         _entry.Response = ResponseText;
         _entry.ParsedAt = DateTimeOffset.Now;
@@ -310,14 +629,29 @@ public sealed partial class AiAssistViewModel : ObservableObject
             }
             case AiPurpose.CutAnalysis:
             {
-                var r = AiResponseParser.ParseCuts(ResponseText);
+                var r = AiResponseParser.ParseCutAnalysis(ResponseText);
                 if (!r.Success) { Fail(r.Error); return; }
                 methodLabel = r.Extraction?.MethodLabel ?? "";
                 warnings.AddRange(r.Warnings);
-                AddCutRows(r.Items, project);
-                ParseMessage = r.Items.Count == 0
-                    ? "不要区間の候補はありませんでした。"
-                    : $"{r.Items.Count} 件の区間候補を認識しました（取り込み可能 {CutRows.Count(c => c.IsValid)} 件）。";
+                if (r.IsSegmentMode)
+                {
+                    // 区間方式: 番号はプロンプトをコピーした時点の区間表（履歴）で時刻へ戻す。
+                    if (_entry.Segments.Count == 0) { Fail(Loc.Get("Ai.Seg.MissingTable")); return; }
+                    var rows = AiCutImporter.ValidateSegments(r.Segments, _entry.Segments, project.CutSegments,
+                        project.VideoMetadata?.Duration ?? 0, _settings.Current.Ui.DefaultShortenKeepSeconds);
+                    SetCutRows(rows);
+                    ParseMessage = r.Segments.Count == 0
+                        ? "不要区間の候補はありませんでした。"
+                        : Loc.Format("Ai.Seg.Parsed", r.Segments.Count, CutRows.Count(c => c.IsValid), CutRows.Count(c => c.IsExcluded));
+                }
+                else
+                {
+                    // 時刻方式（古い回答・区間表の無いテンプレート）: 区間表があれば境目へ寄せる。
+                    AddCutRows(r.Cuts, project, _entry.Segments);
+                    ParseMessage = r.Cuts.Count == 0
+                        ? "不要区間の候補はありませんでした。"
+                        : $"{r.Cuts.Count} 件の区間候補を認識しました（取り込み可能 {CutRows.Count(c => c.IsValid)} 件）。";
+                }
                 break;
             }
             default:
@@ -359,9 +693,12 @@ public sealed partial class AiAssistViewModel : ObservableObject
         }
     }
 
-    private void AddCutRows(IReadOnlyList<ParsedCut> cuts, ProjectDocument project)
+    private void AddCutRows(IReadOnlyList<ParsedCut> cuts, ProjectDocument project, IReadOnlyList<AiSegment>? segments = null)
+        => SetCutRows(AiCutImporter.Validate(cuts, project.VideoMetadata?.Duration ?? 0, _settings.Current.Ui.DefaultShortenKeepSeconds,
+            segments is { Count: > 0 } ? segments : null));
+
+    private void SetCutRows(IReadOnlyList<AiCutRow> rows)
     {
-        var rows = AiCutImporter.Validate(cuts, project.VideoMetadata?.Duration ?? 0, _settings.Current.Ui.DefaultShortenKeepSeconds);
         _pendingCuts = rows.Select(r => new CutRowViewModel(r)).ToList();
         foreach (var r in _pendingCuts) CutRows.Add(r);
     }
@@ -418,9 +755,16 @@ public sealed partial class AiAssistViewModel : ObservableObject
         _entry.ImportedJson = json;
         editor.UpsertAiHistory(_entry);
         RefreshHistory();
-        ParseMessage = summary + "（元に戻す: 主画面で Ctrl+Z）";
+        ParseMessage = summary;
         _main.StatusMessage = summary;
         HasResult = false;
+        // 依頼用動画（時刻と区間番号入り）を作っていれば、削除するか確認する（字幕依頼用動画と同じ）。
+        if (Purpose == AiPurpose.CutAnalysis)
+        {
+            var deleted = AskDeleteRequestVideo();
+            if (deleted.Length > 0) ParseMessage += Environment.NewLine + deleted;
+            RefreshRequestVideo();
+        }
         return true;
     }
 

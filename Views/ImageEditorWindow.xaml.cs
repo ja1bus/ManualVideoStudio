@@ -61,6 +61,7 @@ public partial class ImageEditorWindow : Window
             case Key.L: Run(vm.SetToolCommand, e, EditorTool.Line); break;
             case Key.T: Run(vm.SetToolCommand, e, EditorTool.Text); break;
             case Key.M: Run(vm.SetToolCommand, e, EditorTool.Mosaic); break;
+            case Key.Z when vm.IsVideoMode: Run(vm.SetToolCommand, e, EditorTool.Zoom); break;
             case Key.Left:
                 if (!vm.HasSelection && vm.HasFrameNav) StepBackground(vm, e, shift ? "-1" : null, shift ? null : "-1");
                 else Nudge(vm, e, shift ? -10 : -1, 0);

@@ -24,6 +24,10 @@ public sealed record FFmpegCapabilities
     public bool HasSubtitles => Filters.Contains("subtitles");
     /// <summary>Animated GIF（palettegen / paletteuse）。</summary>
     public bool HasGifPalette => Filters.Contains("palettegen") && Filters.Contains("paletteuse");
+    /// <summary>
+    /// 拡大表示（v1.21。zoompan フィルタ）。拡大を使うときだけ必要なので <see cref="MissingFeatures"/> には含めず、書き出しの前に確かめる。
+    /// </summary>
+    public bool HasZoomPan => Filters.Contains("zoompan");
 
     /// <summary>必須機能が欠けている場合の説明（空なら問題なし）。</summary>
     public IReadOnlyList<string> MissingFeatures()

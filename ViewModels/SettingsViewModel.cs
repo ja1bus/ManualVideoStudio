@@ -70,6 +70,7 @@ public sealed partial class SettingsViewModel : ObservableObject
         _language = s.Language;
         _isSimpleMode = s.IsSimpleMode;
         _enableExternalDocumentExport = s.EnableExternalDocumentExport;
+        LoadHotkeys(s.Recording.Hotkeys ?? new RecordingHotkeys());
         _uiContext = SynchronizationContext.Current;
 
         LoadSubtitle(s.Subtitle ?? new SubtitleStyle());
@@ -417,6 +418,61 @@ public sealed partial class SettingsViewModel : ObservableObject
         RefreshPurposes();
     }
 
+    // ---------------- 録画のショートカット（v1.21） ----------------
+
+    /// <summary>修飾キーの選択肢（2 つ以上の組み合わせだけ）。</summary>
+    public IReadOnlyList<Choice<HotkeyModifiers>> HotkeyModifierOptions { get; } =
+        Enum.GetValues<HotkeyModifiers>().Select(m => new Choice<HotkeyModifiers>(m, RecordingHotkey.ModifiersText(m))).ToList();
+    /// <summary>キーの選択肢（F1～F12・A～Z・0～9）。</summary>
+    public IReadOnlyList<Choice<HotkeyKey>> HotkeyKeyOptions { get; } =
+        Enum.GetValues<HotkeyKey>().Select(k => new Choice<HotkeyKey>(k, RecordingHotkey.KeyText(k))).ToList();
+
+    [ObservableProperty] private HotkeyModifiers _startStopModifiers;
+    [ObservableProperty] private HotkeyKey _startStopKey;
+    [ObservableProperty] private HotkeyModifiers _pauseModifiers;
+    [ObservableProperty] private HotkeyKey _pauseKey;
+    [ObservableProperty] private HotkeyModifiers _markerModifiers;
+    [ObservableProperty] private HotkeyKey _markerKey;
+
+    public RecordingHotkey StartStopHotkey => new(StartStopModifiers, StartStopKey);
+    public RecordingHotkey PauseHotkey => new(PauseModifiers, PauseKey);
+    public RecordingHotkey MarkerHotkey => new(MarkerModifiers, MarkerKey);
+
+    /// <summary>3 つのショートカットが重なるときの説明（重ならなければ空）。空でなければ保存できない。</summary>
+    public string HotkeyError => RecordingHotkeys.AreDistinct(StartStopHotkey, PauseHotkey, MarkerHotkey)
+        ? ""
+        : Loc.Get("Settings.Hotkey.Duplicate");
+    public bool HasHotkeyError => HotkeyError.Length > 0;
+
+    private void LoadHotkeys(RecordingHotkeys h)
+    {
+        var copy = h.Clone();
+        copy.Normalize();
+        StartStopModifiers = copy.StartStop.Modifiers;
+        StartStopKey = copy.StartStop.Key;
+        PauseModifiers = copy.Pause.Modifiers;
+        PauseKey = copy.Pause.Key;
+        MarkerModifiers = copy.Marker.Modifiers;
+        MarkerKey = copy.Marker.Key;
+    }
+
+    partial void OnStartStopModifiersChanged(HotkeyModifiers value) => NotifyHotkeys();
+    partial void OnStartStopKeyChanged(HotkeyKey value) => NotifyHotkeys();
+    partial void OnPauseModifiersChanged(HotkeyModifiers value) => NotifyHotkeys();
+    partial void OnPauseKeyChanged(HotkeyKey value) => NotifyHotkeys();
+    partial void OnMarkerModifiersChanged(HotkeyModifiers value) => NotifyHotkeys();
+    partial void OnMarkerKeyChanged(HotkeyKey value) => NotifyHotkeys();
+
+    private void NotifyHotkeys()
+    {
+        OnPropertyChanged(nameof(HotkeyError));
+        OnPropertyChanged(nameof(HasHotkeyError));
+    }
+
+    /// <summary>［初期値に戻す］: Ctrl+Shift+F9 / Ctrl+Shift+F8 / Ctrl+Shift+F7（保存は OK のとき）。</summary>
+    [RelayCommand]
+    private void ResetHotkeys() => LoadHotkeys(new RecordingHotkeys());
+
     // ---------------- 詳細・外部連携（v1.14） ----------------
 
     /// <summary>
@@ -596,6 +652,13 @@ public sealed partial class SettingsViewModel : ObservableObject
     [RelayCommand]
     private void Ok()
     {
+        // 録画のショートカットが重なっていれば保存しない（欄の下にも同じ説明を出している）。
+        if (HasHotkeyError)
+        {
+            SelectedTab = SettingsTab.Operation;
+            _dialogs.ShowWarning(HotkeyError);
+            return;
+        }
         if (_templateDirty && _dialogs.Confirm("プロンプトテンプレートの変更を保存しますか？（キャンセルで破棄）", "テンプレート"))
             SaveTemplateFor(SelectedPurpose);
 
@@ -632,6 +695,7 @@ public sealed partial class SettingsViewModel : ObservableObject
         s.UiMode = IsSimpleMode ? UiModes.Simple : UiModes.Full;
         s.EnableExternalDocumentExport = EnableExternalDocumentExport;
         s.Subtitle = BuildSubtitle();
+        s.Recording.Hotkeys = new RecordingHotkeys { StartStop = StartStopHotkey, Pause = PauseHotkey, Marker = MarkerHotkey };
         _sampleCts?.Cancel();
         try
         {

@@ -25,6 +25,7 @@ public partial class MainWindow : Window
         vm.AttachPlayer(new MediaElementPlayer(Media));
         Timeline.SeekRequested += (_, t) => vm.SeekTo(t);
         Timeline.ItemClicked += (_, e) => vm.OnTimelineItemClicked(e.Kind, e.Id, e.Additive);
+        Timeline.CutEdgeDragged += (_, e) => vm.ApplyCutEdgeDrag(e.Id, e.Start, e.End); // v1.21: カットの端のドラッグ
         vm.ListSelectionRequested += OnListSelectionRequested;
         RestorePlacement();
     }
@@ -38,6 +39,13 @@ public partial class MainWindow : Window
         var ctrl = Keyboard.Modifiers.HasFlag(ModifierKeys.Control);
         var shift = Keyboard.Modifiers.HasFlag(ModifierKeys.Shift);
         bool inText = e.OriginalSource is TextBoxBase or PasswordBox || (e.OriginalSource is ComboBox cb && cb.IsEditable);
+
+        // タイムラインでカットの端をドラッグ中の Esc は、ドラッグの取り消し（v1.21。他のキーより先に受ける）。
+        if (e.Key == Key.Escape && Timeline.CancelEdgeDrag())
+        {
+            e.Handled = true;
+            return;
+        }
 
         // 保存・開くは入力中でも有効（入力中のキャプションを先に確定させる）。
         if (ctrl && e.Key == Key.S)
@@ -77,11 +85,19 @@ public partial class MainWindow : Window
             case Key.End: Execute(_vm.SeekEndCommand, e); break;
             case Key.I: Execute(_vm.SetMarkInCommand, e); break;
             case Key.O: Execute(_vm.SetMarkOutCommand, e); break;
-            case Key.R when _vm.IsCutLocked:
-                _vm.StatusMessage = Loc.Get("Status.CutLocked");
-                e.Handled = true;
-                break;
-            case Key.R: Execute(_vm.AddRemoveCutCommand, e); break;
+            // R: 片方だけの指定なら、もう片方は再生位置。字幕編集中は字幕・図形の時刻を合わせて直す追加カット（v1.21）。
+            case Key.R: Execute(_vm.QuickCutCommand, e); break;
+            // v1.21: 再生速度（J / K / L）、カットの端（Q / W）、候補（A / D / P / N）、マーカー（M）。
+            case Key.L: Execute(_vm.PlayForwardCommand, e); break;
+            case Key.J: Execute(_vm.PlayReverseCommand, e); break;
+            case Key.K: Execute(_vm.StopPlaybackCommand, e); break;
+            case Key.Q: Execute(_vm.AlignCutStartCommand, e); break;
+            case Key.W: Execute(_vm.AlignCutEndCommand, e); break;
+            case Key.A: Execute(_vm.AcceptSelectedCandidatesCommand, e); break;
+            case Key.D: Execute(_vm.DismissSelectedCandidatesCommand, e); break;
+            case Key.P: Execute(_vm.TrialSelectedCandidateCommand, e); break;
+            case Key.N: Execute(shift ? _vm.SelectPrevCandidateCommand : _vm.SelectNextCandidateCommand, e); break;
+            case Key.M: Execute(shift ? _vm.SeekPrevMarkerCommand : _vm.SeekNextMarkerCommand, e); break;
             case Key.T: Execute(_vm.AddSubtitleCommand, e); break;
             case Key.G: Execute(_vm.AddShapesCommand, e); break;
             case Key.C: Execute(_vm.AddCaptureCommand, e); break;
@@ -302,14 +318,28 @@ public partial class MainWindow : Window
     private void Exit_Click(object sender, RoutedEventArgs e) => Close();
 
     private void Shortcuts_Click(object sender, RoutedEventArgs e)
-        => MessageBox.Show(this,
+    {
+        // 録画のショートカットは設定で変えられる（v1.21）。表示は設定値から作る。
+        var h = _vm.Settings.Recording.Hotkeys ?? new Core.Models.RecordingHotkeys();
+        var recording = $"""
+            録画中（録画画面を開いている間、どのアプリからでも。設定の［操作・その他］で変えられます）:
+            {h.StartStop.DisplayText}  録画開始 / 停止
+            {h.Pause.DisplayText}  一時停止 / 再開
+            {h.Marker.DisplayText}  不要マーカー（この直前は不要、の印）
+            """;
+        MessageBox.Show(this,
             """
-            Space        再生 / 一時停止
+            Space        再生 / 一時停止（再生は常に ×1）
+            L / J / K    順方向に再生 / 逆方向に再生 / 停止（L・J は押すたびに ×1 → ×2 → ×4。K で ×1 に戻す）
             ← / →        1 フレーム戻る / 進む
             Shift+← / →  設定の秒数だけ戻る / 進む（既定 1 秒）
             Home / End   先頭 / 末尾へ
+            M / Shift+M  次 / 前のマーカー（録画中に付けた不要の印）へ
             I / O        カット開始 / 終了位置を設定（字幕編集中は字幕の開始 / 終了）
-            R            この区間をカット（カット編集中のみ）
+            R            この区間をカット（片方だけの指定なら、もう片方は再生位置。字幕編集中は確認のうえ字幕・図形の時刻も直す）
+            Q / W        カットの開始 / 終了を再生位置に合わせる（カット編集中のみ）
+            A / D / P    選択中の候補をカットする / 却下 / 試す（カット編集中のみ）
+            N / Shift+N  次 / 前の未判断の候補へ（カット編集中のみ）
             T            字幕を追加（字幕編集中のみ）
             G            図形を追加（四角・矢印・直線・文字・モザイク。字幕編集中のみ）
             Esc          カット位置の指定を解除（入力欄ではフォーカスを外す）
@@ -319,12 +349,13 @@ public partial class MainWindow : Window
             Ctrl+O       動画を開く（Shift でプロジェクトを開く）
             F1           取扱説明書（Web 版）を開く
 
-            録画中（録画画面を開いている間、どのアプリからでも）:
-            Ctrl+Shift+F9  録画開始 / 停止
-            Ctrl+Shift+F8  一時停止 / 再開
+            """ + recording + """
+
 
             タイムライン: クリック・ドラッグで移動、Ctrl+ホイールで拡大、ホイールで左右移動、ダブルクリックで全体表示
+            カット編集中は、確定したカットの端をドラッグして開始・終了を直せます（Shift で吸着なし、Esc で取り消し）
             """, "キーボード操作", MessageBoxButton.OK, MessageBoxImage.Information);
+    }
 
     // ---------------- 終了・ウィンドウ位置 ----------------
 

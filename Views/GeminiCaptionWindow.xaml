@@ -6,7 +6,7 @@
     <ScrollViewer VerticalScrollBarVisibility="Auto">
         <StackPanel Margin="16">
             <TextBlock Text="{Binding FlowText}" TextWrapping="Wrap" Style="{StaticResource Subtle}"/>
-            <TextBlock Text="時間軸はカット後の動画（完成動画と同じ）です。Gemini API・ブラウザの自動操作は使わず、コピー＆貼り付けで手動連携します。"
+            <TextBlock Text="時間軸はカット後の動画（完成動画と同じ）です。Gemini API・ブラウザーの自動操作は使わず、コピー＆貼り付けで手動連携します。"
                        TextWrapping="Wrap" Style="{StaticResource Subtle}" Margin="0,2,0,0"/>
 
             <!-- ① 依頼用動画 -->
@@ -23,12 +23,12 @@
                 <Button Content="作り直す" MinWidth="130" Command="{Binding PrepareCommand}" AutomationProperties.Name="作り直す"
                         Visibility="{Binding HasVideo, Converter={StaticResource BoolToVisibility}}"/>
             </StackPanel>
-            <TextBlock Text="字幕なしの動画です（図形も含みません）。完成動画の書き出しにはこの動画を使わず、元動画から改めて作ります（動画の作成は、依頼用と完成用で別々に行います）。"
+            <TextBlock Text="字幕なしの動画です（図形も含みません）。完成動画の書き出しにはこの動画を使わず、元動画から改めて作ります。"
                        TextWrapping="Wrap" Style="{StaticResource Subtle}" Margin="0,4,0,0"/>
             <Border Background="{StaticResource InfoBackgroundBrush}" CornerRadius="4" Padding="8,6" Margin="0,6,0,0"
                     Visibility="{Binding OrphanText, Converter={StaticResource EmptyToCollapsed}}">
                 <DockPanel>
-                    <Button DockPanel.Dock="Right" Content="確認して削除..." Command="{Binding DeleteOrphansCommand}" VerticalAlignment="Center"/>
+                    <Button DockPanel.Dock="Right" Content="確認して削除…" Command="{Binding DeleteOrphansCommand}" VerticalAlignment="Center"/>
                     <TextBlock Text="{Binding OrphanText}" TextWrapping="Wrap" VerticalAlignment="Center"/>
                 </DockPanel>
             </Border>

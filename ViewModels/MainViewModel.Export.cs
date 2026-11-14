@@ -24,7 +24,7 @@ public sealed partial class MainViewModel
         if (!FlushSubtitleDraft()) return;
         var project = Editor.Project;
         if (project.CutSegments.Count == 0 && project.SubtitleSegments.Count == 0 && project.ShapeGroups.Count == 0
-            && !project.Title.HasTitle && !_dialogs.Confirm("確定したカット区間・字幕・図形がありません。元動画全体を再エンコードして書き出しますか？"))
+            && !project.Title.HasTitle && !(project.ClickHighlight.Enabled && HasRecordedClicks) && !_dialogs.Confirm("確定したカット区間・字幕・図形がありません。元動画全体を再エンコードして書き出しますか？"))
             return;
         var pendingCount = PendingCandidateCount;
         if (pendingCount > 0
@@ -48,7 +48,8 @@ public sealed partial class MainViewModel
         var request = new VideoExportRequest(FFmpeg.FfmpegPath!, FFmpeg.MajorVersion, VideoPath, Metadata,
             project.CutSegments.ToList(), output,
             new VideoEncodeOptions { Crf = es.VideoCrf, Preset = es.VideoPreset, AudioBitrateKbps = es.AudioBitrateKbps },
-            project.SubtitleSegments.ToList(), Settings.Subtitle.Clone(), es.TransitionSecondsForExport, WpfSubtitleTextMeasurer.Instance, shapes, titleImage);
+            project.SubtitleSegments.ToList(), Settings.Subtitle.Clone(), es.TransitionSecondsForExport, WpfSubtitleTextMeasurer.Instance, shapes, titleImage,
+            ZoomPanAvailable: FFmpeg.Capabilities?.HasZoomPan ?? true);
         VideoExportResult? result = null;
         try
         {
@@ -79,31 +80,35 @@ public sealed partial class MainViewModel
         es.VideoOutputDirectory = Path.GetDirectoryName(output) ?? "";
         es.VideoOutputFileName = Path.GetFileName(output);
         Editor.MarkDirty();
-        StatusMessage = $"書き出しました: {output}（{TimeFormat.Format(result!.OutputDuration)}、{result.Elapsed.TotalSeconds:0} 秒{BurnedInText(project)}）";
+        StatusMessage = $"書き出しました: {output}（{TimeFormat.Format(result!.OutputDuration)}、{result.Elapsed.TotalSeconds:0} 秒{BurnedInText(project, shapes is { HasClicks: true })}）";
         if (_dialogs.Confirm($"書き出しが完了しました。{Environment.NewLine}{output}{Environment.NewLine}{Environment.NewLine}フォルダーを開きますか？", "完了"))
             _shell.RevealFile(output);
     }
 
     /// <summary>完了表示の「、字幕 n 件・図形 m 件を焼き込み」。</summary>
-    private static string BurnedInText(ProjectDocument project)
+    private static string BurnedInText(ProjectDocument project, bool clicks)
     {
         var parts = new List<string>();
         if (project.Title.HasTitle) parts.Add("タイトル");
         if (project.SubtitleSegments.Count > 0) parts.Add($"字幕 {project.SubtitleSegments.Count} 件");
         if (project.ShapeGroups.Count > 0) parts.Add($"図形 {project.ShapeGroups.Count} 件");
+        if (clicks) parts.Add(Loc.Get("Click.BurnedIn"));
         return parts.Count == 0 ? "" : $"、{string.Join("・", parts)}を焼き込み";
     }
 
     /// <summary>
-    /// 図形（v1.6）の書き出し用の画像を作る（WPF の描画のため UI スレッドで行う）。失敗したらエラーを出して false。
+    /// 図形（v1.6）の書き出し用の画像を作り、拡大・クリックの強調（v1.21）を足す（WPF の描画のため UI スレッドで行う）。
+    /// 図形が無くても、拡大・クリックの強調があれば重ねるものを作る。失敗したらエラーを出して false。
     /// </summary>
     private bool TryBuildShapeLayers(ProjectDocument project, out VideoShapeLayers? layers)
     {
         layers = null;
-        if (project.ShapeGroups.Count == 0 || Metadata is null) return true;
+        if (Metadata is null) return true;
         try
         {
-            layers = ShapeOverlayRenderer.Build(project.ShapeGroups, Metadata.Width, Metadata.Height);
+            var shapes = project.ShapeGroups.Count == 0 ? null : ShapeOverlayRenderer.Build(project.ShapeGroups, Metadata.Width, Metadata.Height);
+            var keep = EditTimelineCalculator.ComputeKeepRanges(Duration, project.CutSegments);
+            layers = ComposeExportLayers(shapes, project, RecordingEvents?.Clicks, keep, Metadata.Width, Metadata.Height, ClickRingRenderer.RenderPng);
             return true;
         }
         catch (Exception ex) when (ex is InvalidOperationException or NotSupportedException or ArgumentException or OutOfMemoryException)
@@ -128,7 +133,7 @@ public sealed partial class MainViewModel
             var (built, error) = TitleRenderer.BuildExportImage(project.Title, width, height, mainDuration);
             if (error is not null)
             {
-                _dialogs.ShowError(error + Environment.NewLine + "［タイトル...］で文章を直してください。");
+                _dialogs.ShowError(error + Environment.NewLine + "［タイトル…］で文章を直してください。");
                 return false;
             }
             image = built;
@@ -160,7 +165,7 @@ public sealed partial class MainViewModel
         var warning = await _subtitleCheck.CheckFontAsync(Settings.Subtitle, CancellationToken.None);
         if (warning is null) return true;
         _logger.LogWarning("Subtitle font mismatch: {Warning}", warning);
-        return _dialogs.Confirm(warning + Environment.NewLine + Environment.NewLine + "このまま書き出しますか？（フォントは［字幕の設定...］で変えられます）", "字幕のフォント");
+        return _dialogs.Confirm(warning + Environment.NewLine + Environment.NewLine + "このまま書き出しますか？（フォントは［字幕の設定…］で変えられます）", "字幕のフォント");
     }
 
     /// <summary>
@@ -201,7 +206,8 @@ public sealed partial class MainViewModel
         if (!TryBuildTitleImage(project, Metadata.Width, Metadata.Height, out var titleImage)) return;
         var request = new GifExportRequest(FFmpeg.FfmpegPath!, FFmpeg.MajorVersion, VideoPath, Metadata,
             project.CutSegments.ToList(), project.SubtitleSegments.ToList(), Settings.Subtitle.Clone(), choose.Quality, output,
-            project.ExportSettings.TransitionSecondsForExport, WpfSubtitleTextMeasurer.Instance, shapes, titleImage);
+            project.ExportSettings.TransitionSecondsForExport, WpfSubtitleTextMeasurer.Instance, shapes, titleImage,
+            ZoomPanAvailable: FFmpeg.Capabilities?.HasZoomPan ?? true);
         GifExportResult? result = null;
         try
         {

@@ -24,9 +24,17 @@ public interface IRecordingService
     Task<RecordingResult> StopAsync(CancellationToken ct = default);
     /// <summary>録画を中止する（ffmpeg を止め、途中のファイルを削除する）。</summary>
     Task AbortAsync();
+
+    /// <summary>
+    /// いまの録画の操作の記録係（v1.21）。録画を始めると新しく作る。始める前は null。
+    /// 不要マーカーは <c>Events?.AddMarker()</c>、入力の監視は AddClick / AddKeyOrWheel / AddMouseMove を呼ぶ。
+    /// </summary>
+    RecordingEventRecorder? Events => null;
 }
 
-public sealed record RecordingStartRequest(string FfmpegPath, string FfprobePath, ScreenRecordingOptions Options, string OutputPath, RecordingInfo Info);
+/// <summary>録画の開始の依頼。LogInput はクリック位置と入力の時刻を記録するか（v1.21。不要マーカーは常に記録する）。</summary>
+public sealed record RecordingStartRequest(string FfmpegPath, string FfprobePath, ScreenRecordingOptions Options, string OutputPath, RecordingInfo Info,
+    bool LogInput = true);
 
 /// <summary>
 /// 画面録画の実行（UI 非依存）。一時停止は「ffmpeg を止めて区間を閉じる」、再開は「新しい区間を始める」で実現し、
@@ -34,12 +42,18 @@ public sealed record RecordingStartRequest(string FfmpegPath, string FfprobePath
 /// 区間は出力先フォルダー内の作業フォルダー（.mvs-rec-*）に Matroska で書き、成功したら削除する。
 /// </summary>
 public sealed class RecordingService(IRecordingProcessFactory factory, IProcessRunner runner, IMediaMetadataService metadata,
-    ILogger<RecordingService>? logger = null) : IRecordingService
+    ILogger<RecordingService>? logger = null) : IRecordingService, IRecordingClock
 {
     public static readonly TimeSpan StopTimeout = TimeSpan.FromSeconds(10);
     private readonly ILogger _logger = logger ?? NullLogger<RecordingService>.Instance;
     private readonly List<string> _segments = [];
+    /// <summary>閉じた区間ごとの時計の長さ（秒。_segments と同じ並び）。</summary>
+    private readonly List<double> _clockLengths = [];
     private readonly Stopwatch _segmentClock = new();
+    /// <summary>区間の時計（_segmentClock・_clockSegment）を入力の監視スレッドと共有するためのロック。</summary>
+    private readonly object _clockLock = new();
+    /// <summary>時計が動いている区間の番号（区間が無いときは -1）。</summary>
+    private int _clockSegment = -1;
     private TimeSpan _closedDuration;
     private RecordingStartRequest? _request;
     private string? _workDir;
@@ -51,6 +65,24 @@ public sealed class RecordingService(IRecordingProcessFactory factory, IProcessR
     public int SegmentCount => _segments.Count;
     /// <summary>作業フォルダー（失敗時に途中のファイルを残す場所）。</summary>
     public string? WorkDirectory => _workDir;
+    public RecordingEventRecorder? Events { get; private set; }
+
+    /// <summary>録画中（Recording）だけ、いまの区間の番号と区間の時計の秒を返す（任意のスレッドから呼べる）。</summary>
+    public bool TryNow(out int segment, out double seconds)
+    {
+        lock (_clockLock)
+        {
+            if (State != RecordingState.Recording || _clockSegment < 0)
+            {
+                segment = -1;
+                seconds = 0;
+                return false;
+            }
+            segment = _clockSegment;
+            seconds = _segmentClock.Elapsed.TotalSeconds;
+            return true;
+        }
+    }
 
     public event EventHandler? StateChanged;
     public event EventHandler<string>? Interrupted;
@@ -61,8 +93,14 @@ public sealed class RecordingService(IRecordingProcessFactory factory, IProcessR
             throw new InvalidOperationException("録画中です。");
         _request = request;
         _segments.Clear();
+        _clockLengths.Clear();
         _closedDuration = TimeSpan.Zero;
-        _segmentClock.Reset();
+        lock (_clockLock)
+        {
+            _segmentClock.Reset();
+            _clockSegment = -1;
+        }
+        Events = new RecordingEventRecorder(this, request.Info, request.LogInput);
         var outDir = Path.GetDirectoryName(Path.GetFullPath(request.OutputPath))!;
         Directory.CreateDirectory(outDir);
         _workDir = Path.Combine(outDir, $".mvs-rec-{Guid.NewGuid():N}");
@@ -153,20 +191,21 @@ public sealed class RecordingService(IRecordingProcessFactory factory, IProcessR
         process.Exited += OnProcessExited;
         // gdigrab は ffmpeg の起動直後から取り込みを始めるが、進捗（書き込み開始）の報告はエンコーダーの準備の後になる。
         // 経過時間を実際の録画の長さに合わせるため、時計は起動時から計る。
-        _segmentClock.Restart();
+        lock (_clockLock) _segmentClock.Restart();
         try
         {
             await process.StartAsync(ct).ConfigureAwait(false);
         }
         catch
         {
-            _segmentClock.Reset();
+            lock (_clockLock) _segmentClock.Reset();
             process.Exited -= OnProcessExited;
             await process.DisposeAsync().ConfigureAwait(false);
             throw;
         }
         _current = process;
         _segments.Add(name);
+        lock (_clockLock) _clockSegment = _segments.Count - 1;
     }
 
     private async Task CloseSegmentAsync()
@@ -174,9 +213,15 @@ public sealed class RecordingService(IRecordingProcessFactory factory, IProcessR
         var p = _current;
         if (p is null) return;
         _stopping = true;
-        _segmentClock.Stop();
-        _closedDuration += _segmentClock.Elapsed;
-        _segmentClock.Reset();
+        lock (_clockLock)
+        {
+            _segmentClock.Stop();
+            _closedDuration += _segmentClock.Elapsed;
+            // 停止の操作の時点までを区間の時計の長さとする（ffmpeg の終了待ちの時間は含めない）。
+            _clockLengths.Add(_segmentClock.Elapsed.TotalSeconds);
+            _segmentClock.Reset();
+            _clockSegment = -1;
+        }
         var graceful = await p.StopAsync(StopTimeout).ConfigureAwait(false);
         if (!graceful) _logger.LogWarning("Segment was killed: {Segment}", _segments.LastOrDefault());
         p.Exited -= OnProcessExited;
@@ -222,12 +267,58 @@ public sealed class RecordingService(IRecordingProcessFactory factory, IProcessR
         if (!meta.HasVideo || meta.Duration <= 0)
             throw new RecordingException($"録画ファイルが壊れている可能性があります（映像がありません）。途中のファイルは次のフォルダーに残しています: {dir}");
 
+        var events = await BuildEventsAsync(r, dir, usable, meta.Duration, ct).ConfigureAwait(false);
+
         var output = Path.GetFullPath(r.OutputPath);
         File.Move(temp, output, overwrite: true);
         var info = r.Info;
         info.SegmentCount = usable.Count;
         _logger.LogInformation("Recording done: {Output} ({Duration:0.000}s, {Count} segments)", output, meta.Duration, usable.Count);
-        return new RecordingResult(output, TimeSpan.FromSeconds(meta.Duration), usable.Count, info);
+        return new RecordingResult(output, TimeSpan.FromSeconds(meta.Duration), usable.Count, info, events);
+    }
+
+    /// <summary>
+    /// 録画中の記録を動画の秒へ直す。区間ごとの実際の長さは ffprobe で調べる（区間が 1 つなら完成した動画の長さ。
+    /// 調べられなければ区間の時計の長さで代用）。記録を作れなくても録画は成功とする（null）。
+    /// </summary>
+    private async Task<RecordingEvents?> BuildEventsAsync(RecordingStartRequest r, string dir, IReadOnlyList<string> usable, double outputDuration, CancellationToken ct)
+    {
+        var recorder = Events;
+        if (recorder is null) return null;
+        try
+        {
+            var usableSet = usable.ToHashSet(StringComparer.OrdinalIgnoreCase);
+            var flags = _segments.Select(s => usableSet.Contains(s)).ToList();
+            var clocks = _segments.Select((_, i) => i < _clockLengths.Count ? _clockLengths[i] : 0).ToList();
+            var actual = new List<double>(clocks);
+            for (int i = 0; i < _segments.Count; i++)
+            {
+                if (!flags[i]) continue;
+                if (usable.Count == 1)
+                {
+                    actual[i] = outputDuration;
+                    continue;
+                }
+                try
+                {
+                    var m = await metadata.ProbeAsync(r.FfprobePath, Path.Combine(dir, _segments[i]), ct).ConfigureAwait(false);
+                    if (m.Duration > 0) actual[i] = m.Duration;
+                }
+                catch (Exception ex) when (ex is not OperationCanceledException)
+                {
+                    _logger.LogWarning(ex, "Segment probe failed; using clock length: {Segment}", _segments[i]);
+                }
+            }
+            var events = recorder.Build(clocks, actual, flags);
+            _logger.LogInformation("Recording events: {Markers} markers, {Clicks} clicks, {Keys} key ranges, {Moves} move ranges (logInput={LogInput})",
+                events.Markers.Count, events.Clicks.Count, events.KeyRanges.Count, events.MoveRanges.Count, recorder.LogInput);
+            return events;
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            _logger.LogWarning(ex, "Failed to build recording events");
+            return null;
+        }
     }
 
     private void TryDeleteWorkDir()

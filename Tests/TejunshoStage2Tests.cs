@@ -100,7 +100,7 @@ public sealed class TejunshoStage2Tests : IDisposable
         var file = Path.Combine(_dir, "p.mvsproj.json");
         new ProjectService().Save(p, file);
         var text = File.ReadAllText(file);
-        Assert.Contains("\"schemaVersion\": 8", text);
+        Assert.Contains("\"schemaVersion\": 9", text);
         var loaded = new ProjectService().Load(file).Project.CapturePoints.Single();
         Assert.Equal(("s", "n1\nn2", "章"), (loaded.StepText, loaded.Note, loaded.ChapterTitle));
 

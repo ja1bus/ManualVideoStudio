@@ -57,11 +57,33 @@ public sealed class AnnotationSession
     public void Add(Annotation annotation)
     {
         var a = annotation.Clone();
+        if (a is ZoomAnnotation)
+        {
+            AddZoom(a);
+            return;
+        }
         Record(AddLabel(a.Kind));
         _items.Add(a);
         SelectedId = a.Id;
         Raise();
     }
+
+    /// <summary>
+    /// 拡大（v1.21）は 1 つのまとまりに 1 つだけ。既にあれば置き換える（元に戻すは 1 回で前の拡大に戻る）。
+    /// ほかの図形の選択を邪魔しないよう、いちばん奥（リストの先頭）に置く。
+    /// </summary>
+    private void AddZoom(Annotation zoom)
+    {
+        var replaced = _items.Any(x => x is ZoomAnnotation);
+        Record(replaced ? $"{KindLabel(AnnotationKind.Zoom)}の置き換え" : AddLabel(AnnotationKind.Zoom));
+        _items.RemoveAll(x => x is ZoomAnnotation);
+        _items.Insert(0, zoom);
+        SelectedId = zoom.Id;
+        Raise();
+    }
+
+    /// <summary>拡大の範囲（無ければ null）。</summary>
+    public ZoomAnnotation? Zoom => _items.OfType<ZoomAnnotation>().FirstOrDefault();
 
     public bool Remove(string id)
     {
@@ -79,7 +101,7 @@ public sealed class AnnotationSession
     public bool Clear()
     {
         if (_items.Count == 0) return false;
-        Record("注釈の全削除");
+        Record("注釈をすべて削除");
         _items.Clear();
         SelectedId = null;
         Raise();
@@ -232,6 +254,7 @@ public sealed class AnnotationSession
         AnnotationKind.Line => "直線",
         AnnotationKind.Text => "文字",
         AnnotationKind.Mosaic => "モザイク",
+        AnnotationKind.Zoom => "拡大",
         _ => "注釈",
     };
 

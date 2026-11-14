@@ -71,7 +71,7 @@ public sealed class ExternalDocumentSettingsTests : IDisposable
         var project = TestProjects.Create(60);
         var json = JsonSerializer.Serialize(project, JsonDefaults.Options);
         Assert.DoesNotContain("enableExternalDocumentExport", json, StringComparison.OrdinalIgnoreCase);
-        Assert.Equal(8, ProjectDocument.CurrentSchemaVersion);   // v1.15 でタイトル（title）を追加
+        Assert.Equal(9, ProjectDocument.CurrentSchemaVersion);   // v1.15 でタイトル、v1.21 で拡大・強調を追加
     }
 }
 

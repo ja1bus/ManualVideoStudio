@@ -19,9 +19,11 @@ public partial class RecorderWindow : Window
 {
     private const int HotkeyStartStop = 0x5301;
     private const int HotkeyPause = 0x5302;
-    private const uint VK_F8 = 0x77, VK_F9 = 0x78;
+    private const int HotkeyMarker = 0x5303;
 
     private readonly RecorderViewModel _vm;
+    /// <summary>録画中の入力の監視（v1.21）。録画の開始から停止・中止・画面を閉じるまで動かす。</summary>
+    private readonly InputPoller _poller;
     private readonly RegionFrameWindow _frame;
     private readonly DimWindow _dim;
     private RecordingControllerWindow? _controller;
@@ -35,7 +37,12 @@ public partial class RecorderWindow : Window
         DataContext = vm;
         _frame = new RegionFrameWindow(vm);
         _dim = new DimWindow();
-        vm.RecordingUiChanged += (_, _) => UpdateOverlays();
+        _poller = new InputPoller(() => _vm.Events);
+        vm.RecordingUiChanged += (_, _) =>
+        {
+            UpdatePoller();
+            UpdateOverlays();
+        };
         vm.CountdownHandler = RunCountdownAsync;
         vm.AskStartEditing = AskStartEditing;
         vm.AskAfterStop = AskAfterStop;
@@ -55,6 +62,7 @@ public partial class RecorderWindow : Window
         Closed += (_, _) =>
         {
             UnregisterHotkeys();
+            _poller.Dispose();
             _controller?.Close();
             _frame.Close();
             _dim.Close();
@@ -63,6 +71,16 @@ public partial class RecorderWindow : Window
 
     /// <summary>録画の結果（閉じた後に参照する。中止・閉じるだけなら null）。</summary>
     public RecordingOutcome? Outcome { get; private set; }
+
+    // ---------------- 入力の監視（v1.21） ----------------
+
+    /// <summary>録画中（開始中・一時停止中を含む）だけ入力の監視を動かす。停止の操作・中止・失敗で止める。</summary>
+    private void UpdatePoller()
+    {
+        bool active = !_vm.IsFinishing && _vm.State is RecordingState.Starting or RecordingState.Recording or RecordingState.Paused;
+        if (active) _poller.Start();
+        else _poller.Stop();
+    }
 
     // ---------------- 枠・暗幕・コントローラー ----------------
 
@@ -164,12 +182,16 @@ public partial class RecorderWindow : Window
         var helper = new WindowInteropHelper(this);
         _source = HwndSource.FromHwnd(helper.Handle);
         _source?.AddHook(WndProc);
-        const uint mods = NativeMethods.MOD_CONTROL | NativeMethods.MOD_SHIFT | NativeMethods.MOD_NOREPEAT;
+        // 設定で選んだショートカット（v1.21。既定は Ctrl+Shift+F9 / F8 / F7）を登録する。
+        var hotkeys = _vm.Hotkeys;
         var failed = new List<string>();
-        if (!NativeMethods.RegisterHotKey(helper.Handle, HotkeyStartStop, mods, VK_F9)) failed.Add("Ctrl+Shift+F9");
-        if (!NativeMethods.RegisterHotKey(helper.Handle, HotkeyPause, mods, VK_F8)) failed.Add("Ctrl+Shift+F8");
+        foreach (var (id, key) in new[] { (HotkeyStartStop, hotkeys.StartStop), (HotkeyPause, hotkeys.Pause), (HotkeyMarker, hotkeys.Marker) })
+        {
+            var mods = HotkeyMapping.ToModifiers(key.Modifiers) | HotkeyMapping.ModNoRepeat;
+            if (!NativeMethods.RegisterHotKey(helper.Handle, id, mods, HotkeyMapping.ToVirtualKey(key.Key))) failed.Add(key.DisplayText);
+        }
         if (failed.Count > 0)
-            _vm.StatusText = $"{string.Join("・", failed)} は他のアプリが使用中のため使えません。コントローラーのボタンで操作してください。";
+            _vm.StatusText = Loc.Format("Rec.Hotkey.Unavailable", string.Join("・", failed));
     }
 
     private void UnregisterHotkeys()
@@ -177,6 +199,7 @@ public partial class RecorderWindow : Window
         var h = new WindowInteropHelper(this).Handle;
         NativeMethods.UnregisterHotKey(h, HotkeyStartStop);
         NativeMethods.UnregisterHotKey(h, HotkeyPause);
+        NativeMethods.UnregisterHotKey(h, HotkeyMarker);
         _source?.RemoveHook(WndProc);
     }
 
@@ -191,6 +214,10 @@ public partial class RecorderWindow : Window
                 break;
             case HotkeyPause:
                 _vm.TogglePause();
+                handled = true;
+                break;
+            case HotkeyMarker:
+                _vm.AddMarker();
                 handled = true;
                 break;
         }

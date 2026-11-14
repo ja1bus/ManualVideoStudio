@@ -117,7 +117,7 @@ public sealed class FFmpegLocator(IToolEnvironment environment)
                 var candidate = Path.Combine(dir, FfprobeExe);
                 if (environment.FileExists(candidate))
                     return new ToolLocation(candidate, ToolSource.SameDirectoryAsFfmpeg,
-                        (warning is null ? "" : warning + " ") + "ffmpeg.exe と同じフォルダの ffprobe.exe を使用します。");
+                        (warning is null ? "" : warning + " ") + "ffmpeg.exe と同じフォルダーの ffprobe.exe を使用します。");
             }
         }
         if (Remembered(rememberedPath, FfprobeExe) is { } remembered)
@@ -128,7 +128,7 @@ public sealed class FFmpegLocator(IToolEnvironment environment)
             return new ToolLocation(fromPath, ToolSource.PathEnvironment,
                 (warning is null ? "" : warning + " ") + "PATH 上の ffprobe.exe を使用します。");
         return new ToolLocation(null, ToolSource.NotFound,
-            (warning is null ? "" : warning + " ") + "ffprobe.exe が見つかりません。ffmpeg.exe と同じフォルダに置くか PATH に追加してください。");
+            (warning is null ? "" : warning + " ") + "ffprobe.exe が見つかりません。ffmpeg.exe と同じフォルダーに置くか PATH に追加してください。");
     }
 
     private static bool IsExe(string path, string exeName)

@@ -78,7 +78,8 @@ public sealed class ProjectService(ILogger<ProjectService>? logger = null) : IPr
         {
             // schemaVersion 1（注釈機能の追加前）は annotations が無い。null・不正な要素も除いて空として扱う。
             p.Annotations ??= [];
-            p.Annotations.RemoveAll(a => a is null);
+            // 拡大（v1.21）は動画の図形だけで使う。手順書画像の注釈にあれば（手編集など）読み飛ばす。
+            p.Annotations.RemoveAll(a => a is null or ZoomAnnotation);
             if (p.Annotations.Count == 0 && (p.AnnotationImageWidth <= 0 || p.AnnotationImageHeight <= 0))
             {
                 p.AnnotationImageWidth = 0;
@@ -109,6 +110,10 @@ public sealed class ProjectService(ILogger<ProjectService>? logger = null) : IPr
             g.Id = string.IsNullOrEmpty(g.Id) ? CutSegment.NewId() : g.Id;
             g.Shapes ??= [];
             g.Shapes.RemoveAll(a => a is null);
+            // 拡大（v1.21）は 1 つのまとまりに 1 個まで。幅・高さの無いものと 2 個目以降は除く。
+            var zooms = g.Shapes.OfType<ZoomAnnotation>().ToList();
+            foreach (var z in zooms.Where(z => z.Width <= 0 || z.Height <= 0).Concat(zooms.Where(z => z.Width > 0 && z.Height > 0).Skip(1)).ToList())
+                g.Shapes.Remove(z);
         }
         project.ShapeGroups.RemoveAll(g => g.Shapes.Count == 0 || g.ImageWidth <= 0 || g.ImageHeight <= 0);
         project.ShapeGroups.Sort((a, b) => a.Start.CompareTo(b.Start));
@@ -120,6 +125,16 @@ public sealed class ProjectService(ILogger<ProjectService>? logger = null) : IPr
         project.Title.Seconds = VideoTitle.NormalizeSeconds(project.Title.Seconds);
         project.Title.FontFamily = VideoTitle.NormalizeFontFamily(project.Title.FontFamily);
         project.Title.FontSize = VideoTitle.NormalizeFontSize(project.Title.FontSize);
+        // schemaVersion 8 以前はクリック位置の強調・区間表が無い（強調なし。v1.21）。
+        project.ClickHighlight ??= new ClickHighlightSettings();
+        if (!Enum.IsDefined(project.ClickHighlight.Size)) project.ClickHighlight.Size = ClickHighlightSize.Medium;
+        foreach (var h in project.AiHistory.Where(h => h is not null))
+        {
+            h.Segments ??= [];
+            h.Segments.RemoveAll(s => s is null || s.End <= s.Start);
+        }
+        project.AiHistory.RemoveAll(h => h is null);
+        foreach (var c in project.CutCandidates.Where(c => c is not null && !Enum.IsDefined(c.Kind))) c.Kind = CandidateKind.Freeze;
         if (!Enum.IsDefined(project.EditPhase)) project.EditPhase = EditPhase.Cut;
         // 字幕があるのにカット編集中（手編集など）は、カットと字幕の時間軸がずれないよう字幕編集中として扱う。
         if (project.SubtitleSegments.Count > 0 || project.ShapeGroups.Count > 0) project.EditPhase = EditPhase.Subtitle;

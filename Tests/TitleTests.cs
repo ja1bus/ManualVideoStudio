@@ -301,7 +301,7 @@ public sealed class TitlePersistenceTests : IDisposable
     }
 
     [Fact]
-    public void SchemaVersionIsEight() => Assert.Equal(8, ProjectDocument.CurrentSchemaVersion);
+    public void SchemaVersionIsCurrent() => Assert.Equal(9, ProjectDocument.CurrentSchemaVersion);
 
     [Fact]
     public void RoundTripKeepsTitleAndWritesTitleObject()
@@ -318,7 +318,7 @@ public sealed class TitlePersistenceTests : IDisposable
 
         var t = new ProjectService().Load(path).Project.Title;
         Assert.Equal(("日本語の\nタイトル", 4, false, "Yu Gothic UI", 104), (t.Text, t.Seconds, t.FadeIn, t.FontFamily, t.FontSize));
-        Assert.Equal(8, new ProjectService().Load(path).Project.SchemaVersion);
+        Assert.Equal(9, new ProjectService().Load(path).Project.SchemaVersion);
     }
 
     [Fact]

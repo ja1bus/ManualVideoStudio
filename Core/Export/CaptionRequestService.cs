@@ -98,11 +98,12 @@ public sealed class CaptionRequestStore
     }
 
     /// <summary>新しい依頼用動画のパス（<paramref name="location"/> の中。同名があれば連番を付ける）。</summary>
-    public string NewPath(CaptionRequestLocation location, string projectName, DateTime now)
+    /// <param name="prefix">ファイル名の頭（v1.21。不要区間の解析の依頼用動画は "cut-request_"。既定は無し）。</param>
+    public string NewPath(CaptionRequestLocation location, string projectName, DateTime now, string prefix = "")
     {
         var name = FilenameSanitizer.Sanitize(projectName, 40);
         if (name.Length == 0) name = "動画";
-        var baseName = $"{name}_{now:yyyyMMdd_HHmmss}_gemini";
+        var baseName = $"{prefix}{name}_{now:yyyyMMdd_HHmmss}_gemini";
         var path = Path.Combine(location.Directory, baseName + ".mp4");
         for (int i = 2; File.Exists(path); i++) path = Path.Combine(location.Directory, $"{baseName}_{i}.mp4");
         return path;
@@ -135,7 +136,7 @@ public sealed class CaptionRequestStore
         bool inFolder;
         lock (_gate) inFolder = dir is not null && _folders.Contains(Trim(dir));
         if (!IsManaged(full) || !inFolder)
-            return CaptionRequestDeleteResult.Fail("このアプリが作った字幕依頼用動画ではないため、削除しません。");
+            return CaptionRequestDeleteResult.Fail("このアプリが作った依頼用動画ではないため、削除しません。");
         try
         {
             if (!File.Exists(full)) { Forget(full); return CaptionRequestDeleteResult.Ok("既に削除されています。"); }

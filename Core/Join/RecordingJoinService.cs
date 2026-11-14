@@ -2,6 +2,7 @@ using System.Text;
 using ManualVideoStudio.Core.FFmpeg;
 using ManualVideoStudio.Core.Models;
 using ManualVideoStudio.Core.Persistence;
+using ManualVideoStudio.Core.Recording;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
 
@@ -123,6 +124,9 @@ public sealed class RecordingJoinService(IProcessRunner runner, IMediaMetadataSe
                 saved = false;
                 _logger.LogWarning(ex, "Failed to write {File}", JoinSourcesFile.FileName);
             }
+
+            // 7. 録画の操作記録（v1.21。元の動画に記録があれば、つないだ順にずらしてまとめる。書けなくても連結は成功とする）。
+            WriteJoinedEvents(r.Inputs, infos.Select(i => i.Duration).ToList(), output);
             _logger.LogInformation("Joined {Count} recordings into {Path} ({Duration:0.000}s)", r.Inputs.Count, output, meta.Duration);
             return new JoinResult(folder, output, meta, saved);
         }
@@ -150,6 +154,45 @@ public sealed class RecordingJoinService(IProcessRunner runner, IMediaMetadataSe
                 });
         }
         return file;
+    }
+
+    /// <summary>
+    /// 連結した動画の操作記録: 各入力の記録を、それより前の入力の長さの合計だけ後ろへずらしてまとめる。
+    /// どの入力にも記録が無ければ null（ファイルを書かない）。読めない記録は無いものとして扱い、フルパスをログへ出す。
+    /// </summary>
+    internal static RecordingEvents? MergeEvents(IReadOnlyList<string> inputPaths, IReadOnlyList<double> durations, ILogger? logger = null)
+    {
+        var all = new List<RecordingEvents?>();
+        foreach (var path in inputPaths)
+        {
+            all.Add(RecordingEventsFile.TryReadFor(path, out var problem));
+            if (problem is not null)
+                logger?.LogWarning("Recording events could not be read: {Path} ({Hint})", problem, FileReadProblem.Hint);
+        }
+        if (all.All(e => e is null)) return null;
+        // Merge は片方に記録が無ければ「入力の記録なし」（InputLogged = false）にする（記録の無い部分を入力なしと誤らないため）。
+        var merged = all.Count == 1 ? all[0] : null;
+        double offset = durations[0];
+        for (int i = 1; i < all.Count; i++)
+        {
+            merged = RecordingEvents.Merge(i == 1 ? all[0] : merged, all[i], offset);
+            offset += durations[i];
+        }
+        return merged;
+    }
+
+    private void WriteJoinedEvents(IReadOnlyList<JoinInput> inputs, IReadOnlyList<double> durations, string output)
+    {
+        try
+        {
+            var merged = MergeEvents(inputs.Select(i => i.Path).ToList(), durations, _logger);
+            if (merged is null) return;
+            RecordingEventsFile.Save(output, merged);
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or ArgumentException or NotSupportedException)
+        {
+            _logger.LogWarning(ex, "Failed to write recording events for {Path}", output);
+        }
     }
 
     /// <summary>出力と入力の合計の長さの許容差（秒）。継ぎ目ごとの音声の端数を見込む。</summary>

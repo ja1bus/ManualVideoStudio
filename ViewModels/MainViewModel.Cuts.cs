@@ -13,12 +13,12 @@ public sealed partial class MainViewModel
 {
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(MarkInText), nameof(MarkRangeText), nameof(SubtitleMarkInText), nameof(HasMarkIn), nameof(MarkInTip))]
-    [NotifyCanExecuteChangedFor(nameof(AddRemoveCutCommand), nameof(ClearMarksCommand), nameof(ClearMarkInCommand), nameof(ClearMarkOutCommand))]
+    [NotifyCanExecuteChangedFor(nameof(AddRemoveCutCommand), nameof(ClearMarksCommand), nameof(ClearMarkInCommand), nameof(ClearMarkOutCommand), nameof(CutInSubtitlePhaseCommand))]
     private double? _markIn;
 
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(MarkOutText), nameof(MarkRangeText), nameof(SubtitleMarkOutText), nameof(HasMarkOut), nameof(MarkOutTip))]
-    [NotifyCanExecuteChangedFor(nameof(AddRemoveCutCommand), nameof(ClearMarksCommand), nameof(ClearMarkInCommand), nameof(ClearMarkOutCommand))]
+    [NotifyCanExecuteChangedFor(nameof(AddRemoveCutCommand), nameof(ClearMarksCommand), nameof(ClearMarkInCommand), nameof(ClearMarkOutCommand), nameof(CutInSubtitlePhaseCommand))]
     private double? _markOut;
 
     /// <summary>開始・終了を指定中か（ボタンの強調表示に使う。時刻の文字は出さず、ツールチップに出す）。</summary>
@@ -98,6 +98,13 @@ public sealed partial class MainViewModel
     {
         if (GuardCutLocked()) return;
         if (Editor is null || MarkIn is not { } start || MarkOut is not { } end) return;
+        AddCutRange(start, end);
+    }
+
+    /// <summary>元動画の区間 [start, end] を削除するカットとして登録する（ボタン・R キーの共通部分）。</summary>
+    private void AddCutRange(double start, double end)
+    {
+        if (Editor is null) return;
         var (result, seg) = Editor.AddCut(start, end, SegmentAction.Remove, 0);
         if (!result.Success)
         {
@@ -160,13 +167,15 @@ public sealed partial class MainViewModel
             return;
         }
         PauseIfPlaying();
+        var idle = InputIdleRanges(settings.FreezeMinSeconds);
         Core.Analysis.AnalysisResult? result = null;
         try
         {
             var completed = await _windows.RunWithProgressAsync("ローカル自動解析", async (progress, ct) =>
             {
                 var p = new Progress<double>(r => progress.Report(new ProgressInfo(r, $"静止・無音・画面変化を解析しています… {r:0%}")));
-                result = await _analysis.AnalyzeAsync(FFmpeg.FfmpegPath!, VideoPath, Metadata, settings, p, ct);
+                // 録画時の操作の記録があれば、入力の無い範囲も候補の材料にする（v1.21。記録が無ければ空で、従来と同じ結果）。
+                result = await _analysis.AnalyzeAsync(FFmpeg.FfmpegPath!, VideoPath, Metadata, settings, p, ct, idle);
             });
             if (!completed || result is null)
             {
@@ -191,6 +200,9 @@ public sealed partial class MainViewModel
         var fs = result.Candidates.Count(c => c.Kind == CandidateKind.FreezeAndSilence);
         StatusMessage = $"解析完了（{result.Elapsed.TotalSeconds:0.0} 秒）: 候補 {result.Candidates.Count} 件（静止＋無音 {fs} 件）、静止 {result.Freezes.Count} 区間、無音 {result.Silences.Count} 区間、画面変化 {result.SceneChanges.Count} 箇所。候補は採用するまで編集に反映されません。"
             + (replaced > 0 ? " " + Loc.Format("Cand.Replaced", Loc.Get("Cand.Clear.Local"), replaced) : "");
+        var idleOnly = result.Candidates.Count(c => c.Kind == CandidateKind.Idle);
+        var idleFreeze = result.Candidates.Count(c => c.Kind == CandidateKind.IdleAndFreeze);
+        if (idleOnly + idleFreeze > 0) StatusMessage += " " + Loc.Format("Cand.Idle.Status", idleOnly + idleFreeze, idleFreeze, idleOnly);
     }
 
     public const int TabCaptures = 0;

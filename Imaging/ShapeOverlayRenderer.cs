@@ -32,11 +32,12 @@ public static class ShapeOverlayRenderer
 
     /// <summary>
     /// まとまり 1 つの四角形・矢印・直線・文字を描いた PNG と、映像上の左上の位置。描くものが無ければ null。
+    /// 拡大（v1.21）は書き出しで ffmpeg が映像ごと拡大するため描かず、範囲の計算にも入れない（拡大だけのまとまりは null）。
     /// 図形の座標は基準画像（baseWidth × baseHeight）の px で、映像の大きさへ比例変換する。
     /// </summary>
     public static (int X, int Y, byte[] Png)? Render(IEnumerable<Annotation> shapes, int baseWidth, int baseHeight, int videoWidth, int videoHeight)
     {
-        var fitted = AnnotationGeometry.FitToImage(shapes.Where(a => a is not MosaicAnnotation && a is not TextAnnotation { Text.Length: 0 }),
+        var fitted = AnnotationGeometry.FitToImage(shapes.Where(a => a is not MosaicAnnotation and not ZoomAnnotation && a is not TextAnnotation { Text.Length: 0 }),
             baseWidth, baseHeight, videoWidth, videoHeight);
         if (fitted.Count == 0) return null;
         var scale = AnnotationStyle.Scale(videoWidth, videoHeight);

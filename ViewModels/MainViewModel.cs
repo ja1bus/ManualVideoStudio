@@ -325,6 +325,7 @@ public sealed partial class MainViewModel : ObservableObject
         if (warning is not null) _dialogs.ShowWarning(warning);
         if (FFmpeg.IsAvailable) await RefreshMetadataAsync(Project);
         _player?.Open(Project.SourceVideo.Path);
+        LoadRecordingEvents();
         Editor!.MarkDirty();
         RefreshAll();
     }
@@ -335,6 +336,7 @@ public sealed partial class MainViewModel : ObservableObject
         CaptionRequest.Invalidate();
         _importedSubtitleSignature = null;
         ClearPreviewState(pause: false); // 前のプロジェクトの試し再生・つなぎ目の再生は終える
+        ResetPlaybackRate();
         if (Editor is not null)
         {
             Editor.Changed -= OnEditorChanged;
@@ -361,6 +363,7 @@ public sealed partial class MainViewModel : ObservableObject
         FallbackFrame = null;
         _analysisState = Core.Guidance.WorkflowGuide.InferAnalysisState(project.SceneChanges.Count,
             project.CutCandidates.Count(c => c.Source == SegmentSource.LocalAnalysis));
+        LoadRecordingEvents();
         RefreshAll();
         if (File.Exists(project.SourceVideo.Path)) _player?.Open(project.SourceVideo.Path);
         OnPropertyChanged(nameof(HasProject));
@@ -602,6 +605,7 @@ public sealed partial class MainViewModel : ObservableObject
         SetMarkInCommand.NotifyCanExecuteChanged();
         SetMarkOutCommand.NotifyCanExecuteChanged();
         AddRemoveCutCommand.NotifyCanExecuteChanged();
+        CutInSubtitlePhaseCommand.NotifyCanExecuteChanged();
         ExportGifCommand.NotifyCanExecuteChanged();
         ConfirmCutsCommand.NotifyCanExecuteChanged();
         ReturnToCutEditingCommand.NotifyCanExecuteChanged();

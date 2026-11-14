@@ -16,8 +16,9 @@ public sealed record AnalysisResult(
 
 public interface ILocalAnalysisService
 {
+    /// <param name="inputIdle">録画時の操作記録から求めた入力の無い範囲（元動画の秒）。記録が無ければ null（v1.21.0）。</param>
     Task<AnalysisResult> AnalyzeAsync(string ffmpegPath, string videoPath, VideoMetadata meta, AnalysisSettings settings,
-        IProgress<double>? progress, CancellationToken ct);
+        IProgress<double>? progress, CancellationToken ct, IReadOnlyList<TimeRange>? inputIdle = null);
 }
 
 /// <summary>
@@ -29,7 +30,7 @@ public sealed class LocalAnalysisService(IProcessRunner runner, ILogger<LocalAna
     private readonly ILogger _logger = logger ?? NullLogger<LocalAnalysisService>.Instance;
 
     public async Task<AnalysisResult> AnalyzeAsync(string ffmpegPath, string videoPath, VideoMetadata meta, AnalysisSettings settings,
-        IProgress<double>? progress, CancellationToken ct)
+        IProgress<double>? progress, CancellationToken ct, IReadOnlyList<TimeRange>? inputIdle = null)
     {
         var args = FFmpegArguments.Analysis(videoPath, settings, meta.HasAudio);
         var lines = new ConcurrentQueue<string>();
@@ -57,7 +58,7 @@ public sealed class LocalAnalysisService(IProcessRunner runner, ILogger<LocalAna
         var freezes = settings.EnableFreeze ? DetectionLogParser.ParseFreezes(all, meta.Duration) : [];
         var silences = settings.EnableSilence && meta.HasAudio ? DetectionLogParser.ParseSilences(all, meta.Duration) : [];
         var scenes = settings.EnableSceneChange ? DetectionLogParser.ParseSceneChanges(all) : [];
-        var candidates = CandidateBuilder.Build(freezes, silences, meta.Duration, meta.HasAudio, settings);
+        var candidates = CandidateBuilder.Build(freezes, silences, meta.Duration, meta.HasAudio, settings, inputIdle);
         _logger.LogInformation("Analysis done: freezes={F} silences={S} scenes={C} candidates={N} ({E:0.0}s)",
             freezes.Count, silences.Count, scenes.Count, candidates.Count, r.Elapsed.TotalSeconds);
         progress?.Report(1);

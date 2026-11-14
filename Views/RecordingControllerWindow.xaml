@@ -1,6 +1,7 @@
 <Window x:Class="ManualVideoStudio.Views.RecordingControllerWindow"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:local="clr-namespace:ManualVideoStudio"
         Title="録画中 - Manual Video Studio" WindowStyle="None" AllowsTransparency="True" Background="Transparent"
         ResizeMode="NoResize" Topmost="True" ShowInTaskbar="True" SizeToContent="WidthAndHeight"
         FontFamily="Yu Gothic UI, Segoe UI" FontSize="13" UseLayoutRounding="True">
@@ -22,9 +23,14 @@
             <TextBlock Text="{Binding ElapsedText}" Foreground="White" FontFamily="Consolas" FontSize="18" VerticalAlignment="Center" Margin="4,0,12,0"
                        AutomationProperties.Name="経過時間"/>
             <Button Content="{Binding PauseButtonText}" Command="{Binding PauseResumeCommand}" MinWidth="96" Padding="10,3" MinHeight="28"
-                    ToolTip="一時停止 / 再開 (Ctrl+Shift+F8)。一時停止中の時間は動画に含まれません" AutomationProperties.Name="一時停止"/>
+                    ToolTip="{Binding PauseToolTip}" AutomationProperties.Name="一時停止" AutomationProperties.AutomationId="RecController.Pause"/>
+            <!-- 不要マーカー（v1.21）。押したら「マーク N」を 1 秒ほど出す。幅を確保して小窓の大きさを変えない。 -->
+            <Button Content="{local:Str Rec.Marker.Button}" Command="{Binding MarkerCommand}" MinWidth="96" Padding="10,3" MinHeight="28" Margin="4,0,0,0"
+                    ToolTip="{Binding MarkerToolTip}" AutomationProperties.Name="{local:Str Rec.Marker.Button}" AutomationProperties.AutomationId="RecController.Marker"/>
+            <TextBlock Text="{Binding MarkerText}" Foreground="#FFC857" FontWeight="SemiBold" VerticalAlignment="Center" MinWidth="64" Margin="6,0"
+                       AutomationProperties.Name="{local:Str Rec.Marker.Status}" AutomationProperties.AutomationId="RecController.MarkerText"/>
             <Button Content="■ 停止" Command="{Binding StopCommand}" MinWidth="80" Padding="10,3" MinHeight="28"
-                    ToolTip="録画を終了して保存 (Ctrl+Shift+F9)" AutomationProperties.Name="停止"/>
+                    ToolTip="{Binding StopToolTip}" AutomationProperties.Name="停止" AutomationProperties.AutomationId="RecController.Stop"/>
         </StackPanel>
     </Border>
 </Window>

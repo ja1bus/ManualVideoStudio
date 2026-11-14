@@ -24,4 +24,52 @@ public static class ShapeGroupValidator
         if (imageWidth <= 0 || imageHeight <= 0) errors.Add("図形の基準の画像サイズが不正です。");
         return errors.Count == 0 ? ValidationResult.Ok : new ValidationResult(errors);
     }
+
+    /// <summary>表示時間に加えて、まとまりの図形（拡大。v1.21）も検証する。</summary>
+    public static ValidationResult Validate(double start, double end, double outputDuration, int imageWidth, int imageHeight, IEnumerable<Annotation> shapes)
+    {
+        var errors = new List<string>(Validate(start, end, outputDuration, imageWidth, imageHeight).Errors);
+        if (imageWidth > 0 && imageHeight > 0) errors.AddRange(ValidateShapes(shapes, imageWidth, imageHeight).Errors);
+        return errors.Count == 0 ? ValidationResult.Ok : new ValidationResult(errors);
+    }
+
+    public const string TooManyZoomsMessage = "拡大は 1 つのまとまりに 1 つだけにしてください。";
+    public const string ZoomFactorMessage = "拡大の倍率は ×1.1～×4 にしてください。";
+    public const string ZoomOutsideMessage = "拡大の範囲が画像の外にはみ出しています。";
+
+    /// <summary>
+    /// まとまりの図形の検証（v1.21）。拡大は 0～1 個、倍率（画像の幅 / 範囲の幅）は ×1.1～×4、範囲は画像の中。
+    /// 座標は小数第 1 位に丸めて保存するため、0.5px までのはみ出しは許す。
+    /// </summary>
+    public static ValidationResult ValidateShapes(IEnumerable<Annotation> shapes, int imageWidth, int imageHeight)
+    {
+        const double tolerance = 0.5;
+        var zooms = shapes.OfType<ZoomAnnotation>().ToList();
+        if (zooms.Count == 0) return ValidationResult.Ok;
+        var errors = new List<string>();
+        if (zooms.Count > 1) errors.Add(TooManyZoomsMessage);
+        foreach (var z in zooms)
+        {
+            if (z.Width <= 0 || z.Height <= 0) { errors.Add(ZoomFactorMessage); continue; }
+            var factor = z.FactorFor(imageWidth);
+            // 座標の丸め（0.1px）で境界の倍率がわずかに外れるのは許す。
+            if (factor < ZoomAnnotation.MinFactor - 1e-3 || factor > ZoomAnnotation.MaxFactor + 1e-3) errors.Add(ZoomFactorMessage);
+            if (z.X < -tolerance || z.Y < -tolerance || z.X + z.Width > imageWidth + tolerance || z.Y + z.Height > imageHeight + tolerance)
+                errors.Add(ZoomOutsideMessage);
+        }
+        return errors.Count == 0 ? ValidationResult.Ok : new ValidationResult(errors.Distinct().ToList());
+    }
+
+    public const string ZoomOverlapMessage = "拡大の表示時間が、ほかの拡大と重なっています。";
+
+    /// <summary>
+    /// 拡大を含むまとまりどうしの表示時間の重なり（v1.21。拡大は同時に 1 つだけ）。接するだけなら許す。
+    /// excludeId は変更中のまとまり（それ自身とは比べない）。
+    /// </summary>
+    public static bool ZoomOverlaps(double start, double end, IEnumerable<Annotation> shapes, IEnumerable<ShapeGroup> groups, string? excludeId = null)
+    {
+        const double eps = CutSegmentValidator.Epsilon;
+        if (!shapes.OfType<ZoomAnnotation>().Any()) return false;
+        return groups.Any(g => g.Id != excludeId && g.Zoom is not null && start < g.End - eps && g.Start < end - eps);
+    }
 }

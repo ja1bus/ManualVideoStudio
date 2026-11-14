@@ -335,7 +335,7 @@ public class AnnotationSessionTests
         Assert.True(s.Clear());
         Assert.Empty(s.Items);
         Assert.False(s.Clear());                    // 空なら何もしない（履歴も増えない）
-        Assert.Equal("注釈の全削除", s.History.UndoLabel);
+        Assert.Equal("注釈をすべて削除", s.History.UndoLabel);
         s.Undo();
         Assert.Equal(4, s.Items.Count);
         Assert.False(s.Remove("unknown"));

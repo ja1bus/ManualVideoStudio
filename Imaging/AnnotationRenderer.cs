@@ -32,7 +32,8 @@ public static class AnnotationRenderer
     public static BitmapSource Render(BitmapSource baseImage, IReadOnlyList<Annotation> annotations, int annotationWidth, int annotationHeight)
     {
         int w = baseImage.PixelWidth, h = baseImage.PixelHeight;
-        var fitted = AnnotationGeometry.FitToImage(annotations, annotationWidth, annotationHeight, w, h);
+        // 拡大（v1.21。動画の図形だけ）は手順書画像に描かない（読み込み時に除くが、念のためここでも除く）。
+        var fitted = AnnotationGeometry.FitToImage(annotations.Where(a => a is not ZoomAnnotation), annotationWidth, annotationHeight, w, h);
         var mosaicked = ApplyMosaics(baseImage, fitted);
 
         var visual = new DrawingVisual();

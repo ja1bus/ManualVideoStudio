@@ -27,6 +27,10 @@ public sealed class ShapeGroup
     [JsonIgnore]
     public bool HasMosaic => Shapes.Any(s => s is MosaicAnnotation);
 
+    /// <summary>拡大する範囲（v1.21。無ければ null）。</summary>
+    [JsonIgnore]
+    public ZoomAnnotation? Zoom => Shapes.OfType<ZoomAnnotation>().FirstOrDefault();
+
     /// <summary>一覧・タイムラインに出す内容（例: 「四角形・矢印 2」）。</summary>
     [JsonIgnore]
     public string Summary => SummaryOf(Shapes);
@@ -44,6 +48,7 @@ public sealed class ShapeGroup
         AnnotationKind.Arrow => 1,
         AnnotationKind.Line => 2,
         AnnotationKind.Text => 3,
+        AnnotationKind.Zoom => 5,
         _ => 4,
     };
 
@@ -53,6 +58,7 @@ public sealed class ShapeGroup
         AnnotationKind.Arrow => "矢印",
         AnnotationKind.Line => "直線",
         AnnotationKind.Text => "文字",
+        AnnotationKind.Zoom => "拡大",
         _ => "モザイク",
     };
 }

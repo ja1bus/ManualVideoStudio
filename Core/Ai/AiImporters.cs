@@ -106,7 +106,13 @@ public sealed class AiCutRow
     public List<string> Errors { get; } = [];
     public List<string> Warnings { get; } = [];
     public bool Include { get; set; }
-    public bool IsValid => Errors.Count == 0;
+    /// <summary>区間方式（v1.21）で元にした区間の番号（まとめた場合は複数。時刻方式では空）。</summary>
+    public List<int> SegmentIds { get; } = [];
+    /// <summary>区間方式（v1.21）の category（wait / mistake / hesitation / unrelated。時刻方式では空）。</summary>
+    public string Category { get; set; } = "";
+    /// <summary>エラーではないが取り込まない行（v1.21。カット済みの区間・重複した id。理由は Warnings）。</summary>
+    public bool Excluded { get; set; }
+    public bool IsValid => Errors.Count == 0 && !Excluded;
     public string Note => string.Join(" ", Errors.Concat(Warnings));
 }
 
@@ -116,7 +122,12 @@ public static class AiCutImporter
     /// <summary>動画末尾をこの秒数まで超えた終了時刻は末尾に丸める（それ以上はエラー）。</summary>
     public const double EndTolerance = 1.0;
 
-    public static List<AiCutRow> Validate(IReadOnlyList<ParsedCut> cuts, double videoDuration, double defaultKeepSeconds)
+    /// <param name="segments">
+    /// 履歴の区間表（v1.21。<see cref="AiHistoryEntry.Segments"/>）。あれば開始・終了を <see cref="SnapTolerance"/> 秒以内の最も近い区間の境目へ寄せる（注記）。
+    /// null・空なら従来と同じ。
+    /// </param>
+    public static List<AiCutRow> Validate(IReadOnlyList<ParsedCut> cuts, double videoDuration, double defaultKeepSeconds,
+        IReadOnlyList<AiSegment>? segments = null)
     {
         var rows = new List<AiCutRow>();
         foreach (var c in cuts)
@@ -124,6 +135,17 @@ public static class AiCutImporter
             var row = new AiCutRow { Reason = c.Reason.ReplaceLineEndings(" ").Trim() };
             if (!TimeFormat.TryParse(c.Start, out var start)) row.Errors.Add($"start を時刻として解釈できません（{c.Start ?? "なし"}）。");
             if (!TimeFormat.TryParse(c.End, out var end)) row.Errors.Add($"end を時刻として解釈できません（{c.End ?? "なし"}）。");
+            if (row.Errors.Count == 0 && segments is { Count: > 0 })
+            {
+                var s2 = SnapToSegmentBoundary(start, segments);
+                var e2 = SnapToSegmentBoundary(end, segments);
+                if (e2 > s2 && (s2 != start || e2 != end))
+                {
+                    row.Warnings.Add($"開始・終了を区間の境目に寄せました（{TimeFormat.Format(start)}〜{TimeFormat.Format(end)} → {TimeFormat.Format(s2)}〜{TimeFormat.Format(e2)}）。");
+                    start = s2;
+                    end = e2;
+                }
+            }
             row.Start = start;
             row.End = end;
 
@@ -148,16 +170,7 @@ public static class AiCutImporter
                     break;
             }
 
-            if (c.Confidence is { } conf)
-            {
-                if (conf is >= 0 and <= 1) row.Confidence = conf;
-                else if (conf is > 1 and <= 100)
-                {
-                    row.Confidence = conf / 100;
-                    row.Warnings.Add("confidence を百分率として扱いました。");
-                }
-                else row.Warnings.Add("confidence が範囲外のため 0 にしました。");
-            }
+            ApplyConfidence(row, c.Confidence);
 
             if (row.Errors.Count == 0)
             {
@@ -177,6 +190,202 @@ public static class AiCutImporter
             rows.Add(row);
         }
         return rows;
+    }
+
+    private static void ApplyConfidence(AiCutRow row, double? confidence)
+    {
+        if (confidence is not { } conf) return;
+        if (conf is >= 0 and <= 1) row.Confidence = conf;
+        else if (conf is > 1 and <= 100)
+        {
+            row.Confidence = conf / 100;
+            row.Warnings.Add("confidence を百分率として扱いました。");
+        }
+        else row.Warnings.Add("confidence が範囲外のため 0 にしました。");
+    }
+
+    // ---------------- 区間方式（v1.21。設計 4.4） ----------------
+
+    /// <summary>時刻方式の開始・終了を区間の境目へ寄せる範囲（秒）。</summary>
+    public const double SnapTolerance = 1.0;
+    /// <summary>区間方式の start / end が区間の外へこの秒数を超えてはみ出したら、区間全体にする。</summary>
+    public const double SegmentStickOutTolerance = 1.0;
+    /// <summary>wait の開始をずらした後に、この秒数未満しか残らないならずらさない。</summary>
+    public const double MinWaitCandidateSeconds = 0.5;
+
+    /// <summary>category の表示（理由の頭に付ける）。未知の category は null。</summary>
+    public static string? CategoryLabel(string? category) => category switch
+    {
+        "wait" => "待ち",
+        "mistake" => "やり直し",
+        "hesitation" => "迷い",
+        "unrelated" => "無関係",
+        _ => null,
+    };
+
+    /// <summary>
+    /// 時刻を、<paramref name="tolerance"/> 秒以内で最も近い区間の境目（各区間の開始・終了）へ寄せる。範囲内に境目が無ければそのまま。
+    /// </summary>
+    public static double SnapToSegmentBoundary(double time, IReadOnlyList<AiSegment> segments, double tolerance = SnapTolerance)
+    {
+        double best = time, bestDist = double.MaxValue;
+        foreach (var s in segments)
+        {
+            foreach (var b in (ReadOnlySpan<double>)[s.Start, s.End])
+            {
+                var d = Math.Abs(b - time);
+                if (d <= tolerance && d < bestDist) { best = b; bestDist = d; }
+            }
+        }
+        return best;
+    }
+
+    /// <summary>
+    /// 区間方式の回答を検証して、取り込みプレビューの行にする（v1.21）。
+    /// <list type="bullet">
+    /// <item>id が区間表に無い → エラーの行。</item>
+    /// <item>確定カットに 99% 以上含まれる区間（カット済み）・同じ id の 2 件目以降 → 警告つきで取り込まない行（<see cref="AiCutRow.Excluded"/>）。</item>
+    /// <item>start / end があれば区間の中へ収める。区間の外へ 1 秒を超えてはみ出すなら警告して区間全体にする。</item>
+    /// <item>番号が連続し、同じ category の区間は 1 つの行にまとめる（理由は「；」でつなぎ、信頼度は小さい方）。
+    /// start / end で狭めた区間は、つなぎ目の側が区間の端と一致するときだけまとめる。</item>
+    /// <item>wait は開始を <paramref name="defaultKeepSeconds"/> だけ後ろへずらす（0.5 秒未満しか残らなければずらさない。どちらも注記）。</item>
+    /// <item>理由の頭に「［待ち］」などを付ける（未知の category は付けずに警告）。</item>
+    /// </list>
+    /// 行は、取り込める行（開始の順）→ 取り込まない行・エラーの行（回答の順）の順に返す。
+    /// </summary>
+    /// <param name="table">履歴の区間表（<see cref="AiHistoryEntry.Segments"/>）。</param>
+    /// <param name="confirmedCuts">今の確定カット（カット済みの判定に使う）。</param>
+    public static List<AiCutRow> ValidateSegments(IReadOnlyList<ParsedSegment> items, IReadOnlyList<AiSegment> table,
+        IEnumerable<CutSegment> confirmedCuts, double videoDuration, double defaultKeepSeconds)
+    {
+        var byId = new Dictionary<int, AiSegment>();
+        foreach (var s in table) byId.TryAdd(s.Id, s);
+        var duration = videoDuration > 0 ? videoDuration : table.Count > 0 ? table.Max(s => s.End) : 0;
+        var keep = duration > 0
+            ? Editing.EditTimelineCalculator.ComputeKeepRanges(duration, confirmedCuts)
+            : (IReadOnlyList<Editing.TimeRange>)[];
+
+        var problems = new List<AiCutRow>();
+        var parts = new List<(AiSegment Seg, ParsedSegment Item, AiCutRow Row)>();
+        var seen = new HashSet<int>();
+        foreach (var item in items)
+        {
+            var reason = item.Reason.ReplaceLineEndings(" ").Trim();
+            if (!byId.TryGetValue(item.Id, out var seg))
+            {
+                var bad = new AiCutRow { Reason = reason, Category = item.Category };
+                bad.SegmentIds.Add(item.Id);
+                bad.Errors.Add($"区間 {item.Id} は区間の表にありません。");
+                problems.Add(bad);
+                continue;
+            }
+            var row = new AiCutRow { Start = seg.Start, End = seg.End, Action = SegmentAction.Remove, Reason = reason, Category = item.Category };
+            row.SegmentIds.Add(item.Id);
+            if (!seen.Add(item.Id))
+            {
+                row.Excluded = true;
+                row.Warnings.Add($"区間 {item.Id} が重複しています（最初の 1 件のみ取り込みます）。");
+                problems.Add(row);
+                continue;
+            }
+            var segLen = seg.End - seg.Start;
+            if (segLen > 0 && duration > 0
+                &&segLen - SegmentTableBuilder.Overlap(keep, seg.Start, seg.End) >= segLen * SegmentTableBuilder.CutCoverRatio)
+            {
+                row.Excluded = true;
+                row.Warnings.Add($"区間 {item.Id} はカット済みのため取り込みません。");
+                problems.Add(row);
+                continue;
+            }
+
+            ApplyRange(row, seg, item);
+            ApplyConfidence(row, item.Confidence);
+            parts.Add((seg, item, row));
+        }
+
+        // 番号が連続し、同じ category の区間をまとめる。
+        var merged = new List<AiCutRow>();
+        AiCutRow? current = null;
+        int lastId = 0;
+        AiSegment? lastSeg = null;
+        foreach (var (seg, item, row) in parts.OrderBy(p => p.Seg.Id))
+        {
+            bool join = current is not null && seg.Id == lastId + 1 && current.Category == row.Category
+                && current.End == lastSeg!.End && row.Start == seg.Start;
+            if (join)
+            {
+                current!.End = row.End;
+                current.SegmentIds.Add(seg.Id);
+                current.Confidence = Math.Min(current.Confidence, row.Confidence);
+                if (row.Reason.Length > 0 && !current.Reason.Split('；').Contains(row.Reason))
+                    current.Reason = current.Reason.Length > 0 ? current.Reason + "；" + row.Reason : row.Reason;
+                foreach (var w in row.Warnings) if (!current.Warnings.Contains(w)) current.Warnings.Add(w);
+            }
+            else
+            {
+                current = row;
+                merged.Add(row);
+            }
+            lastId = seg.Id;
+            lastSeg = seg;
+        }
+
+        foreach (var row in merged)
+        {
+            if (row.SegmentIds.Count > 1)
+                row.Warnings.Insert(0, $"区間 {string.Join("・", row.SegmentIds)} を 1 つにまとめました。");
+            if (row.Category == "wait" && defaultKeepSeconds > 0)
+            {
+                if (row.End - (row.Start + defaultKeepSeconds) >= MinWaitCandidateSeconds)
+                {
+                    row.Start = Math.Round(row.Start + defaultKeepSeconds, 3);
+                    row.Warnings.Add(string.Create(CultureInfo.InvariantCulture, $"結果を確認できるよう、先頭 {defaultKeepSeconds:0.0#} 秒を残しました。"));
+                }
+                else row.Warnings.Add(string.Create(CultureInfo.InvariantCulture, $"区間が短いため、先頭 {defaultKeepSeconds:0.0#} 秒を残していません。"));
+            }
+            var label = CategoryLabel(row.Category);
+            if (label is not null) row.Reason = $"［{label}］{row.Reason}";
+            else row.Warnings.Add($"category \"{(row.Category.Length > 0 ? row.Category : "なし")}\" は未対応のため、種類を付けていません。");
+            if (row.End <= row.Start) row.Errors.Add("end が start 以前です。");
+            row.Include = row.IsValid;
+        }
+        foreach (var row in problems) row.Include = false;
+        return [.. merged.OrderBy(r => r.Start), .. problems];
+    }
+
+    /// <summary>start / end があれば区間の中へ収める（区間の外へ大きくはみ出すなら区間全体）。</summary>
+    private static void ApplyRange(AiCutRow row, AiSegment seg, ParsedSegment item)
+    {
+        bool hasStart = !string.IsNullOrWhiteSpace(item.Start);
+        bool hasEnd = !string.IsNullOrWhiteSpace(item.End);
+        if (!hasStart && !hasEnd) return;
+        double s = seg.Start, e = seg.End;
+        if (hasStart && !TimeFormat.TryParse(item.Start, out s))
+        {
+            row.Warnings.Add($"start を時刻として解釈できないため、区間全体にしました（{item.Start}）。");
+            return;
+        }
+        if (hasEnd && !TimeFormat.TryParse(item.End, out e))
+        {
+            row.Warnings.Add($"end を時刻として解釈できないため、区間全体にしました（{item.End}）。");
+            return;
+        }
+        if (!hasStart) s = seg.Start;
+        if (!hasEnd) e = seg.End;
+        if (s < seg.Start - SegmentStickOutTolerance || e > seg.End + SegmentStickOutTolerance || e <= s)
+        {
+            row.Warnings.Add($"start / end が区間 {seg.Id} の範囲外のため、区間全体にしました。");
+            return;
+        }
+        // 秒単位の回答（"00:05:12"）は区間の端と少しずれるため、区間の中へ収める。
+        row.Start = Math.Clamp(s, seg.Start, seg.End);
+        row.End = Math.Clamp(e, seg.Start, seg.End);
+        if (row.End <= row.Start)
+        {
+            row.Start = seg.Start;
+            row.End = seg.End;
+            row.Warnings.Add($"start / end が区間 {seg.Id} の範囲外のため、区間全体にしました。");
+        }
     }
 
     public static List<CutCandidate> ToCandidates(IEnumerable<AiCutRow> rows, string? historyId)

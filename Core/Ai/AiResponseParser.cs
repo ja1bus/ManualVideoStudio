@@ -38,6 +38,19 @@ public sealed record ParsedCut(string? Start, string? End, string? Action, doubl
 public sealed record CutParseResult(bool Success, string Error, JsonExtraction? Extraction,
     IReadOnlyList<ParsedCut> Items, IReadOnlyList<string> Warnings);
 
+/// <summary>区間方式の回答の 1 件（v1.21）。Category は小文字に正規化。Start / End は区間の一部だけのときの時刻（無ければ null）。</summary>
+public sealed record ParsedSegment(int Id, string Category, double? Confidence, string Reason, string? Start = null, string? End = null);
+
+/// <summary>
+/// 不要区間の解析の回答（v1.21）。IsSegmentMode なら Segments（区間方式）、そうでなければ Cuts（従来の時刻方式）に結果が入る。
+/// </summary>
+public sealed record CutAnalysisParseResult(bool Success, string Error, JsonExtraction? Extraction, bool IsSegmentMode,
+    IReadOnlyList<ParsedSegment> Segments, IReadOnlyList<ParsedCut> Cuts, IReadOnlyList<string> Warnings)
+{
+    /// <summary>認識した件数（方式によらない）。</summary>
+    public int Count => IsSegmentMode ? Segments.Count : Cuts.Count;
+}
+
 public sealed record ParsedReview(string TargetId, string Verdict, string Comment, string? SuggestedStart, string? SuggestedEnd);
 
 public sealed record ReviewParseResult(bool Success, string Error, JsonExtraction? Extraction, string Summary,
@@ -136,6 +149,51 @@ public static partial class AiResponseParser
         var items = ReadCuts(array, warnings);
         // 候補 0 件は「不要区間なし」という正当な回答。
         return new CutParseResult(true, "", ex, items, warnings);
+    }
+
+    /// <summary>
+    /// 不要区間の解析の回答（v1.21）。ルートのオブジェクトに "segments" 配列があれば区間方式、無ければ従来の
+    /// <see cref="ParseCuts"/>（時刻方式。古い回答・編集済みテンプレート・履歴の再解析のため）。"steps" は読み飛ばす。
+    /// </summary>
+    public static CutAnalysisParseResult ParseCutAnalysis(string? response)
+    {
+        var ex = ExtractJson(response);
+        if (!ex.Success) return new CutAnalysisParseResult(false, ex.Error, ex, false, [], [], []);
+        using (var doc = JsonDocument.Parse(ex.Json, DocOptions))
+        {
+            var root = doc.RootElement;
+            if (root.ValueKind == JsonValueKind.Object && root.TryGetProperty("segments", out var seg) && seg.ValueKind == JsonValueKind.Array)
+            {
+                var warnings = new List<string>();
+                var items = ReadSegments(seg, warnings);
+                // 0 件は「不要区間なし」という正当な回答。
+                return new CutAnalysisParseResult(true, "", ex, true, items, [], warnings);
+            }
+        }
+        var cuts = ParseCuts(response);
+        if (!cuts.Success)
+            return new CutAnalysisParseResult(false, "JSON に \"segments\" 配列も \"cuts\" 配列もありません。", cuts.Extraction, false, [], [], cuts.Warnings);
+        return new CutAnalysisParseResult(true, "", cuts.Extraction, false, [], cuts.Items, cuts.Warnings);
+    }
+
+    private static List<ParsedSegment> ReadSegments(JsonElement array, List<string> warnings)
+    {
+        var items = new List<ParsedSegment>();
+        int index = 0;
+        foreach (var e in array.EnumerateArray())
+        {
+            index++;
+            if (e.ValueKind != JsonValueKind.Object) { warnings.Add($"{index} 件目: オブジェクトではないため無視しました。"); continue; }
+            if (!TryGetInt(e, "id", out var id)) { warnings.Add($"{index} 件目: id が整数ではないため無視しました。"); continue; }
+            items.Add(new ParsedSegment(
+                id,
+                (GetString(e, "category") ?? "").Trim().ToLowerInvariant(),
+                GetDouble(e, "confidence"),
+                GetString(e, "reason") ?? "",
+                GetTimeText(e, "start"),
+                GetTimeText(e, "end")));
+        }
+        return items;
     }
 
     public static ReviewParseResult ParseReview(string? response)

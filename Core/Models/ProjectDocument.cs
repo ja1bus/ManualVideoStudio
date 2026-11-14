@@ -16,9 +16,11 @@ public sealed class ProjectDocument
     ///    アプリ設定へ移し、subtitleStyle は書かない（v1.5）。
     /// 6: 動画に重ねる図形（shapeGroups）と、注釈の直線（annotations[].type = "line"）を追加（v1.6）。
     /// 8: 動画冒頭の黒背景タイトル（title: text / seconds / fadeIn。v1.15）を追加。旧形式はタイトルなしとして読む。
+    /// 9: 動画の図形の拡大（shapeGroups[].shapes[].type = "zoom"）、クリック位置の強調（clickHighlight）、
+    ///    AI 連携の区間表（aiHistory[].segments）、候補の種類 idle / idleAndFreeze を追加（v1.21）。旧形式は拡大・強調なしとして読む。
     /// 1～5 はそのまま読める（無い項目は既定値。subtitleStyle は読み飛ばし、字幕はアプリ設定の見た目で描く）。
     /// </summary>
-    public const int CurrentSchemaVersion = 8;
+    public const int CurrentSchemaVersion = 9;
 
     public int SchemaVersion { get; set; } = CurrentSchemaVersion;
     public string AppVersion { get; set; } = "";
@@ -54,6 +56,9 @@ public sealed class ProjectDocument
 
     /// <summary>動画冒頭の黒背景タイトル（v1.15）。字幕・図形とは独立。文章が空ならタイトルなし。</summary>
     public VideoTitle Title { get; set; } = new();
+
+    /// <summary>クリック位置の強調（v1.21）。クリックの位置・時刻は録画フォルダーの操作の記録（*.events.json）から読む。</summary>
+    public ClickHighlightSettings ClickHighlight { get; set; } = new();
 
     public List<AiHistoryEntry> AiHistory { get; set; } = [];
     public ExportSettings ExportSettings { get; set; } = new();
@@ -229,6 +234,43 @@ public sealed class AiHistoryEntry
     public string ImportSummary { get; set; } = "";
     /// <summary>取り込んだ結果の JSON（キャプション一覧・候補一覧など）。</summary>
     public string ImportedJson { get; set; } = "";
+
+    /// <summary>
+    /// プロンプトをコピーした時点の区間表（v1.21。不要区間の解析で区間方式を使ったときだけ）。
+    /// 回答の区間番号を元動画の時刻へ戻すのに使う（コピーの後にカット・解析が変わっても対応がずれないように）。
+    /// </summary>
+    public List<AiSegment> Segments { get; set; } = [];
+}
+
+/// <summary>区間表の 1 行（v1.21。時刻は元動画の秒）。</summary>
+public sealed class AiSegment
+{
+    public int Id { get; set; }
+    public double Start { get; set; }
+    public double End { get; set; }
+}
+
+/// <summary>クリック位置の強調の大きさ（v1.21）。</summary>
+public enum ClickHighlightSize
+{
+    Small,
+    Medium,
+    Large,
+}
+
+/// <summary>クリック位置の強調（v1.21）。見た目（黄色の半透明の輪・0.5 秒）は固定で、ON/OFF と大きさだけ選ぶ。</summary>
+public sealed class ClickHighlightSettings
+{
+    public bool Enabled { get; set; }
+    public ClickHighlightSize Size { get; set; } = ClickHighlightSize.Medium;
+
+    /// <summary>動画の高さ 1080px のときの輪の半径（px）。</summary>
+    public static double RadiusAt1080(ClickHighlightSize size) => size switch
+    {
+        ClickHighlightSize.Small => 28,
+        ClickHighlightSize.Large => 56,
+        _ => 40,
+    };
 }
 
 public sealed class ExportSettings

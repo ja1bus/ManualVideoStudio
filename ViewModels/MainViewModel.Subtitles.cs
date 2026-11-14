@@ -202,8 +202,8 @@ public sealed partial class MainViewModel
         var r = Editor.SetSubtitlesLayout(targets.Select(t => t.Id).ToList(), change);
         if (!r.Success) { StatusMessage = r.Message; return; }
         StatusMessage = targets.Count > 1
-            ? $"字幕 {targets.Count} 件の位置・サイズを変更しました（元に戻す: Ctrl+Z）。"
-            : "字幕の位置・サイズを変更しました（元に戻す: Ctrl+Z）。";
+            ? $"字幕 {targets.Count} 件の位置・サイズを変更しました。"
+            : "字幕の位置・サイズを変更しました。";
     }
 
     /// <summary>字幕の欄の［字幕の設定...］: 設定画面の字幕タブを開く。</summary>
@@ -258,7 +258,7 @@ public sealed partial class MainViewModel
             return;
         }
         SelectedTabIndex = TabSubtitles;
-        const string next = "I / O で字幕の表示区間を指定し、［字幕を追加］(T) で文字を入れてください（元に戻す: Ctrl+Z）。";
+        const string next = "I / O で字幕の表示区間を指定し、［字幕を追加］(T) で文字を入れてください。";
         if (!unsaved)
         {
             StatusMessage = "カットを確定しました。" + next;
@@ -324,8 +324,8 @@ public sealed partial class MainViewModel
         MarkOut = null;
         SelectedTabIndex = TabCuts;
         StatusMessage = shapes == 0
-            ? $"字幕 {count} 件を破棄してカット編集へ戻りました（元に戻す: Ctrl+Z）。"
-            : $"字幕 {count} 件・図形 {shapes} 件を破棄してカット編集へ戻りました（元に戻す: Ctrl+Z）。";
+            ? $"字幕 {count} 件を破棄してカット編集へ戻りました。"
+            : $"字幕 {count} 件・図形 {shapes} 件を破棄してカット編集へ戻りました。";
     }
 
     /// <summary>字幕編集中にカット操作をしようとした場合の案内。</summary>
@@ -353,7 +353,7 @@ public sealed partial class MainViewModel
             MarkIn = null;
             MarkOut = null;
             SelectedTabIndex = TabSubtitles;
-            StatusMessage = "字幕を追加しました（元に戻す: Ctrl+Z）。";
+            StatusMessage = "字幕を追加しました。";
         }
     }
 
@@ -363,7 +363,7 @@ public sealed partial class MainViewModel
         if (Editor is null || items is null || items.Count == 0 || !IsSubtitlePhase) return;
         var ids = items.OfType<SubtitleItem>().Select(i => i.Id).ToList();
         var r = Editor.RemoveSubtitles(ids);
-        StatusMessage = r.Success ? $"字幕を {ids.Count} 件削除しました（元に戻す: Ctrl+Z）。" : r.Message;
+        StatusMessage = r.Success ? $"字幕を {ids.Count} 件削除しました。" : r.Message;
     }
 
     [RelayCommand]
@@ -412,6 +412,8 @@ public sealed partial class MainViewModel
         RestartFromCutsKeepingCurrentCommand.NotifyCanExecuteChanged();
         AddSubtitleCommand.NotifyCanExecuteChanged();
         AddRemoveCutCommand.NotifyCanExecuteChanged();
+        CutInSubtitlePhaseCommand.NotifyCanExecuteChanged();
+        NotifyShapeAlign();
     }
 
     /// <summary>再生位置の字幕をプレビューに出す（削除される位置では出さない）。</summary>

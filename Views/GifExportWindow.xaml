@@ -33,7 +33,7 @@
         <TextBlock Style="{StaticResource Subtle}" FontSize="11" Margin="0,8,0,0"
                    Text="GIF は短い操作説明（数秒～数十秒）向けです。カット・字幕は MP4 の書き出しと同じ内容を使います。"/>
         <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,12,0,0">
-            <Button Content="書き出し..." Style="{StaticResource AccentButton}" MinWidth="110" IsDefault="True" Command="{Binding OkCommand}" AutomationProperties.Name="書き出し"/>
+            <Button Content="書き出し…" Style="{StaticResource AccentButton}" MinWidth="110" IsDefault="True" Command="{Binding OkCommand}" AutomationProperties.Name="書き出し"/>
             <Button Content="キャンセル" MinWidth="90" IsCancel="True" Command="{Binding CancelCommand}"/>
         </StackPanel>
     </StackPanel>

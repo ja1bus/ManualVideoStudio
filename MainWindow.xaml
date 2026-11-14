@@ -73,18 +73,18 @@
         <!-- メニュー -->
         <Menu DockPanel.Dock="Top" Background="White" Padding="4,2">
             <MenuItem Header="ファイル(_F)">
-                <MenuItem Header="プロジェクト一覧(_L)..." Command="{Binding ShowProjectListCommand}"/>
+                <MenuItem Header="プロジェクト一覧(_L)…" Command="{Binding ShowProjectListCommand}"/>
                 <Separator/>
-                <MenuItem Header="画面を録画(_R)..." Command="{Binding StartRecordingCommand}"/>
+                <MenuItem Header="画面を録画(_R)…" Command="{Binding StartRecordingCommand}"/>
                 <Separator/>
-                <MenuItem Header="動画を開く(_O)..." InputGestureText="Ctrl+O" Command="{Binding OpenVideoCommand}"/>
-                <MenuItem Header="プロジェクトを開く(_P)..." InputGestureText="Ctrl+Shift+O" Command="{Binding OpenProjectCommand}"/>
+                <MenuItem Header="動画を開く(_O)…" InputGestureText="Ctrl+O" Command="{Binding OpenVideoCommand}"/>
+                <MenuItem Header="プロジェクトを開く(_P)…" InputGestureText="Ctrl+Shift+O" Command="{Binding OpenProjectCommand}"/>
                 <Separator/>
                 <MenuItem Header="プロジェクトを保存(_S)" InputGestureText="Ctrl+S" Command="{Binding SaveProjectCommand}"/>
-                <MenuItem Header="名前を付けて保存(_A)..." InputGestureText="Ctrl+Shift+S" Command="{Binding SaveProjectAsCommand}"/>
-                <MenuItem Header="この録画で新しい編集を作る(_N)..." Command="{Binding NewEditForCurrentCommand}"/>
+                <MenuItem Header="名前を付けて保存(_A)…" InputGestureText="Ctrl+Shift+S" Command="{Binding SaveProjectAsCommand}"/>
+                <MenuItem Header="この録画で新しい編集を作る(_N)…" Command="{Binding NewEditForCurrentCommand}"/>
                 <Separator/>
-                <MenuItem Header="動画ファイルを再指定(_R)..." Command="{Binding RelinkVideoCommand}"/>
+                <MenuItem Header="動画ファイルを再指定(_R)…" Command="{Binding RelinkVideoCommand}"/>
                 <Separator/>
                 <MenuItem Header="終了(_X)" Click="Exit_Click"/>
             </MenuItem>
@@ -101,27 +101,27 @@
                 <MenuItem Header="{local:Str Menu.ConfirmCuts}" Command="{Binding ConfirmCutsCommand}"/>
                 <MenuItem Header="{local:Str Menu.ReviewCuts}" Command="{Binding ReturnToCutEditingCommand}"/>
                 <MenuItem Header="{local:Str Menu.RestartKeeping}" Command="{Binding RestartFromCutsKeepingCurrentCommand}"/>
-                <MenuItem Header="Gemini で字幕を作る..." Command="{Binding OpenGeminiCaptionCommand}"/>
-                <MenuItem Header="字幕を追加..." InputGestureText="T" Command="{Binding AddSubtitleCommand}"/>
-                <MenuItem Header="図形を追加（四角・矢印・直線・文字・モザイク）..." InputGestureText="G" Command="{Binding AddShapesCommand}"/>
-                <MenuItem Header="字幕の設定（見た目・フォント・余白）..." Command="{Binding ShowSubtitleSettingsCommand}"/>
+                <MenuItem Header="Gemini で字幕を作る…" Command="{Binding OpenGeminiCaptionCommand}"/>
+                <MenuItem Header="字幕を追加…" InputGestureText="T" Command="{Binding AddSubtitleCommand}"/>
+                <MenuItem Header="図形を追加（四角・矢印・直線・文字・モザイク）…" InputGestureText="G" Command="{Binding AddShapesCommand}"/>
+                <MenuItem Header="字幕の設定（見た目・フォント・余白）…" Command="{Binding ShowSubtitleSettingsCommand}"/>
             </MenuItem>
             <MenuItem Header="解析(_A)">
                 <MenuItem Header="ローカル自動解析を実行（静止・無音・画面変化）" Command="{Binding RunAnalysisCommand}"/>
-                <MenuItem Header="解析設定..." Command="{Binding ShowAnalysisSettingsCommand}"/>
+                <MenuItem Header="解析設定…" Command="{Binding ShowAnalysisSettingsCommand}"/>
             </MenuItem>
             <MenuItem Header="AI 連携(_G)" Visibility="{Binding IsFullMode, Converter={StaticResource BoolToVisibility}}">
-                <MenuItem Header="Gemini Chat 連携..." Command="{Binding ShowAiAssistCommand}"/>
-                <MenuItem Header="プロンプトテンプレートの編集..." Command="{Binding ShowPromptSettingsCommand}"/>
+                <MenuItem Header="Gemini Chat 連携…" Command="{Binding ShowAiAssistCommand}"/>
+                <MenuItem Header="プロンプトテンプレートの編集…" Command="{Binding ShowPromptSettingsCommand}"/>
             </MenuItem>
             <MenuItem Header="書き出し(_X)">
-                <MenuItem Header="手順書画像を書き出し..." Command="{Binding ExportImagesCommand}" Visibility="{Binding IsFullMode, Converter={StaticResource BoolToVisibility}}"/>
+                <MenuItem Header="手順書画像を書き出し…" Command="{Binding ExportImagesCommand}" Visibility="{Binding IsFullMode, Converter={StaticResource BoolToVisibility}}"/>
                 <MenuItem Header="{local:Str Export.Tejunsho}" Command="{Binding ExportTejunshoCommand}" Visibility="{Binding ShowExternalDocument, Converter={StaticResource BoolToVisibility}}" AutomationProperties.AutomationId="Menu.Export.Document"/>
-                <MenuItem Header="編集済み動画を書き出し（MP4）..." Command="{Binding ExportVideoCommand}"/>
-                <MenuItem Header="Animated GIF を書き出し..." Command="{Binding ExportGifCommand}"/>
+                <MenuItem Header="編集済み動画を書き出し（MP4）…" Command="{Binding ExportVideoCommand}"/>
+                <MenuItem Header="Animated GIF を書き出し…" Command="{Binding ExportGifCommand}"/>
             </MenuItem>
             <MenuItem Header="ツール(_T)">
-                <MenuItem Header="設定（FFmpeg・出力・解析・プロンプト）..." Command="{Binding ShowSettingsCommand}"/>
+                <MenuItem Header="設定（FFmpeg・出力・解析・プロンプト）…" Command="{Binding ShowSettingsCommand}"/>
                 <MenuItem Header="ログフォルダーを開く" Command="{Binding OpenLogFolderCommand}"/>
             </MenuItem>
             <MenuItem Header="ヘルプ(_H)">
@@ -289,18 +289,39 @@
                         </Border>
                         <Border Grid.Row="1" Background="#1B1B1B" CornerRadius="6" ClipToBounds="True">
                             <Grid>
-                                <MediaElement x:Name="Media" Stretch="Uniform"/>
-                                <!-- 図形（v1.6。字幕より下に描く。書き出しと同じ順） -->
-                                <Viewbox Stretch="Uniform" IsHitTestVisible="False"
-                                         Visibility="{Binding IsSubtitlePhase, Converter={StaticResource BoolToVisibility}}">
-                                    <ctl:ShapePreview Groups="{Binding CurrentShapeGroups}" VideoWidth="{Binding PreviewVideoWidth}" VideoHeight="{Binding PreviewVideoHeight}"/>
+                                <!-- 拡大の入れ物（v1.21）: 動画・図形・クリックの輪を動画の px の大きさの 1 枚にまとめて拡大し、枠で切り取る。
+                                     重ねる順は書き出しと同じ（図形 → クリックの強調 → 拡大）。字幕は入れ物の外（拡大しない）。 -->
+                                <Viewbox Stretch="Uniform" AutomationProperties.AutomationId="Zoom.Preview" AutomationProperties.Name="{local:Str Zoom.Preview.Name}">
+                                    <Grid Width="{Binding PreviewFrameWidth}" Height="{Binding PreviewFrameHeight}" ClipToBounds="True">
+                                        <Grid RenderTransformOrigin="0,0">
+                                            <Grid.RenderTransform>
+                                                <TransformGroup>
+                                                    <ScaleTransform ScaleX="{Binding PreviewZoomScale}" ScaleY="{Binding PreviewZoomScale}"/>
+                                                    <TranslateTransform X="{Binding PreviewZoomOffsetX}" Y="{Binding PreviewZoomOffsetY}"/>
+                                                </TransformGroup>
+                                            </Grid.RenderTransform>
+                                            <MediaElement x:Name="Media" Stretch="Uniform"/>
+                                            <Image Source="{Binding FallbackFrame}" Stretch="Uniform"
+                                                   Visibility="{Binding IsPlayerFailed, Converter={StaticResource BoolToVisibility}}"/>
+                                            <!-- 図形（v1.6。字幕より下に描く。書き出しと同じ順） -->
+                                            <Viewbox Stretch="Uniform" IsHitTestVisible="False"
+                                                     Visibility="{Binding IsSubtitlePhase, Converter={StaticResource BoolToVisibility}}">
+                                                <ctl:ShapePreview Groups="{Binding CurrentShapeGroups}" VideoWidth="{Binding PreviewVideoWidth}" VideoHeight="{Binding PreviewVideoHeight}"/>
+                                            </Viewbox>
+                                            <!-- クリック位置の強調（v1.21） -->
+                                            <Viewbox Stretch="Uniform" IsHitTestVisible="False"
+                                                     Visibility="{Binding IsSubtitlePhase, Converter={StaticResource BoolToVisibility}}">
+                                                <ctl:ClickPreview Marks="{Binding CurrentClickMarks}" Radius="{Binding PreviewClickRadius}"
+                                                                  VideoWidth="{Binding PreviewVideoWidth}" VideoHeight="{Binding PreviewVideoHeight}"
+                                                                  AutomationProperties.AutomationId="Click.Preview"/>
+                                            </Viewbox>
+                                        </Grid>
+                                    </Grid>
                                 </Viewbox>
                                 <Viewbox Stretch="Uniform" IsHitTestVisible="False"
                                          Visibility="{Binding IsSubtitlePhase, Converter={StaticResource BoolToVisibility}}">
                                     <ctl:SubtitlePreview Segment="{Binding CurrentSubtitle}" SubtitleStyle="{Binding PreviewSubtitleStyle}" VideoWidth="{Binding PreviewVideoWidth}" VideoHeight="{Binding PreviewVideoHeight}"/>
                                 </Viewbox>
-                                <Image Source="{Binding FallbackFrame}" Stretch="Uniform"
-                                       Visibility="{Binding IsPlayerFailed, Converter={StaticResource BoolToVisibility}}"/>
                                 <Border VerticalAlignment="Top" Background="{StaticResource WarningBackgroundBrush}" Padding="8,4" Margin="8" CornerRadius="4"
                                         Visibility="{Binding IsPlayerFailed, Converter={StaticResource BoolToVisibility}}">
                                     <TextBlock Text="{Binding PlayerError}" TextWrapping="Wrap"/>
@@ -337,6 +358,8 @@
                                     <TextBlock Text="{Binding CurrentTimeText}" FontSize="18" FontFamily="Consolas" VerticalAlignment="Center"/>
                                     <TextBlock Text=" / " FontSize="14" Foreground="{StaticResource SubtleTextBrush}" VerticalAlignment="Center"/>
                                     <TextBlock Text="{Binding DurationText}" FontSize="14" FontFamily="Consolas" Foreground="{StaticResource SubtleTextBrush}" VerticalAlignment="Center"/>
+                                    <Button Content="{Binding PlaybackRateText}" Command="{Binding CyclePlaybackRateCommand}" MinWidth="44" Padding="4,1" Margin="8,0,0,0" VerticalAlignment="Center"
+                                            FontFamily="Consolas" ToolTip="{local:Str Play.Rate.Tip}" AutomationProperties.AutomationId="Play.Rate" AutomationProperties.Name="{local:Str Play.Rate.Name}"/>
                                     <TextBlock Text="{Binding FrameText}" Margin="10,0,0,0" Foreground="{StaticResource SubtleTextBrush}" VerticalAlignment="Center"
                                                Visibility="{Binding IsSubtitlePhase, Converter={StaticResource BoolToVisibility}, ConverterParameter=Invert}"/>
                                     <TextBlock Text="{Binding CurrentOutputTimeText}" Margin="10,0,0,0" FontFamily="Consolas" Foreground="{StaticResource SubtitleBrush}" VerticalAlignment="Center"
@@ -394,6 +417,8 @@
                                             ToolTip="{local:Str Sub.Gemini.Tip}" AutomationProperties.AutomationId="Sub.Gemini"/>
                                     <Button Content="{local:Str Sub.AddShape}" Command="{Binding AddShapesCommand}" BorderBrush="{StaticResource ShapeBrush}"
                                             ToolTip="{local:Str Sub.AddShape.Tip}" AutomationProperties.AutomationId="Sub.AddShape"/>
+                                    <Button Content="{local:Str SubCut.Button}" Command="{Binding CutInSubtitlePhaseCommand}" BorderBrush="{StaticResource RemoveBrush}"
+                                            ToolTip="{local:Str SubCut.Button.Tip}" AutomationProperties.AutomationId="Sub.Cut"/>
                                     <Button Content="{local:Str Sub.ClearRange}" Command="{Binding ClearMarksCommand}" ToolTip="{local:Str Sub.ClearRange.Tip}" AutomationProperties.AutomationId="Sub.ClearRange"/>
                                 </WrapPanel>
                             </Border>
@@ -510,7 +535,7 @@
                                                         <TextBlock Text="{Binding FilenamePreview}" Style="{StaticResource Subtle}" FontSize="11" TextTrimming="CharacterEllipsis" ToolTip="{Binding FilenamePreview}"/>
                                                         <Expander IsExpanded="{Binding IsDetailOpen}" Header="{Binding DetailHeader}" Margin="0,2,0,0" FontSize="11" AutomationProperties.AutomationId="Img.DocumentDetail"
                                                                   Visibility="{Binding DataContext.ShowExternalDocument, RelativeSource={RelativeSource AncestorType=Window}, Converter={StaticResource BoolToVisibility}}"
-                                                                  ToolTip="文書作成用データを書き出したとき、対応するツールやスキルが使う文です（キャプションはファイル名用）">
+                                                                  ToolTip="文書作成用データで、対応するツールやスキルが使う文です（キャプションはファイル名用）">
                                                             <Grid Margin="0,2,0,0">
                                                                 <Grid.ColumnDefinitions>
                                                                     <ColumnDefinition Width="Auto"/>
@@ -536,7 +561,7 @@
                                                                          Text="{Binding Note, Mode=TwoWay, UpdateSourceTrigger=Explicit}" AcceptsReturn="True" TextWrapping="Wrap" MaxHeight="80"
                                                                          VerticalScrollBarVisibility="Auto"
                                                                          LostKeyboardFocus="DetailBox_LostKeyboardFocus" KeyDown="DetailBox_KeyDown"
-                                                                         ToolTip="確認ポイント・入力値など（手順書の注記になります）。改行できます。Ctrl+Enter またはほかの欄へ移ると確定します"/>
+                                                                         ToolTip="手順書の注記にする確認ポイント・入力値など（Ctrl+Enter か、ほかの欄へ移ると確定）"/>
                                                             </Grid>
                                                         </Expander>
                                                         <WrapPanel Margin="0,2,0,0">
@@ -684,6 +709,22 @@
                             <!-- 3: 図形 -->
                             <TabItem AutomationProperties.AutomationId="Tab.Shapes">
                                 <DockPanel>
+                                    <!-- クリック位置の強調（v1.21。録画時の操作の記録にクリックがある動画だけ） -->
+                                    <Border DockPanel.Dock="Top" Style="{StaticResource Card}" Padding="8,6" Margin="0,0,0,4" AutomationProperties.AutomationId="Click.Panel">
+                                        <StackPanel>
+                                            <WrapPanel VerticalAlignment="Center" IsEnabled="{Binding CanUseClickHighlight}">
+                                                <CheckBox Content="{Binding ClickHighlightLabel}" IsChecked="{Binding ClickHighlightEnabled}" VerticalAlignment="Center"
+                                                          ToolTip="{local:Str Click.Enabled.Tip}" AutomationProperties.AutomationId="Click.Enabled"
+                                                          AutomationProperties.Name="{Binding ClickHighlightLabel}"/>
+                                                <TextBlock Text="{local:Str Click.Size}" VerticalAlignment="Center" Margin="12,0,4,0"/>
+                                                <ComboBox ItemsSource="{Binding ClickHighlightSizeNames}" SelectedIndex="{Binding ClickHighlightSizeIndex}" Width="60"
+                                                          AutomationProperties.AutomationId="Click.Size" AutomationProperties.Name="{local:Str Click.Size}"/>
+                                            </WrapPanel>
+                                            <TextBlock Text="{local:Str Click.Unavailable}" Style="{StaticResource Subtle}" TextWrapping="Wrap" Margin="0,4,0,0"
+                                                       Visibility="{Binding CanUseClickHighlight, Converter={StaticResource BoolToVisibility}, ConverterParameter=Invert}"
+                                                       AutomationProperties.AutomationId="Click.Unavailable"/>
+                                        </StackPanel>
+                                    </Border>
                                     <Border DockPanel.Dock="Top" Padding="6" Background="#F7E8FA" CornerRadius="4" Margin="0,0,0,4">
                                         <TextBlock Style="{StaticResource Subtle}" TextWrapping="Wrap" Text="{local:Str Shapes.ListHint}"/>
                                     </Border>
@@ -706,6 +747,14 @@
                                                              ToolTip="{local:Str SubEdit.Time.Tip}" AutomationProperties.AutomationId="ShapeEdit.End" AutomationProperties.Name="{local:Str SubEdit.End}"/>
                                                     <Button Content="{local:Str SubEdit.FromCurrent}" Command="{Binding ShapeDraftEndFromCurrentCommand}" Padding="4,2" MinHeight="26"
                                                             ToolTip="{local:Str SubEdit.FromCurrent.Tip}" AutomationProperties.AutomationId="ShapeEdit.EndFromCurrent"/>
+                                                </WrapPanel>
+                                                <WrapPanel Margin="0,6,0,0" VerticalAlignment="Center">
+                                                    <Button Content="{local:Str ShapeAlign.Start}" Command="{Binding ShapeAlignStartCommand}" Padding="4,2" MinHeight="26"
+                                                            ToolTip="{local:Str ShapeAlign.Start.Tip}" AutomationProperties.AutomationId="ShapeEdit.AlignStart"/>
+                                                    <Button Content="{local:Str ShapeAlign.Range}" Command="{Binding ShapeAlignRangeCommand}" Padding="4,2" MinHeight="26"
+                                                            ToolTip="{local:Str ShapeAlign.Range.Tip}" AutomationProperties.AutomationId="ShapeEdit.AlignRange"/>
+                                                    <TextBlock Text="{Binding ShapeAlignInfo}" Style="{StaticResource Subtle}" VerticalAlignment="Center" TextWrapping="Wrap" Margin="6,0,0,0"
+                                                               AutomationProperties.AutomationId="ShapeEdit.AlignInfo"/>
                                                 </WrapPanel>
                                                 <WrapPanel Margin="0,6,0,0">
                                                     <Button Style="{StaticResource AccentButton}" Content="{local:Str SubEdit.Apply}" Command="{Binding ApplyShapeDraftCommand}" AutomationProperties.AutomationId="ShapeEdit.Apply"/>
@@ -768,7 +817,12 @@
                                                     <TextBlock Text="{local:Str Cand.Filter.SourceLabel}" VerticalAlignment="Center" Margin="10,0,4,0"/>
                                                     <ComboBox Width="92" Height="30" Padding="6,0" VerticalContentAlignment="Center" ItemsSource="{x:Static vm:MainViewModel.CandidateSourceFilters}" SelectedIndex="{Binding CandidateSourceFilter}"
                                                               AutomationProperties.AutomationId="Cand.Filter.Source" AutomationProperties.Name="出所の絞り込み"/>
+                                                    <TextBlock Text="{local:Str Cand.Idle.KindLabel}" VerticalAlignment="Center" Margin="10,0,4,0"/>
+                                                    <ComboBox Width="104" Height="30" Padding="6,0" VerticalContentAlignment="Center" ItemsSource="{x:Static vm:MainViewModel.CandidateKindFilters}" SelectedIndex="{Binding CandidateKindFilter}"
+                                                              AutomationProperties.AutomationId="Cand.Filter.Kind" AutomationProperties.Name="{local:Str Cand.Idle.KindName}"/>
                                             </WrapPanel>
+                                            <CheckBox Content="{local:Str Cand.AutoTrial}" IsChecked="{Binding AutoTrialNextCandidate}" ToolTip="{local:Str Cand.AutoTrial.Tip}" Margin="2,6,0,0"
+                                                      AutomationProperties.AutomationId="Cand.AutoTrial"/>
                                             <TextBlock Style="{StaticResource Subtle}" TextWrapping="Wrap" Text="{local:Str Cand.Hint}" Margin="0,4,0,0"/>
                                         </StackPanel>
                                     </Border>
@@ -831,7 +885,7 @@
             <!-- タイムライン -->
             <Border Grid.Row="1" Style="{StaticResource Card}" Margin="0,8,0,0" Padding="6">
                 <StackPanel>
-                    <ctl:TimelineControl x:Name="Timeline" Height="142" Subtitles="{Binding TimelineSubtitles}" Shapes="{Binding TimelineShapes}" CutLocked="{Binding IsCutLocked}"
+                    <ctl:TimelineControl x:Name="Timeline" RecordingEvents="{Binding RecordingEvents}" AutomationProperties.AutomationId="Timeline" Subtitles="{Binding TimelineSubtitles}" Shapes="{Binding TimelineShapes}" CutLocked="{Binding IsCutLocked}"
                                          Duration="{Binding Duration}" CurrentTime="{Binding CurrentTime}"
                                          Segments="{Binding TimelineSegments}" Candidates="{Binding TimelineCandidates}"
                                          Captures="{Binding TimelineCaptures}" SceneChanges="{Binding TimelineScenes}"

@@ -72,6 +72,9 @@ public static class PromptVariables
     public const string OutputDirHome = "OUTPUT_DIR_HOME";
     public const string ProjectName = "PROJECT_NAME";
     public const string ImageCount = "IMAGE_COUNT";
+    // 不要区間の解析の区間表（v1.21）。
+    public const string SegmentTable = "SEGMENT_TABLE";
+    public const string SegmentCount = "SEGMENT_COUNT";
 
     /// <summary>手順書作成の依頼文で使える変数。</summary>
     public static readonly IReadOnlyList<(string Name, string Description)> Tejunsho =
@@ -107,6 +110,8 @@ public static class PromptVariables
         (CutSegments, "確定済み編集区間の JSON（id・start・end・action・keep_seconds・reason）"),
         (CutCount, "確定済み編集区間の件数"),
         (EditedDuration, "編集後の動画の長さ（HH:MM:SS.mmm）"),
+        (SegmentTable, "不要区間の解析の区間表（1 行 1 区間。「番号 | 開始〜終了 | 長さ | 特徴」。特徴が無ければ「-」。不要区間の解析のときだけ値が入る）"),
+        (SegmentCount, "区間表の区間の数"),
         (Language, "回答言語（設定値。既定は「日本語」）"),
         (Date, "今日の日付（yyyy-MM-dd）"),
     ];
@@ -131,7 +136,10 @@ public static class PromptVariables
             .Select(g => string.Join(" または ", g.Select(v => "{{" + v + "}}"))).ToList();
     }
 
-    public static Dictionary<string, string> Build(ProjectDocument project, string language)
+    /// <param name="segmentTable">
+    /// 不要区間の解析で使う区間表（v1.21。<see cref="SegmentTableBuilder.Build"/>）。null なら {{SEGMENT_TABLE}} は空、{{SEGMENT_COUNT}} は 0。
+    /// </param>
+    public static Dictionary<string, string> Build(ProjectDocument project, string language, Ai.SegmentTable? segmentTable = null)
     {
         var duration = project.VideoMetadata?.Duration ?? 0;
         var keep = EditTimelineCalculator.ComputeKeepRanges(duration, project.CutSegments);
@@ -145,6 +153,8 @@ public static class PromptVariables
             [CutSegments] = CutSegmentsJson(project.CutSegments),
             [CutCount] = project.CutSegments.Count.ToString(CultureInfo.InvariantCulture),
             [EditedDuration] = TimeFormat.Format(EditTimelineCalculator.OutputDuration(keep)),
+            [SegmentTable] = segmentTable?.ToPromptText() ?? "",
+            [SegmentCount] = (segmentTable?.Count ?? 0).ToString(CultureInfo.InvariantCulture),
             [Language] = string.IsNullOrWhiteSpace(language) ? "日本語" : language,
             [Date] = DateTime.Now.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture),
         };

@@ -94,8 +94,11 @@ public enum RecordingState
     Failed,
 }
 
-/// <summary>録画が完了した結果。</summary>
-public sealed record RecordingResult(string OutputPath, TimeSpan RecordedDuration, int SegmentCount, RecordingInfo Info);
+/// <summary>
+/// 録画が完了した結果。Events は録画中の操作の記録（動画の秒。v1.21）。作れなかった場合は null。
+/// ファイルへの書き込みは、動画をプロジェクトフォルダーへ移した後に呼び出し側が <see cref="RecordingEventsFile.Save"/> で行う。
+/// </summary>
+public sealed record RecordingResult(string OutputPath, TimeSpan RecordedDuration, int SegmentCount, RecordingInfo Info, RecordingEvents? Events = null);
 
 /// <summary>録画に失敗した（利用者向けの説明と ffmpeg の詳細）。</summary>
 public sealed class RecordingException(string message, string? detail = null, Exception? inner = null) : Exception(message, inner)

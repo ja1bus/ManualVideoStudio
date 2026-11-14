@@ -273,7 +273,7 @@ public sealed class ShapeGroupPersistenceTests : IDisposable
         var path = Path.Combine(_dir, "p.mvsproj.json");
         new ProjectService().Save(project, path);
         var text = File.ReadAllText(path);
-        Assert.Contains("\"schemaVersion\": 8", text);
+        Assert.Contains("\"schemaVersion\": 9", text);
         Assert.Contains("\"shapeGroups\"", text);
         Assert.Contains("\"type\": \"line\"", text);
 

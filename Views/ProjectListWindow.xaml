@@ -18,7 +18,7 @@
         <!-- 検索・更新 -->
         <DockPanel DockPanel.Dock="Top" Margin="0,0,0,6">
             <Button DockPanel.Dock="Right" Content="最新の情報に更新" Command="{Binding RefreshCommand}"
-                    ToolTip="保存先のフォルダーを調べ直して一覧を作り直します（エクスプローラーでフォルダーを消した・移した後など）"/>
+                    ToolTip="保存先のフォルダーを調べ直して、一覧を作り直します"/>
             <TextBlock Text="検索" VerticalAlignment="Center" Margin="0,0,6,0"/>
             <TextBox x:Name="SearchBox" Text="{Binding SearchText, UpdateSourceTrigger=PropertyChanged}" Width="260" HorizontalAlignment="Left"
                      VerticalContentAlignment="Center" AutomationProperties.Name="検索" ToolTip="録画・編集の名前で絞り込みます"/>

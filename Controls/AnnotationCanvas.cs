@@ -125,11 +125,16 @@ public sealed class AnnotationCanvas : FrameworkElement
 
         dc.PushTransform(new MatrixTransform(t.Scale, 0, 0, t.Scale, t.OffsetX, t.OffsetY));
         dc.DrawImage(MosaickedImage(vm), new Rect(0, 0, w, h));
+        var preview = _drag == DragMode.Create ? vm.CreateShape(_dragStart, _dragCurrent) : null;
+        // 拡大の枠（v1.21）は編集画面だけに描く（書き出しの画像には描かない）。描き直し中は前の枠を出さない（置き換わるため）。
+        if (preview is not ZoomAnnotation)
+            foreach (var z in session.Items.OfType<ZoomAnnotation>()) DrawZoom(dc, vm, z, t.Scale);
         AnnotationDrawing.DrawVectors(dc, session.Items.Where(a => a is not MosaicAnnotation), session.StyleScale);
-        if (_drag == DragMode.Create && vm.CreateShape(_dragStart, _dragCurrent) is { } preview)
+        switch (preview)
         {
-            if (preview is MosaicAnnotation m) DrawMosaicPreview(dc, m, t.Scale);
-            else AnnotationDrawing.Draw(dc, preview, session.StyleScale);
+            case MosaicAnnotation m: DrawMosaicPreview(dc, m, t.Scale); break;
+            case ZoomAnnotation z: DrawZoom(dc, vm, z, t.Scale); break;
+            case { } other: AnnotationDrawing.Draw(dc, other, session.StyleScale); break;
         }
         dc.Pop();
 
@@ -154,6 +159,29 @@ public sealed class AnnotationCanvas : FrameworkElement
     {
         var pen = new Pen(Brushes.White, 1.5 / scale) { DashStyle = DashStyles.Dash };
         dc.DrawRectangle(new SolidColorBrush(Color.FromArgb(0x55, 0x80, 0x80, 0x80)), pen, new Rect(m.X, m.Y, m.Width, m.Height));
+    }
+
+    private static readonly SolidColorBrush ZoomBrush = Frozen(Color.FromRgb(0x00, 0x67, 0xC0));
+    private static readonly SolidColorBrush ZoomLabelBack = Frozen(Color.FromArgb(0xE0, 0x00, 0x67, 0xC0));
+
+    private static SolidColorBrush Frozen(Color c)
+    {
+        var b = new SolidColorBrush(c);
+        b.Freeze();
+        return b;
+    }
+
+    /// <summary>拡大の範囲: 青い破線の枠と、左上の「拡大 ×2.0」（線幅・文字は表示倍率に関わらず同じ大きさ）。座標は画像 px。</summary>
+    private static void DrawZoom(DrawingContext dc, ImageEditorViewModel vm, ZoomAnnotation z, double scale)
+    {
+        var rect = new Rect(z.X, z.Y, Math.Max(0, z.Width), Math.Max(0, z.Height));
+        dc.DrawRectangle(null, new Pen(Brushes.White, 3.5 / scale), rect);
+        dc.DrawRectangle(null, new Pen(ZoomBrush, 2 / scale) { DashStyle = new DashStyle([4, 3], 0) }, rect);
+        var text = new FormattedText(vm.ZoomLabel(z), System.Globalization.CultureInfo.CurrentUICulture, FlowDirection.LeftToRight,
+            new Typeface(new FontFamily("Meiryo"), FontStyles.Normal, FontWeights.SemiBold, FontStretches.Normal), 13 / scale, Brushes.White, 1.0);
+        var pad = 4 / scale;
+        dc.DrawRectangle(ZoomLabelBack, null, new Rect(z.X, z.Y, text.Width + 2 * pad, text.Height + pad));
+        dc.DrawText(text, new Point(z.X + pad, z.Y + pad / 2));
     }
 
     private void DrawSelection(DrawingContext dc, Annotation a, ViewTransform t, double styleScale)

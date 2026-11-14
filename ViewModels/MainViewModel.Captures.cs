@@ -36,7 +36,7 @@ public sealed partial class MainViewModel
     {
         if (Editor is null || item is null) return;
         Editor.RemoveCapture(item.Id);
-        StatusMessage = $"画像ポイント No.{item.Sequence} を削除しました（元に戻す: Ctrl+Z）。";
+        StatusMessage = $"画像ポイント No.{item.Sequence} を削除しました。";
     }
 
     [RelayCommand]

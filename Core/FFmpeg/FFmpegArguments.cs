@@ -20,10 +20,27 @@ public sealed record ExportCommand(IReadOnlyList<string> Arguments, string? Filt
 /// <summary>図形の画像 1 枚の重ね合わせ（v1.6）。File は ffmpeg の作業フォルダーからの相対名（拡張子なしの PNG）。</summary>
 public sealed record ShapeOverlayInput(string File, double Start, double End, int X, int Y);
 
-/// <summary>書き出しで重ねる図形（v1.6）。画像は入力 1 番から順に -f png_pipe で読む。</summary>
+/// <summary>
+/// 書き出しで重ねる図形（v1.6）。画像は入力 1 番から順に -f png_pipe で読む。
+/// クリックの強調（v1.21）の輪の画像は図形の画像の次の入力（ClickRingFile。作業フォルダーからの相対名・拡張子なし）。
+/// ClickRingWidth / ClickRingHeight は輪の画像の大きさで、画像の中心をクリックの位置に合わせる。拡大（v1.21）は Zooms。
+/// </summary>
 public sealed record ShapeFilterPlan(IReadOnlyList<ShapeOverlayInput> Images, IReadOnlyList<ShapeMosaic> Mosaics)
 {
-    public bool IsEmpty => Images.Count == 0 && Mosaics.Count == 0;
+    /// <summary>拡大（出力動画の秒・映像の px）。</summary>
+    public IReadOnlyList<ZoomWindow> Zooms { get; init; } = [];
+    /// <summary>クリックの輪を出す時間と位置（出力動画の秒・映像の px）。</summary>
+    public IReadOnlyList<ClickWindow> Clicks { get; init; } = [];
+    public string? ClickRingFile { get; init; }
+    public int ClickRingWidth { get; init; }
+    public int ClickRingHeight { get; init; }
+
+    public bool HasClicks => Clicks.Count > 0 && ClickRingFile is not null;
+
+    /// <summary>図形が使う入力の数（図形の画像と輪の画像。タイトル・パレットはこの後の入力）。</summary>
+    public int InputCount => Images.Count + (HasClicks ? 1 : 0);
+
+    public bool IsEmpty => Images.Count == 0 && Mosaics.Count == 0 && Zooms.Count == 0 && !HasClicks;
 }
 
 /// <summary>
@@ -43,7 +60,7 @@ public sealed record VideoEncodeOptions
 /// ffmpeg 引数の生成（純粋ロジック）。UI・プロセス実行から独立させ Unit Test で検証する。
 /// すべて 1 要素 = 1 引数で返し、パスの空白・日本語・記号をエスケープせずそのまま渡す。
 /// </summary>
-public static class FFmpegArguments
+public static partial class FFmpegArguments
 {
     /// <summary>コマンドライン上限（32767）に余裕を持たせた、インライン filter_complex の最大長。</summary>
     public const int MaxInlineFilterLength = 20_000;
@@ -114,7 +131,7 @@ public static class FFmpegArguments
         // yuv420p は幅・高さが偶数である必要がある。縮小ではなく右端・下端 1px を切り落として文字をぼかさない。
         // 図形は切り落とした後の映像に重ね、その上に字幕を焼き込む。
         var post = ComposeVideoChain(oddSize ? EvenCrop : null, shapes, meta.Width & ~1, meta.Height & ~1,
-            subtitleFile is null ? null : SubtitlesFilter(subtitleFile));
+            subtitleFile is null ? null : SubtitlesFilter(subtitleFile), meta.Fps);
         bool hasShapes = shapes is { IsEmpty: false };
 
         if (title is not null)
@@ -126,7 +143,7 @@ public static class FFmpegArguments
                 main = $"[0:v:0]{post ?? "null"}[outv]" + (meta.HasAudio ? ";[0:a:0]anull[outa]" : "");
             else
                 main = BuildJoinFilter(keepRanges, meta.HasAudio, post, transitionSeconds);
-            var full = main + ";" + TitleStage(title, 1 + (shapes?.Images.Count ?? 0), meta.HasAudio, EditTimelineCalculator.OutputDuration(keepRanges),
+            var full = main + ";" + TitleStage(title, 1 + (shapes?.InputCount ?? 0), meta.HasAudio, EditTimelineCalculator.OutputDuration(keepRanges),
                 scale: null, outV: "[fv]", outA: "[fa]");
             (script, placeholder) = AddFilterComplex(args, full, ffmpegMajorVersion);
             args.AddRange(["-map", "[fv]"]);
@@ -226,14 +243,14 @@ public static class FFmpegArguments
         var scaleFilter = string.Create(CultureInfo.InvariantCulture,
             $"scale=w='min(iw,{preset.MaxWidth})':h='min(ih,{preset.MaxHeight})':force_original_aspect_ratio=decrease:flags=lanczos");
         var chain = ComposeVideoChain(null, shapes, meta.Width, meta.Height, JoinFilters(
-            subtitleFile is null ? null : SubtitlesFilter(subtitleFile), fpsFilter, scaleFilter, title is null ? tail : null))!;
+            subtitleFile is null ? null : SubtitlesFilter(subtitleFile), fpsFilter, scaleFilter, title is null ? tail : null), meta.Fps)!;
         var main = EditTimelineCalculator.IsIdentity(meta.Duration, keepRanges)
             ? $"[0:v:0]{chain}[outv]"
             : BuildJoinFilter(keepRanges, hasAudio: false, chain, transitionSeconds);
         if (title is null) return main;
         // タイトルあり: 縮小まで済ませた本編にフェードをかけ、同じ縮小をかけたタイトルを前に連結してから tail（パレット生成など）へ渡す。
         return ReplaceLast(main, "[outv]", "[tmain]") + ";"
-            + TitleStage(title, 1 + (shapes?.Images.Count ?? 0), hasAudio: false, EditTimelineCalculator.OutputDuration(keepRanges),
+            + TitleStage(title, 1 + (shapes?.InputCount ?? 0), hasAudio: false, EditTimelineCalculator.OutputDuration(keepRanges),
                 scale: scaleFilter, outV: "[tfull]", outA: null, mainLabel: "[tmain]") + $";[tfull]{tail}[outv]";
     }
 
@@ -273,8 +290,8 @@ public static class FFmpegArguments
         ShapeFilterPlan? shapes = null, TitleFilterPlan? title = null)
     {
         if (keepRanges.Count == 0) throw new ArgumentException("出力する区間がありません。", nameof(keepRanges));
-        // パレットは図形の画像・タイトルの画像の後の入力（どちらも無ければ従来どおり 1 番）。
-        var paletteIndex = 1 + (shapes?.Images.Count ?? 0) + (title is null ? 0 : 1);
+        // パレットは図形の画像（クリックの輪を含む）・タイトルの画像の後の入力（どちらも無ければ従来どおり 1 番）。
+        var paletteIndex = 1 + (shapes?.InputCount ?? 0) + (title is null ? 0 : 1);
         var filter = ReplaceLast(BuildGifFilter(keepRanges, meta, subtitleFile, preset, tail: "null", transitionSeconds, shapes, title), "[outv]", "[gifsrc]")
             + string.Create(CultureInfo.InvariantCulture, $";[gifsrc][{paletteIndex}:v]paletteuse=dither={preset.Dither}:diff_mode=rectangle[outv]");
         var args = new List<string> { "-hide_banner", "-nostdin", "-y", "-i", input };
@@ -347,7 +364,12 @@ public static class FFmpegArguments
     {
         if (shapes is null) return;
         foreach (var img in shapes.Images) args.AddRange(["-f", "png_pipe", "-i", img.File]);
+        // クリックの輪（v1.21）は図形の画像の次の入力。
+        if (shapes.HasClicks) args.AddRange(["-f", "png_pipe", "-i", shapes.ClickRingFile!]);
     }
+
+    /// <summary>クリックの輪を 1 つの overlay で出す数（式が長くなりすぎないよう、これを超えたら overlay を分ける）。</summary>
+    public const int ClicksPerOverlay = 80;
 
     /// <summary>
     /// 映像のフィルタの連なり「pre → 図形 → post」を作る。図形が無ければ従来どおり pre,post（どちらも無ければ null）。
@@ -355,8 +377,10 @@ public static class FFmpegArguments
     /// 従来の「[入力]断片[出力]」の形にそのまま埋め込める。frameWidth / frameHeight は図形を重ねる時点の映像の大きさ。
     /// モザイクは split した映像を切り出し → 縮小（平均）→ 最近傍で拡大してブロックにし、表示時間だけ元の位置へ重ねる。
     /// 画像は表示時間だけ重ねる（1 枚の画像は最後のコマを繰り返す）。時刻は出力動画の秒（字幕と同じ）。
+    /// v1.21: 画像の後にクリックの輪（位置を時刻の式にした overlay。<see cref="ClicksPerOverlay"/> 件ごとに分け、輪の入力は split で分ける）、
+    /// その後に拡大（zoompan。fps は映像のフレームレート）を足す。順は「pre → モザイク → 画像 → クリックの輪 → 拡大 → post」。
     /// </summary>
-    public static string? ComposeVideoChain(string? pre, ShapeFilterPlan? shapes, int frameWidth, int frameHeight, string? post)
+    public static string? ComposeVideoChain(string? pre, ShapeFilterPlan? shapes, int frameWidth, int frameHeight, string? post, double fps = 0)
     {
         if (shapes is null || shapes.IsEmpty) return JoinFilters(pre, post);
         var sb = new StringBuilder();
@@ -378,9 +402,55 @@ public static class FFmpegArguments
             sb.Append(CultureInfo.InvariantCulture, $";[shp{n}][{i + 1}:v]overlay={img.X}:{img.Y}:enable='{Between(img.Start, img.End)}'[shp{n + 1}]");
             n++;
         }
+        if (shapes.HasClicks) n = AppendClickOverlays(sb, shapes, n);
+        if (ZoomMath.ZoomPanFilter(shapes.Zooms, frameWidth, frameHeight, FpsText(fps)) is { } zoompan)
+        {
+            sb.Append(CultureInfo.InvariantCulture, $";[shp{n}]").Append(zoompan).Append(CultureInfo.InvariantCulture, $"[shp{n + 1}]");
+            n++;
+        }
         sb.Append(CultureInfo.InvariantCulture, $";[shp{n}]").Append(post ?? "null");
         return sb.ToString();
     }
+
+    /// <summary>
+    /// クリックの輪（v1.21）。輪の画像（入力 1 + 図形の画像の数）を、画像の中心がクリックの位置に来るよう、表示時間の間だけ重ねる。
+    /// 1 つの overlay で <see cref="ClicksPerOverlay"/> 件まで（x / y を時刻の式にする。表示時間は重ならないので和で書ける）。
+    /// 返り値は次のラベルの番号。
+    /// </summary>
+    private static int AppendClickOverlays(StringBuilder sb, ShapeFilterPlan shapes, int n)
+    {
+        int ringIndex = 1 + shapes.Images.Count;
+        int halfW = shapes.ClickRingWidth / 2, halfH = shapes.ClickRingHeight / 2;
+        var chunks = shapes.Clicks.Chunk(ClicksPerOverlay).ToList();
+        var rings = new List<string>();
+        if (chunks.Count == 1)
+        {
+            rings.Add($"[{I(ringIndex)}:v]");
+        }
+        else
+        {
+            sb.Append(CultureInfo.InvariantCulture, $";[{ringIndex}:v]split={chunks.Count}");
+            for (int k = 0; k < chunks.Count; k++)
+            {
+                var label = $"[ring{I(k)}]";
+                sb.Append(label);
+                rings.Add(label);
+            }
+        }
+        for (int k = 0; k < chunks.Count; k++)
+        {
+            var chunk = chunks[k];
+            var x = string.Join('+', chunk.Select(c => $"{Num((int)Math.Round(c.X) - halfW)}*{Between(c.Start, c.End)}"));
+            var y = string.Join('+', chunk.Select(c => $"{Num((int)Math.Round(c.Y) - halfH)}*{Between(c.Start, c.End)}"));
+            var enable = string.Join('+', chunk.Select(c => Between(c.Start, c.End)));
+            sb.Append(CultureInfo.InvariantCulture, $";[shp{n}]{rings[k]}overlay=x='{x}':y='{y}':enable='{enable}'[shp{n + 1}]");
+            n++;
+        }
+        return n;
+    }
+
+    /// <summary>式に書く整数（負の数は括弧で囲む）。</summary>
+    private static string Num(int v) => v < 0 ? $"({I(v)})" : I(v);
 
     /// <summary>表示時間 [start, end) の式（字幕と同じく終了時刻は含まない）。</summary>
     private static string Between(double start, double end) => $"gte(t,{S(start)})*lt(t,{S(end)})";

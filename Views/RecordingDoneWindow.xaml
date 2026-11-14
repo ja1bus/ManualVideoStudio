@@ -28,7 +28,7 @@
         <TextBox x:Name="NameText" TextChanged="NameText_TextChanged" AutomationProperties.Name="プロジェクト名" MaxLength="60"/>
         <TextBlock x:Name="FolderText" Style="{StaticResource Subtle}" TextWrapping="Wrap" Margin="0,4,0,0"/>
         <TextBlock x:Name="HelpText" Style="{StaticResource Subtle}" Margin="0,10,0,0" TextWrapping="Wrap"
-                   Text="保存している間にプロジェクト名を入力できます。録画ファイルは上のプロジェクトフォルダーへ移動します（名前が空なら日時だけのフォルダー）。［編集を開始］は録画した動画を開き、編集（カット・字幕など）を始めます。［保存して終了］は録画ファイルを残して録画画面を閉じます。"/>
+                   Text="保存している間にプロジェクト名を入力できます。録画ファイルは上のプロジェクトフォルダーへ移動します（名前が空なら日時だけのフォルダー）。"/>
         <TextBlock x:Name="WaitText" Style="{StaticResource Subtle}" Margin="0,6,0,0" TextWrapping="Wrap"
                    Text="ボタンは録画ファイルができてから押せます。Esc・Enter キーでは閉じません。"/>
         <StackPanel x:Name="NormalButtons" Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,14,0,0">

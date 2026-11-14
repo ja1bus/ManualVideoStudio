@@ -1,6 +1,7 @@
 <Window x:Class="ManualVideoStudio.Views.AiAssistWindow"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:local="clr-namespace:ManualVideoStudio"
         Style="{StaticResource AppWindow}" Title="AI 連携（Gemini Chat・手動）"
         Width="1280" Height="860" MinWidth="960" MinHeight="600" WindowStartupLocation="CenterOwner">
     <Window.Resources>
@@ -14,9 +15,9 @@
                 <Border DockPanel.Dock="Top" Background="{StaticResource InfoBackgroundBrush}" CornerRadius="4" Padding="10,6" Margin="0,0,0,8">
                     <StackPanel>
                         <TextBlock TextWrapping="Wrap" FontWeight="SemiBold"
-                                   Text="① ブラウザで Gemini Chat を開き、下の動画ファイルをアップロード → ② プロンプトをコピーして貼り付け・送信 → ③ Gemini の回答全体をコピーして右の欄に貼り付け → ④［解析］で内容を確認して［取り込む］"/>
+                                   Text="① Gemini Chat を開いて下の動画ファイルをアップロード → ② プロンプトを貼り付けて送信 → ③ 回答全体を右の欄に貼り付け → ④［解析］で確認して［取り込む］"/>
                         <TextBlock Style="{StaticResource Subtle}" FontSize="11" Margin="0,2,0,0"
-                                   Text="このアプリは Gemini API を使わず、ブラウザの自動操作もしません。動画は利用者が Gemini へアップロードします。時刻はすべて元動画（カット前）基準です。"/>
+                                   Text="このアプリは Gemini API を使わず、ブラウザーの自動操作もしません。動画は利用者が Gemini へアップロードします。時刻はすべて元動画（カット前）基準です。"/>
                     </StackPanel>
                 </Border>
                 <Grid>
@@ -36,20 +37,45 @@
                             <TextBlock Style="{StaticResource Step}" Text="2. この動画を Gemini にアップロード" Margin="0,12,0,6"/>
                             <TextBox Text="{Binding VideoPath, Mode=OneWay}" IsReadOnly="True"/>
                             <WrapPanel>
-                                <Button Content="Gemini を開く（ブラウザ）" Style="{StaticResource AccentButton}" Command="{Binding OpenGeminiCommand}"/>
+                                <Button Content="Gemini を開く（ブラウザー）" Style="{StaticResource AccentButton}" Command="{Binding OpenGeminiCommand}"/>
                                 <Button Content="動画のフォルダーを開く" Command="{Binding RevealVideoCommand}"/>
                                 <Button Content="動画のパスをコピー" Command="{Binding CopyVideoPathCommand}"/>
                             </WrapPanel>
 
+                            <!-- 不要区間の解析: 依頼用動画（時刻と区間番号入り。v1.21） -->
+                            <StackPanel Margin="0,6,0,0" Visibility="{Binding IsCutAnalysisMode, Converter={StaticResource BoolToVisibility}}">
+                                <TextBlock Text="{local:Str Ai.Seg.Video.Explain}" Style="{StaticResource Subtle}" FontSize="11" TextWrapping="Wrap" Margin="2,0,2,2"/>
+                                <WrapPanel>
+                                    <Button Content="{local:Str Ai.Seg.Video.Button}" Command="{Binding PrepareRequestVideoCommand}" IsEnabled="{Binding CanMakeRequestVideo}"
+                                            ToolTip="{local:Str Ai.Seg.Video.Tip}" AutomationProperties.AutomationId="Ai.RequestVideo"/>
+                                    <Button Content="{local:Str Ai.Seg.Video.OpenFolder}" Command="{Binding OpenRequestVideoFolderCommand}" IsEnabled="{Binding HasRequestVideo}"
+                                            AutomationProperties.AutomationId="Ai.RequestVideo.OpenFolder"/>
+                                    <Button Content="{local:Str Ai.Seg.Video.CopyPath}" Command="{Binding CopyRequestVideoPathCommand}" IsEnabled="{Binding HasRequestVideo}"
+                                            AutomationProperties.AutomationId="Ai.RequestVideo.CopyPath"/>
+                                </WrapPanel>
+                                <TextBlock Text="{Binding RequestVideoStatus}" TextWrapping="Wrap" Margin="2,2,2,0" AutomationProperties.AutomationId="Ai.RequestVideo.Status"/>
+                                <TextBox Text="{Binding RequestVideoPath, Mode=OneWay}" IsReadOnly="True" Margin="0,2,0,0" AutomationProperties.AutomationId="Ai.RequestVideo.Path"
+                                         Visibility="{Binding HasRequestVideo, Converter={StaticResource BoolToVisibility}}"/>
+                                <TextBlock Text="{Binding RequestVideoMessage}" Foreground="{StaticResource CaptureBrush}" TextWrapping="Wrap" Margin="2,2,2,0"
+                                           Visibility="{Binding RequestVideoMessage, Converter={StaticResource EmptyToCollapsed}}" AutomationProperties.AutomationId="Ai.RequestVideo.Message"/>
+                                <DockPanel Margin="0,2,0,0" Visibility="{Binding HasRequestOrphans, Converter={StaticResource BoolToVisibility}}">
+                                    <Button DockPanel.Dock="Right" Content="{local:Str Ai.Seg.Video.DeleteOrphans}" Command="{Binding DeleteRequestOrphansCommand}"
+                                            AutomationProperties.AutomationId="Ai.RequestVideo.DeleteOrphans"/>
+                                    <TextBlock Text="{Binding RequestOrphanText}" Style="{StaticResource Subtle}" TextWrapping="Wrap" VerticalAlignment="Center"/>
+                                </DockPanel>
+                            </StackPanel>
+
                             <DockPanel Margin="0,12,0,0">
                                 <StackPanel DockPanel.Dock="Right" Orientation="Horizontal">
-                                    <Button Content="再生成" Command="{Binding GeneratePromptCommand}" ToolTip="最新の画像ポイント・編集内容でプロンプトを作り直します"/>
-                                    <Button Content="プロンプトをコピー" Style="{StaticResource AccentButton}" Command="{Binding CopyPromptCommand}"/>
+                                    <Button Content="再生成" Command="{Binding GeneratePromptCommand}" ToolTip="最新の画像ポイント・編集内容でプロンプトを作り直します" AutomationProperties.AutomationId="Ai.GeneratePrompt"/>
+                                    <Button Content="プロンプトをコピー" Style="{StaticResource AccentButton}" Command="{Binding CopyPromptCommand}" AutomationProperties.AutomationId="Ai.CopyPrompt"/>
                                 </StackPanel>
                                 <TextBlock Style="{StaticResource Step}" Text="3. プロンプトをコピーして Gemini に貼り付け"/>
                             </DockPanel>
+                            <TextBlock Text="{Binding SegmentInfo}" Style="{StaticResource Subtle}" TextWrapping="Wrap" Margin="2,0,2,2"
+                                       Visibility="{Binding HasSegmentInfo, Converter={StaticResource BoolToVisibility}}" AutomationProperties.AutomationId="Ai.Seg.Info"/>
                             <TextBlock Text="{Binding CopyMessage}" Foreground="{StaticResource CaptureBrush}" TextWrapping="Wrap"
-                                       Visibility="{Binding CopyMessage, Converter={StaticResource EmptyToCollapsed}}"/>
+                                       Visibility="{Binding CopyMessage, Converter={StaticResource EmptyToCollapsed}}" AutomationProperties.AutomationId="Ai.CopyMessage"/>
                             <Border Background="{StaticResource WarningBackgroundBrush}" CornerRadius="4" Padding="6,3" Margin="0,4"
                                     Visibility="{Binding PromptWarning, Converter={StaticResource EmptyToCollapsed}}">
                                 <TextBlock Text="{Binding PromptWarning}" TextWrapping="Wrap"/>
@@ -72,7 +98,7 @@
                         <DockPanel>
                             <StackPanel DockPanel.Dock="Right" Orientation="Horizontal">
                                 <Button Content="クリップボードから貼り付け" Command="{Binding PasteFromClipboardCommand}" AutomationProperties.AutomationId="Ai.Paste"
-                                        ToolTip="回答欄の内容を、クリップボードの文字列で置き換えます（追記しません）。貼り付けただけでは解析も取り込みもしません"/>
+                                        ToolTip="回答欄をクリップボードの文字列で置き換えます（解析・取り込みはしません）"/>
                                 <Button Content="クリア" Command="{Binding ClearResponseCommand}" AutomationProperties.AutomationId="Ai.ClearResponse"/>
                                 <Button Content="解析" Style="{StaticResource AccentButton}" MinWidth="90" Command="{Binding ParseCommand}" AutomationProperties.AutomationId="Ai.Parse"/>
                             </StackPanel>
@@ -80,7 +106,7 @@
                         </DockPanel>
                         <TextBox Grid.Row="1" Text="{Binding ResponseText, UpdateSourceTrigger=PropertyChanged}" AutomationProperties.Name="Gemini の回答" AcceptsReturn="True" AcceptsTab="True" TextWrapping="Wrap"
                                  VerticalContentAlignment="Top" VerticalScrollBarVisibility="Auto" FontFamily="Consolas, BIZ UDGothic, Yu Gothic UI" FontSize="12"
-                                 ToolTip="JSON 以外の文章が含まれていても、```json ブロックや { } の範囲を探して解析します"/>
+                                 ToolTip="余分な文章があっても、```json ブロックや { } の範囲を探して解析します"/>
 
                         <StackPanel Grid.Row="2" Margin="0,6,0,4">
                             <TextBlock Text="{Binding PasteMessage}" TextWrapping="Wrap" Style="{StaticResource Subtle}" FontSize="11" Margin="0,0,0,4"
@@ -162,7 +188,18 @@
                                         </DataGridTemplateColumn>
                                     </DataGrid.Columns>
                                 </DataGrid>
-                                <DataGrid Grid.Row="1" ItemsSource="{Binding CutRows}" CanUserSortColumns="False" SelectionMode="Single">
+                                <DataGrid Grid.Row="1" ItemsSource="{Binding CutRows}" CanUserSortColumns="False" SelectionMode="Single" AutomationProperties.AutomationId="Ai.CutRows">
+                                    <DataGrid.RowStyle>
+                                        <Style TargetType="DataGridRow">
+                                            <Style.Triggers>
+                                                <!-- 取り込まない行（カット済み・重複。v1.21）は灰色にする。理由は注記の列 -->
+                                                <DataTrigger Binding="{Binding IsExcluded}" Value="True">
+                                                    <Setter Property="Foreground" Value="{StaticResource SubtleTextBrush}"/>
+                                                    <Setter Property="Background" Value="{StaticResource WindowBackgroundBrush}"/>
+                                                </DataTrigger>
+                                            </Style.Triggers>
+                                        </Style>
+                                    </DataGrid.RowStyle>
                                     <DataGrid.Columns>
                                         <DataGridTemplateColumn Header="取込">
                                             <DataGridTemplateColumn.CellTemplate>
@@ -171,6 +208,8 @@
                                                 </DataTemplate>
                                             </DataGridTemplateColumn.CellTemplate>
                                         </DataGridTemplateColumn>
+                                        <DataGridTextColumn Header="{local:Str Ai.Seg.Col.Segments}" Binding="{Binding SegmentIdsText}" IsReadOnly="True" FontFamily="Consolas"/>
+                                        <DataGridTextColumn Header="{local:Str Ai.Seg.Col.Category}" Binding="{Binding CategoryText}" IsReadOnly="True"/>
                                         <DataGridTextColumn Header="開始" Binding="{Binding StartText}" IsReadOnly="True" FontFamily="Consolas"/>
                                         <DataGridTextColumn Header="終了" Binding="{Binding EndText}" IsReadOnly="True" FontFamily="Consolas"/>
                                         <DataGridTextColumn Header="提案" Binding="{Binding ActionText}" IsReadOnly="True"/>
@@ -199,12 +238,12 @@
                                 <Button Content="取り込む" MinWidth="96" Command="{Binding ImportCommand}" IsEnabled="{Binding HasResult}" AutomationProperties.AutomationId="Ai.Import"
                                         ToolTip="取り込んで、この画面は開いたままにします（履歴などを続けて見られます）"/>
                                 <Button Content="取り込んで閉じる" Style="{StaticResource AccentButton}" MinWidth="120" Command="{Binding ImportAndCloseCommand}" IsEnabled="{Binding HasResult}"
-                                        AutomationProperties.AutomationId="Ai.ImportAndClose" ToolTip="取り込みに成功したときだけ、この画面を閉じます（0 件・エラーのときは開いたままです）"/>
+                                        AutomationProperties.AutomationId="Ai.ImportAndClose" ToolTip="取り込みに成功したときだけ、この画面を閉じます（0 件・エラーなら開いたまま）"/>
                                 <Button Content="閉じる" MinWidth="72" Command="{Binding CloseCommand}" AutomationProperties.AutomationId="Ai.Close"
                                         ToolTip="この画面を閉じます。まだ取り込んでいない解析結果は、反映されません"/>
                             </StackPanel>
                             <TextBlock Style="{StaticResource Subtle}" VerticalAlignment="Center" FontSize="11" TextWrapping="Wrap"
-                                       Text="取り込みは主画面の［元に戻す］（Ctrl+Z）で取り消せます。カット候補の取り込みは「採用」とは別で、採用するまで編集に反映されません。閉じるだけでは取り込みません。"/>
+                                       Text="取り込みは主画面の［元に戻す］（Ctrl+Z）で戻せます。カット候補は、採用するまで編集に反映されません。"/>
                         </DockPanel>
                     </Grid>
                 </Grid>

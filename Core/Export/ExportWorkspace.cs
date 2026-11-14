@@ -18,6 +18,8 @@ public sealed class ExportWorkspace : IDisposable
     public const string ShapeFilePrefix = "shape-";
     /// <summary>タイトルの画像のファイル名（拡張子なし。v1.15）。</summary>
     public const string TitleFileName = "title-image";
+    /// <summary>クリックの強調の輪の画像のファイル名（拡張子なし。v1.21）。</summary>
+    public const string ClickRingFileName = "click-ring";
 
     private ExportWorkspace(string? directory, string? subtitleFile, ShapeFilterPlan? shapes, TitleFilterPlan? title = null)
     {
@@ -64,7 +66,22 @@ public sealed class ExportWorkspace : IDisposable
                     await File.WriteAllBytesAsync(Path.Combine(dir, name), img.Png, ct);
                     inputs.Add(new ShapeOverlayInput(name, img.Start, img.End, img.X, img.Y));
                 }
-                plan = new ShapeFilterPlan(inputs, shapes.Mosaics);
+                plan = new ShapeFilterPlan(inputs, shapes.Mosaics) { Zooms = shapes.Zooms };
+                if (shapes.HasClicks)
+                {
+                    // 輪の画像の大きさから、画像の中心をクリックの位置に合わせる量を決める（v1.21）。
+                    var size = VideoShapeLayers.PngSize(shapes.ClickRingPng)
+                        ?? throw new InvalidOperationException("クリックの強調の画像（PNG）を読み取れません。");
+                    var windows = VideoShapeLayers.ClickWindowsOf(shapes.Clicks);
+                    if (windows.Count > 0)
+                    {
+                        await File.WriteAllBytesAsync(Path.Combine(dir, ClickRingFileName), shapes.ClickRingPng!, ct);
+                        plan = plan with
+                        {
+                            Clicks = windows, ClickRingFile = ClickRingFileName, ClickRingWidth = size.Width, ClickRingHeight = size.Height,
+                        };
+                    }
+                }
             }
             TitleFilterPlan? titlePlan = null;
             if (title is not null)

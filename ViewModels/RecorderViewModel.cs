@@ -88,6 +88,10 @@ public sealed partial class RecorderViewModel : ObservableObject
         _outputDirectory = s.ResolveOutputDirectory();
         _sizePreset = Enum.IsDefined(s.RegionSizePreset) ? s.RegionSizePreset : RegionSizePreset.Free;
         _orientation = Enum.IsDefined(s.RegionOrientation) ? s.RegionOrientation : RegionOrientation.Landscape;
+        _logInput = s.LogInput;
+        // ショートカットは録画画面を開いた時点の設定を使う（録画画面を開いている間は設定画面を開けない）。
+        Hotkeys = (s.Hotkeys ?? new RecordingHotkeys()).Clone();
+        Hotkeys.Normalize();
         _recorder.StateChanged += (_, _) => RunOnUi(OnRecorderStateChanged);
         _recorder.Interrupted += (_, detail) => RunOnUi(() => _ = OnInterruptedAsync(detail));
         RefreshTargets();
@@ -145,6 +149,64 @@ public sealed partial class RecorderViewModel : ObservableObject
     [ObservableProperty] private bool _isCountingDown;
     /// <summary>停止してから録画完了の選択が終わるまで（録画画面・枠を出さず、ショートカットも受け付けない）。</summary>
     [ObservableProperty] private bool _isFinishing;
+    /// <summary>クリック位置と入力の時刻を記録する（v1.21。RecordingSettings.LogInput）。</summary>
+    [ObservableProperty] private bool _logInput;
+    /// <summary>不要マーカーを付けた直後に 1 秒ほど出す「マーク 3」（v1.21）。空なら出さない。</summary>
+    [ObservableProperty] private string _markerText = "";
+
+    // ---------------- ショートカット・不要マーカー（v1.21） ----------------
+
+    /// <summary>録画のショートカット（録画画面を開いた時点の設定）。</summary>
+    public RecordingHotkeys Hotkeys { get; }
+    public string StartStopHotkeyText => Hotkeys.StartStop.DisplayText;
+    public string PauseHotkeyText => Hotkeys.Pause.DisplayText;
+    public string MarkerHotkeyText => Hotkeys.Marker.DisplayText;
+    /// <summary>録画画面の［録画開始］の横に出す、ショートカットの一覧。</summary>
+    public string ShortcutHint => Loc.Format("Rec.Hotkey.Hint", StartStopHotkeyText, PauseHotkeyText, MarkerHotkeyText);
+    public string PauseToolTip => Loc.Format("Rec.Controller.Pause.Tip", PauseHotkeyText);
+    public string StopToolTip => Loc.Format("Rec.Controller.Stop.Tip", StartStopHotkeyText);
+    public string MarkerToolTip => Loc.Format("Rec.Marker.Tip", MarkerHotkeyText);
+    public string LogInputNote => Loc.Format("Rec.LogInput.Note", MarkerHotkeyText);
+
+    /// <summary>いまの録画の操作の記録係（入力の監視が使う。録画していなければ null）。</summary>
+    public RecordingEventRecorder? Events => _recorder.Events;
+
+    /// <summary>「マーク 3」を消すまでの時間。</summary>
+    public static readonly TimeSpan MarkerTextDuration = TimeSpan.FromSeconds(1);
+    private System.Windows.Threading.DispatcherTimer? _markerTimer;
+
+    /// <summary>
+    /// 不要マーカーを付ける（ショートカット・コントローラーの［不要マーク］）。録画中でなければ何もしない。
+    /// 付けたら通算の番号を返し、コントローラーに「マーク N」を 1 秒ほど出す。
+    /// </summary>
+    public int? AddMarker()
+    {
+        if (IsFinishing || State != RecordingState.Recording) return null;
+        var n = _recorder.Events?.AddMarker();
+        if (n is not { } number) return null;
+        _logger.LogInformation("Marker added: {Number}", number);
+        MarkerText = Loc.Format("Rec.Marker.Added", number);
+        _markerTimer ??= CreateMarkerTimer();
+        _markerTimer.Stop();
+        _markerTimer.Start();
+        return number;
+    }
+
+    private System.Windows.Threading.DispatcherTimer CreateMarkerTimer()
+    {
+        var t = new System.Windows.Threading.DispatcherTimer { Interval = MarkerTextDuration };
+        t.Tick += (_, _) =>
+        {
+            t.Stop();
+            MarkerText = "";
+        };
+        return t;
+    }
+
+    [RelayCommand(CanExecute = nameof(CanMark))]
+    private void Marker() => AddMarker();
+
+    private bool CanMark() => State == RecordingState.Recording;
 
     // ---------------- 追加録画（v1.18） ----------------
 
@@ -596,7 +658,7 @@ public sealed partial class RecorderViewModel : ObservableObject
         try
         {
             await _recorder.StartAsync(new RecordingStartRequest(_ffmpeg.FfmpegPath, _ffmpeg.FfprobePath,
-                new ScreenRecordingOptions(region, Fps, DrawCursor, audio), output, info));
+                new ScreenRecordingOptions(region, Fps, DrawCursor, audio), output, info, LogInput));
         }
         catch (RecordingException ex)
         {
@@ -703,12 +765,33 @@ public sealed partial class RecorderViewModel : ObservableObject
                 _logger.LogWarning(ex, "Failed to move recording into project folder");
                 _dialogs.ShowWarning($"録画ファイルをプロジェクトフォルダーへ移動できませんでした。保存先に残しています。{Environment.NewLine}{path}{Environment.NewLine}{ex.Message}");
             }
+            // 操作の記録（v1.21）は動画を移した後の場所（移せなかったときは元の場所）へ、動画と並べて書く。
+            if (result.Events is { } events) SaveEvents(path, events);
             CloseRequested?.Invoke(new RecordingOutcome(path, result.Info, choice.StartEditing, choice.Append == AppendDoneAction.Join, choice.ProjectName));
         }
         finally
         {
             IsFinishing = false;
             RaiseBusy();
+        }
+    }
+
+    /// <summary>
+    /// 操作の記録を動画と同じフォルダーの「動画名.events.json」に書く（v1.21）。書けなくても録画は成功とし、
+    /// 利用者の操作を止める表示はせず、ログにフルパスを残す（記録を使う機能が使えないだけ）。
+    /// </summary>
+    private void SaveEvents(string videoPath, RecordingEvents events)
+    {
+        string file = videoPath;
+        try
+        {
+            file = RecordingEventsFile.PathFor(videoPath);
+            RecordingEventsFile.Save(videoPath, events);
+            _logger.LogInformation("Saved recording events: {Path}", file);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Failed to save recording events: {Path}", file);
         }
     }
 
@@ -784,6 +867,7 @@ public sealed partial class RecorderViewModel : ObservableObject
         s.DrawCursor = DrawCursor;
         s.MicrophoneDevice = SelectedMicrophone?.Name ?? s.MicrophoneDevice;
         s.Countdown = Countdown;
+        s.LogInput = LogInput;
         s.OutputDirectory = string.Equals(OutputDirectory, RecordingSettings.DefaultOutputDirectory(), StringComparison.OrdinalIgnoreCase) ? "" : OutputDirectory;
         // 追加録画は元の動画に合わせて固定した条件なので、通常の録画用の保存済み設定（対象・FPS・マイク・範囲・大きさ）は書き換えない。
         if (IsAppendMode)
@@ -841,6 +925,12 @@ public sealed partial class RecorderViewModel : ObservableObject
         OnPropertyChanged(nameof(StateText));
         PauseResumeCommand.NotifyCanExecuteChanged();
         StopCommand.NotifyCanExecuteChanged();
+        MarkerCommand.NotifyCanExecuteChanged();
+        if (value != RecordingState.Recording && value != RecordingState.Paused)
+        {
+            _markerTimer?.Stop();
+            MarkerText = "";
+        }
         RecordingUiChanged?.Invoke(this, EventArgs.Empty);
     }
 

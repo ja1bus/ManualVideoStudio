@@ -21,9 +21,23 @@ public sealed record VideoExportRequest(
     double TransitionSeconds = 0,
     ISubtitleTextMeasurer? TextMeasurer = null,
     VideoShapeLayers? Shapes = null,
-    VideoTitleImage? Title = null);
+    VideoTitleImage? Title = null,
+    bool ZoomPanAvailable = true);
 
 public sealed record VideoExportProgress(double Ratio, double ProcessedSeconds, double TotalSeconds);
+
+/// <summary>拡大表示（v1.21）に必要な ffmpeg の機能の確認。</summary>
+public static class ZoomSupport
+{
+    public const string MissingZoomPanMessage =
+        "この ffmpeg には拡大表示に必要なフィルタ（zoompan）がありません。別の ffmpeg を指定するか、拡大を削除してから書き出してください。";
+
+    /// <summary>拡大があるのに zoompan が使えなければ、ffmpeg を動かす前に止める。</summary>
+    public static void EnsureAvailable(VideoShapeLayers? shapes, bool zoomPanAvailable)
+    {
+        if (!zoomPanAvailable && shapes is { Zooms.Count: > 0 }) throw new InvalidOperationException(MissingZoomPanMessage);
+    }
+}
 
 public sealed record VideoExportResult(string OutputPath, double OutputDuration, TimeSpan Elapsed);
 
@@ -46,6 +60,7 @@ public sealed class VideoExportService(IProcessRunner runner, ILogger<VideoExpor
         var output = Path.GetFullPath(request.OutputPath);
         if (string.Equals(input, output, StringComparison.OrdinalIgnoreCase))
             throw new InvalidOperationException("出力先が元動画と同じです。別のファイル名を指定してください。");
+        ZoomSupport.EnsureAvailable(request.Shapes, request.ZoomPanAvailable);
 
         var keep = EditTimelineCalculator.ComputeKeepRanges(request.Metadata.Duration, request.CutSegments);
         if (keep.Count == 0) throw new InvalidOperationException("すべての区間が削除されるため出力できません。");

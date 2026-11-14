@@ -495,7 +495,7 @@ public class SubtitleProjectPersistenceTests : IDisposable
         new ProjectService().Save(project, path);
 
         var text = File.ReadAllText(path);
-        Assert.Contains("\"schemaVersion\": 8", text);
+        Assert.Contains("\"schemaVersion\": 9", text);
         Assert.Contains("\"verticalOffset\": 54", text);
         Assert.DoesNotContain("subtitleStyle", text); // v1.5 から見た目はアプリ設定
         Assert.Contains("\"editPhase\": \"subtitle\"", text);

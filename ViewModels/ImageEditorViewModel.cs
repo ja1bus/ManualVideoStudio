@@ -20,6 +20,8 @@ public enum EditorTool
     Line,
     Text,
     Mosaic,
+    /// <summary>拡大する範囲（v1.21。動画の図形だけ）。</summary>
+    Zoom,
 }
 
 /// <summary>注釈編集画面に渡す内容。</summary>
@@ -139,7 +141,7 @@ public sealed partial class ImageEditorViewModel : ObservableObject
     public string OutputDurationText { get; } = "";
     public string SaveButtonText => IsVideoMode ? "OK（動画に反映）" : "保存（上書き）";
     public string SaveButtonToolTip => IsVideoMode
-        ? "図形と表示時間を動画に反映して閉じます（主画面の Ctrl+Z で元に戻せます） [Ctrl+S]"
+        ? "図形と表示時間を動画に反映して閉じます [Ctrl+S]"
         : "画像へ焼き込んで元のファイルに上書き保存 [Ctrl+S]";
     public string CloseButtonText => IsVideoMode ? "キャンセル" : "閉じる";
 
@@ -275,6 +277,11 @@ public sealed partial class ImageEditorViewModel : ObservableObject
     public string SelectionText => Session.Selected is { } a ? $"選択中: {AnnotationSession.KindLabel(a.Kind)}" : "";
     public string WindowTitle => (IsDirty ? "* " : "") + Title;
 
+    /// <summary>画面下のキー操作の案内（拡大の Z は動画の図形だけ）。</summary>
+    public string KeyHelpText => IsVideoMode ? Loc.Get("Zoom.KeyHelp.Video") : ImageKeyHelp;
+
+    private const string ImageKeyHelp = "V 選択 / R 四角 / A 矢印 / L 直線 / T 文字 / M モザイク / Delete 削除 / 矢印キー 1px 移動（Shift で 10px）/ Esc 取り消し・選択解除";
+
     public double StrokeWidthValue => AnnotationStyle.StrokeWidth(StrokeLevel);
 
     // ---------------- ツール・スタイル ----------------
@@ -282,6 +289,8 @@ public sealed partial class ImageEditorViewModel : ObservableObject
     [RelayCommand]
     private void SetTool(EditorTool tool)
     {
+        // 拡大は動画の図形だけ（手順書画像の注釈には出さない）。
+        if (tool == EditorTool.Zoom && !IsVideoMode) return;
         Tool = tool;
         if (tool != EditorTool.Select) Session.Select(null);
         StatusText = tool switch
@@ -291,6 +300,7 @@ public sealed partial class ImageEditorViewModel : ObservableObject
             EditorTool.Line => "直線: 始点から終点へドラッグします。",
             EditorTool.Text => "文字: 置きたい位置をクリックして文字を入力します。",
             EditorTool.Mosaic => "モザイク: 隠したい範囲をドラッグします。保存画像では元の文字を読めなくなります。",
+            EditorTool.Zoom => Loc.Get("Zoom.ToolHint"),
             _ => "選択: 注釈をクリックで選択、ドラッグで移動、つまみで変形。ダブルクリックで文字を編集。Delete で削除。",
         };
         RenderRequested?.Invoke();
@@ -366,6 +376,9 @@ public sealed partial class ImageEditorViewModel : ObservableObject
             case EditorTool.Line:
                 return AnnotationGeometry.DistanceToPoint(start, end) < AnnotationStyle.MinArrowLength ? null
                     : new LineAnnotation { X1 = start.X, Y1 = start.Y, X2 = end.X, Y2 = end.Y, Color = Color, StrokeWidth = StrokeWidthValue };
+            case EditorTool.Zoom when IsVideoMode:
+                // 縦横比は背景（動画の 1 コマ）と同じ、幅は画像の 25%～90%（v1.21）。
+                return ZoomGeometry.FromDrag(start, end, Session.ImageWidth, Session.ImageHeight);
             default:
                 return null;
         }
@@ -379,10 +392,18 @@ public sealed partial class ImageEditorViewModel : ObservableObject
             StatusText = "範囲が小さすぎるため作成しませんでした。ドラッグして範囲を指定してください。";
             return;
         }
+        if (shape is ZoomAnnotation zoom)
+        {
+            var replaced = Session.Zoom is not null;
+            Session.Add(zoom);
+            Session.Select(null);
+            StatusText = Loc.Format(replaced ? "Zoom.Replaced" : "Zoom.Added", ZoomFactorText(zoom));
+            return;
+        }
         Session.Add(shape);
         // 続けて描けるよう選択は外す（選択したままだと色・線幅の切り替えが作ったばかりの注釈に適用されるため）。
         Session.Select(null);
-        StatusText = $"{AnnotationSession.KindLabel(shape.Kind)}を追加しました（Ctrl+Z で取り消し）。移動・変形は［選択］ツールで行います。";
+        StatusText = $"{AnnotationSession.KindLabel(shape.Kind)}を追加しました。移動・変形は［選択］ツールで行います。";
     }
 
     /// <summary>文字ツールでクリックした位置に文字を追加する。</summary>
@@ -427,6 +448,13 @@ public sealed partial class ImageEditorViewModel : ObservableObject
 
     public (double Width, double Height) MeasureText(TextAnnotation t, double styleScale) => AnnotationDrawing.MeasureText(t, styleScale);
 
+    /// <summary>拡大の倍率の表示（例: 「×2.0」。小数第 1 位に丸める）。</summary>
+    public string ZoomFactorText(ZoomAnnotation z)
+        => "×" + ZoomGeometry.DisplayFactor(z, Session.ImageWidth).ToString("0.0", System.Globalization.CultureInfo.InvariantCulture);
+
+    /// <summary>編集画面に描く拡大の表示（例: 「拡大 ×2.0」）。</summary>
+    public string ZoomLabel(ZoomAnnotation z) => Loc.Format("Zoom.Label", ZoomFactorText(z));
+
     // ---------------- 編集操作 ----------------
 
     [RelayCommand]
@@ -444,7 +472,7 @@ public sealed partial class ImageEditorViewModel : ObservableObject
     {
         if (Session.Selected is not { } a) return;
         Session.RemoveSelected();
-        StatusText = $"{AnnotationSession.KindLabel(a.Kind)}を削除しました（Ctrl+Z で元に戻す）。";
+        StatusText = $"{AnnotationSession.KindLabel(a.Kind)}を削除しました。";
     }
 
     [RelayCommand]
@@ -452,10 +480,10 @@ public sealed partial class ImageEditorViewModel : ObservableObject
     {
         if (Session.Items.Count == 0) return;
         var what = IsVideoMode ? "図形" : "この画像の注釈";
-        if (Session.Items.Count > 1 && !_dialogs.Confirm($"{what} {Session.Items.Count} 件をすべて削除しますか？（Ctrl+Z で元に戻せます）", "全削除"))
+        if (Session.Items.Count > 1 && !_dialogs.Confirm($"{what} {Session.Items.Count} 件をすべて削除しますか？（Ctrl+Z で元に戻せます）", "すべて削除"))
             return;
         Session.Clear();
-        StatusText = $"{(IsVideoMode ? "図形" : "注釈")}をすべて削除しました（Ctrl+Z で元に戻す）。";
+        StatusText = $"{(IsVideoMode ? "図形" : "注釈")}をすべて削除しました。";
     }
 
     private bool CanUndo() => Session.History.CanUndo;
@@ -591,6 +619,14 @@ public sealed partial class ImageEditorViewModel : ObservableObject
         }
         var shapes = Session.Snapshot();
         foreach (var a in shapes) a.RoundCoordinates();
+        // 拡大（v1.21）の数・倍率・範囲。エラーは表示時間と同じ欄に出し、閉じない。
+        var check = ShapeGroupValidator.ValidateShapes(shapes, Session.ImageWidth, Session.ImageHeight);
+        if (!check.IsValid)
+        {
+            TimeError = string.Join(Environment.NewLine, check.Errors);
+            StatusText = TimeError;
+            return false;
+        }
         var r = video.Commit(shapes, Session.ImageWidth, Session.ImageHeight, start, end);
         if (!r.Success)
         {
@@ -628,6 +664,8 @@ public sealed partial class ImageEditorViewModel : ObservableObject
 
     private void OnSessionChanged()
     {
+        // 図形を直したら、前回の［OK］のエラー（拡大の倍率など）は消す。
+        if (IsVideoMode) TimeError = "";
         OnPropertyChanged(nameof(IsDirty));
         OnPropertyChanged(nameof(HasSelection));
         OnPropertyChanged(nameof(HasAnnotations));

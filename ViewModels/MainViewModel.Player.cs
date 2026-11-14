@@ -69,6 +69,7 @@ public sealed partial class MainViewModel
     public void SeekTo(double time)
     {
         if (!HasProject) return;
+        if (!_reverseStepping) StopReverse(); // 自分で移動したら、逆方向の再生（J）も止める（v1.21）
         ClearPreviewState(pause: false); // 自分で移動したら、試し再生・つなぎ目の再生は終わり
         time = Math.Clamp(time, 0, Duration > 0 ? Duration : double.MaxValue);
         CurrentTime = Math.Round(time, 3);
@@ -79,11 +80,18 @@ public sealed partial class MainViewModel
     [RelayCommand]
     private void PlayPause()
     {
+        // 逆方向に再生中（J）なら、一時停止として止める（v1.21）。
+        if (_reversing)
+        {
+            StopReverse();
+            return;
+        }
         if (_player is not { IsOpened: true }) return;
         if (_player.IsPlaying)
         {
             _player.Pause();
             IsPlaying = false;
+            PlaybackRate = 1;
             // 一時停止位置をフレーム境界の値として確定する。
             SeekTo(_player.Position);
         }
@@ -91,6 +99,9 @@ public sealed partial class MainViewModel
         {
             ClearPreviewState(pause: false);
             if (Duration > 0 && CurrentTime >= Duration - 0.05) SeekTo(0);
+            // Space の再生は常に ×1 から（v1.21）。
+            PlaybackRate = 1;
+            _player.SpeedRatio = 1;
             _player.Play();
             IsPlaying = true;
         }
@@ -98,6 +109,7 @@ public sealed partial class MainViewModel
 
     private void PauseIfPlaying()
     {
+        StopReverse(); // 逆方向の再生（J）も止める（v1.21）
         if (_player is { IsPlaying: true })
         {
             _player.Pause();

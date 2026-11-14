@@ -3,7 +3,9 @@ using System.Globalization;
 using System.Windows;
 using System.Windows.Input;
 using System.Windows.Media;
+using ManualVideoStudio.Core.Editing;
 using ManualVideoStudio.Core.Models;
+using ManualVideoStudio.Core.Recording;
 
 namespace ManualVideoStudio.Controls;
 
@@ -15,16 +17,30 @@ namespace ManualVideoStudio.Controls;
 /// 操作: クリック・ドラッグでシーク、Ctrl+ホイールで拡大縮小、ホイールで左右移動（拡大時）、ダブルクリックで全体表示。
 /// 確定カット・候補をクリックすると、シークに加えて対応する項目を通知する（<see cref="ItemClicked"/>。一覧の行を選ぶ。v1.17.0）。
 /// 一覧で選択中のカット・候補は枠線で強調し、拡大表示で画面の外にあれば見える位置へ移動する。
+/// v1.21: 録画時の操作の記録がある動画では、目盛りと候補の間に「操作」の段（クリック＝点、キー入力＝細い帯、マウス移動＝淡い帯、
+/// 不要マーカー＝橙の旗）を足し、下の段を 12px 下げる（記録が無ければ従来と同じ配置・高さ）。
+/// 確定カットの端（±4px）はドラッグで動かせる（字幕編集中は無効。吸着 ±5px、Shift で吸着なし、Esc で取り消し）。
 /// </summary>
 public sealed class TimelineControl : FrameworkElement
 {
     private const double RulerHeight = 18;
-    private const double CandidateTop = 22, CandidateHeight = 14;
-    private const double TrackTop = 40, TrackHeight = 34;
-    private const double SubtitleTop = 78, SubtitleHeight = 18;
-    private const double ShapeTop = 98, ShapeHeight = 16;
-    private const double CaptureTop = 118, CaptureHeight = 20;
+    // 操作の段（v1.21。録画時の操作の記録がある動画だけ。目盛りと候補の間に置き、下の段を OpsShift ずつ下げる）。
+    private const double OpsTop = 21, OpsHeight = 10, OpsShift = 12;
+    private const double CandidateHeight = 14;
+    private const double TrackHeight = 34;
+    private const double SubtitleHeight = 18;
+    private const double ShapeHeight = 16;
+    private const double CaptureHeight = 20;
     private const double SidePadding = 8;
+
+    /// <summary>操作の段を出すか（記録が無い動画では出さず、高さも取らない）。</summary>
+    private bool ShowOps => RecordingEvents is not null;
+    private double Shift => ShowOps ? OpsShift : 0;
+    private double CandidateTop => 22 + Shift;
+    private double TrackTop => 40 + Shift;
+    private double SubtitleTop => 78 + Shift;
+    private double ShapeTop => 98 + Shift;
+    private double CaptureTop => 118 + Shift;
 
     private static readonly Brush NormalBrush = Freeze(new SolidColorBrush(Color.FromRgb(0xD5, 0xDC, 0xE4)));
     private static readonly Brush RemoveBrush = Freeze(new SolidColorBrush(Color.FromRgb(0xE5, 0x48, 0x4D)));
@@ -51,10 +67,34 @@ public sealed class TimelineControl : FrameworkElement
     private static readonly Pen SelectOuterPen = Freeze(new Pen(new SolidColorBrush(Color.FromRgb(0x11, 0x18, 0x27)), 3));
     private static readonly Pen SelectInnerPen = Freeze(new Pen(Brushes.White, 1.2));
     private static readonly Typeface Face = new("Segoe UI");
+    // 操作の段（v1.21）: クリック＝点、キー入力＝細い帯、マウス移動＝さらに淡く細い帯、不要マーカー＝橙の旗。
+    private static readonly Brush OpsLaneBrush = Freeze(new SolidColorBrush(Color.FromRgb(0xF1, 0xF3, 0xF6)));
+    private static readonly Brush ClickDotBrush = Freeze(new SolidColorBrush(Color.FromRgb(0x33, 0x41, 0x55)));
+    private static readonly Brush KeyRangeBrush = Freeze(new SolidColorBrush(Color.FromRgb(0x64, 0x74, 0x8B)));
+    private static readonly Brush MoveRangeBrush = Freeze(new SolidColorBrush(Color.FromArgb(0x50, 0x94, 0xA3, 0xB8)));
+    private static readonly Brush MarkerBrush = Freeze(new SolidColorBrush(Color.FromRgb(0xF9, 0x73, 0x16)));
+    private static readonly Pen MarkerPen = Freeze(new Pen(new SolidColorBrush(Color.FromRgb(0xF9, 0x73, 0x16)), 1.2));
+    // カットの端のドラッグ中の仮の範囲（v1.21）。
+    private static readonly Brush EdgeDragBrush = Freeze(new SolidColorBrush(Color.FromArgb(0x90, 0xE5, 0x48, 0x4D)));
+    private static readonly Pen EdgeDragPen = Freeze(new Pen(new SolidColorBrush(Color.FromRgb(0x11, 0x18, 0x27)), 1.5) { DashStyle = DashStyles.Dash });
+    private static readonly Pen EdgeLinePen = Freeze(new Pen(new SolidColorBrush(Color.FromRgb(0x11, 0x18, 0x27)), 2));
 
     private double _viewStart;
     private double _viewLength;
     private bool _dragging;
+
+    /// <summary>カットの端のドラッグ中の状態（v1.21。ドラッグしていなければ null）。</summary>
+    private EdgeDragState? _edgeDrag;
+
+    private sealed class EdgeDragState(CutSegment cut, CutEdge edge, double playhead)
+    {
+        public CutSegment Cut { get; } = cut;
+        public CutEdge Edge { get; } = edge;
+        /// <summary>ドラッグを始めたときの再生位置（ドラッグ中はシークで動くため、吸着先は始めた時点の値）。</summary>
+        public double Playhead { get; } = playhead;
+        public double Start { get; set; } = cut.Start;
+        public double End { get; set; } = cut.End;
+    }
 
     public TimelineControl()
     {
@@ -81,7 +121,10 @@ public sealed class TimelineControl : FrameworkElement
     public static readonly DependencyProperty SelectedCandidateIdsProperty = Reg<IEnumerable?>(nameof(SelectedCandidateIds), null);
     public static readonly DependencyProperty SelectedSubtitleIdsProperty = Reg<IEnumerable?>(nameof(SelectedSubtitleIds), null);
     public static readonly DependencyProperty SelectedShapeIdsProperty = Reg<IEnumerable?>(nameof(SelectedShapeIds), null);
-    public static readonly DependencyProperty HoverTextProperty = DependencyProperty.Register(nameof(HoverText), typeof(string), typeof(TimelineControl), new PropertyMetadata(""));
+    /// <summary>録画時の操作の記録（v1.21）。null なら操作の段を出さない。</summary>
+    public static readonly DependencyProperty RecordingEventsProperty = DependencyProperty.Register(nameof(RecordingEvents), typeof(RecordingEvents), typeof(TimelineControl),
+        new FrameworkPropertyMetadata(null, FrameworkPropertyMetadataOptions.AffectsMeasure | FrameworkPropertyMetadataOptions.AffectsRender));
+    public static readonly DependencyProperty HoverTextProperty =DependencyProperty.Register(nameof(HoverText), typeof(string), typeof(TimelineControl), new PropertyMetadata(""));
 
     public double Duration { get => (double)GetValue(DurationProperty); set => SetValue(DurationProperty, value); }
     public double CurrentTime { get => (double)GetValue(CurrentTimeProperty); set => SetValue(CurrentTimeProperty, value); }
@@ -109,9 +152,17 @@ public sealed class TimelineControl : FrameworkElement
     public IEnumerable? SelectedShapeIds { get => (IEnumerable?)GetValue(SelectedShapeIdsProperty); set => SetValue(SelectedShapeIdsProperty, value); }
     /// <summary>マウス位置の時刻と要素の説明（下部の表示用）。</summary>
     public string HoverText { get => (string)GetValue(HoverTextProperty); set => SetValue(HoverTextProperty, value); }
+    /// <summary>録画時の操作の記録（クリック・キー入力・マウス移動の範囲・不要マーカー。時刻は元動画の秒）。</summary>
+    public RecordingEvents? RecordingEvents { get => (RecordingEvents?)GetValue(RecordingEventsProperty); set => SetValue(RecordingEventsProperty, value); }
 
     /// <summary>クリック・ドラッグでシーク要求。</summary>
     public event EventHandler<double>? SeekRequested;
+
+    /// <summary>確定カットの端をドラッグして離した（v1.21。範囲が変わったときだけ）。</summary>
+    public event EventHandler<CutEdgeDraggedEventArgs>? CutEdgeDragged;
+
+    /// <summary>カットの端をドラッグ中か。</summary>
+    public bool IsEdgeDragging => _edgeDrag is not null;
 
     /// <summary>確定カット（赤・橙）または候補（青・紫）をクリックした。Ctrl+クリックは選択への追加・解除。</summary>
     public event EventHandler<TimelineItemClickedEventArgs>? ItemClicked;
@@ -255,9 +306,19 @@ public sealed class TimelineControl : FrameworkElement
     {
         if (Duration <= 0) return;
         if (e.ClickCount == 2) { ResetZoom(); return; }
+        var pos = e.GetPosition(this);
+        // 確定カットの端（±4px）で押したら、シークではなく端のドラッグを始める（v1.21。字幕編集中は無効）。
+        if (EdgeAt(pos) is { } edgeHit)
+        {
+            _edgeDrag = new EdgeDragState(edgeHit.Cut, edgeHit.Edge, CurrentTime);
+            CaptureMouse();
+            ItemClicked?.Invoke(this, new TimelineItemClickedEventArgs(ViewModels.ListKind.Cuts, edgeHit.Cut.Id, false));
+            InvalidateVisual();
+            e.Handled = true;
+            return;
+        }
         _dragging = true;
         CaptureMouse();
-        var pos = e.GetPosition(this);
         var time = T(pos.X);
         SeekRequested?.Invoke(this, time);
         if (HitItem(time, pos.Y) is { } hit)
@@ -270,21 +331,104 @@ public sealed class TimelineControl : FrameworkElement
         if (Duration <= 0) return;
         var p = e.GetPosition(this);
         var t = T(p.X);
+        if (_edgeDrag is { } drag)
+        {
+            if (e.LeftButton == MouseButtonState.Pressed) UpdateEdgeDrag(drag, t);
+            HoverText = $"{TimeFormat.Format(drag.Edge == CutEdge.Start ? drag.Start : drag.End)}　{Loc.Format("Timeline.EdgeDrag.Hover", TimeFormat.FormatShort(drag.Start), TimeFormat.FormatShort(drag.End))}";
+            return;
+        }
         if (_dragging && e.LeftButton == MouseButtonState.Pressed) SeekRequested?.Invoke(this, t);
+        Cursor = !_dragging && EdgeAt(p) is not null ? Cursors.SizeWE : Cursors.Hand;
         HoverText = Describe(t, p.Y);
     }
 
     protected override void OnMouseLeftButtonUp(MouseButtonEventArgs e)
     {
         _dragging = false;
+        if (_edgeDrag is { } drag)
+        {
+            _edgeDrag = null;
+            ReleaseMouseCapture();
+            InvalidateVisual();
+            if (Math.Abs(drag.Start - drag.Cut.Start) > 1e-9 || Math.Abs(drag.End - drag.Cut.End) > 1e-9)
+                CutEdgeDragged?.Invoke(this, new CutEdgeDraggedEventArgs(drag.Cut.Id, drag.Start, drag.End));
+            return;
+        }
         ReleaseMouseCapture();
     }
 
-    protected override void OnMouseLeave(MouseEventArgs e) => HoverText = "";
+    protected override void OnLostMouseCapture(MouseEventArgs e)
+    {
+        base.OnLostMouseCapture(e);
+        // 別の画面へ切り替わったなどでマウスを離さないまま終わったら、端のドラッグは取り消す。
+        if (_edgeDrag is not null) CancelEdgeDrag();
+        _dragging = false;
+    }
+
+    protected override void OnMouseLeave(MouseEventArgs e)
+    {
+        if (_edgeDrag is null) HoverText = "";
+    }
+
+    /// <summary>端のドラッグを取り消す（Esc。主画面がキーを受けて呼ぶ）。ドラッグ中でなければ false。</summary>
+    public bool CancelEdgeDrag()
+    {
+        if (_edgeDrag is not { } drag) return false;
+        _edgeDrag = null;
+        if (IsMouseCaptured) ReleaseMouseCapture();
+        InvalidateVisual();
+        // 画面は元の端の位置へ戻す。
+        SeekRequested?.Invoke(this, drag.Edge == CutEdge.Start ? drag.Cut.Start : drag.Cut.End);
+        HoverText = Loc.Get("Timeline.EdgeDrag.Cancelled");
+        return true;
+    }
+
+    /// <summary>マウス位置が確定カットの端（±4px）なら、そのカットと端。カットの段の中だけ、字幕編集中は null。</summary>
+    private (CutSegment Cut, CutEdge Edge)? EdgeAt(Point p)
+    {
+        if (CutLocked || Duration <= 0 || p.Y < TrackTop || p.Y >= TrackTop + TrackHeight) return null;
+        return TimelineEdgeDrag.HitEdge(Items<CutSegment>(Segments).ToList(), T(p.X), SecondsPerPixel);
+    }
+
+    private double SecondsPerPixel => ViewLength / TrackWidth;
+
+    private void UpdateEdgeDrag(EdgeDragState drag, double t)
+    {
+        var (start, end) = TimelineEdgeDrag.Drag(drag.Cut.Start, drag.Cut.End, drag.Edge, t, Duration, SnapTargets(drag), SecondsPerPixel,
+            noSnap: Keyboard.Modifiers.HasFlag(ModifierKeys.Shift));
+        drag.Start = start;
+        drag.End = end;
+        InvalidateVisual();
+        SeekRequested?.Invoke(this, drag.Edge == CutEdge.Start ? start : end);
+    }
+
+    /// <summary>吸着先: 画面変化の目印・入力の範囲の端・クリック・不要マーカー・ドラッグを始めたときの再生位置。</summary>
+    private List<double> SnapTargets(EdgeDragState drag)
+    {
+        var list = new List<double>(Items<double>(SceneChanges)) { drag.Playhead };
+        if (RecordingEvents is { } ev)
+        {
+            list.AddRange(ev.KeyRanges.SelectMany(r => new[] { r.Start, r.End }));
+            list.AddRange(ev.MoveRanges.SelectMany(r => new[] { r.Start, r.End }));
+            list.AddRange(ev.Clicks.Select(c => c.T));
+            list.AddRange(ev.Markers);
+        }
+        return list;
+    }
 
     private string Describe(double t, double y)
     {
         var parts = new List<string> { TimeFormat.Format(t) };
+        if (RecordingEvents is { } ev)
+        {
+            // 不要マーカーは縦線が候補の段まで伸びるので、その高さまで。クリック・キー入力は操作の段の中だけ。
+            if (y < CandidateTop + CandidateHeight && ev.Markers.Any(m => Math.Abs(X(m) - X(t)) <= 4)) parts.Add(Loc.Get("Timeline.Hover.Marker"));
+            if (y >= OpsTop - 1 && y < OpsTop + OpsHeight + 1)
+            {
+                if (ev.Clicks.Any(c => Math.Abs(X(c.T) - X(t)) <= 3)) parts.Add(Loc.Get("Timeline.Hover.Click"));
+                if (ev.KeyRanges.Any(r => r.Start <= t && t <= r.End)) parts.Add(Loc.Get("Timeline.Hover.Key"));
+            }
+        }
         if (y >= CandidateTop && y < TrackTop)
             foreach (var c in Items<CutCandidate>(Candidates).Where(c => c.Start <= t && t <= c.End && c.Status != CandidateStatus.Accepted))
                 parts.Add($"{(c.Source == SegmentSource.Ai ? "AI 候補" : "ローカル候補")}{(c.Status == CandidateStatus.Dismissed ? "（却下）" : "")}: {c.Reason}（{c.Confidence:0%}）");
@@ -321,6 +465,7 @@ public sealed class TimelineControl : FrameworkElement
         var viewEnd = _viewStart + ViewLength;
 
         DrawRuler(dc, viewEnd, dpi);
+        if (RecordingEvents is { } events) DrawOperations(dc, events, viewEnd);
 
         // 編集トラック（通常区間）
         dc.DrawRoundedRectangle(NormalBrush, null, new Rect(X(0), TrackTop, X(Duration) - X(0), TrackHeight), 3, 3);
@@ -367,6 +512,21 @@ public sealed class TimelineControl : FrameworkElement
         if (selCands.Count > 0)
             foreach (var c in Items<CutCandidate>(Candidates).Where(c => selCands.Contains(c.Id) && c.End >= _viewStart && c.Start <= viewEnd))
                 DrawSelection(dc, new Rect(X(c.Start), CandidateTop, Math.Max(3, X(c.End) - X(c.Start)), CandidateHeight));
+
+        // カットの端のドラッグ中: 元の範囲を通常の色で隠し、仮の範囲を破線の枠で描く（v1.21）。
+        if (_edgeDrag is { } drag)
+        {
+            dc.DrawRectangle(NormalBrush, null, new Rect(X(drag.Cut.Start), TrackTop, Math.Max(1, X(drag.Cut.End) - X(drag.Cut.Start)), TrackHeight));
+            var r = new Rect(X(drag.Start), TrackTop, Math.Max(2, X(drag.End) - X(drag.Start)), TrackHeight);
+            dc.DrawRectangle(EdgeDragBrush, EdgeDragPen, r);
+            var ex = drag.Edge == CutEdge.Start ? r.Left : r.Right;
+            dc.DrawLine(EdgeLinePen, new Point(ex, TrackTop - 3), new Point(ex, TrackTop + TrackHeight + 3));
+        }
+
+        // 不要マーカー（橙の旗。操作の段の上から候補の段まで縦線。v1.21）
+        if (RecordingEvents is { } ev)
+            foreach (var m in ev.Markers.Where(m => m >= _viewStart && m <= viewEnd))
+                DrawMarker(dc, X(m));
 
         // カット範囲の指定中（開始・終了）
         if (MarkIn is not null || MarkOut is not null)
@@ -481,6 +641,43 @@ public sealed class TimelineControl : FrameworkElement
             DrawText(dc, $"拡大表示中 {TimeFormat.FormatShort(_viewStart)}～{TimeFormat.FormatShort(viewEnd)}（ダブルクリックで全体）", w - 330, CaptureTop + 6, 10);
     }
 
+    /// <summary>
+    /// 操作の段（v1.21）: マウス移動の範囲（淡い帯・段の下半分）、キー入力の範囲（細い帯）、クリック（小さな点）。
+    /// 見えている範囲の外は描かない。同じ画素に重なる点・帯は 1 つにまとめて描く（長い録画でも描画を軽くする）。
+    /// </summary>
+    private void DrawOperations(DrawingContext dc, RecordingEvents ev, double viewEnd)
+    {
+        dc.DrawRectangle(OpsLaneBrush, null, new Rect(X(0), OpsTop, X(Duration) - X(0), OpsHeight));
+        foreach (var r in ev.MoveRanges.Where(r => r.End >= _viewStart && r.Start <= viewEnd))
+            dc.DrawRectangle(MoveRangeBrush, null, new Rect(X(r.Start), OpsTop + OpsHeight - 3, Math.Max(1, X(r.End) - X(r.Start)), 2));
+        foreach (var r in ev.KeyRanges.Where(r => r.End >= _viewStart && r.Start <= viewEnd))
+            dc.DrawRectangle(KeyRangeBrush, null, new Rect(X(r.Start), OpsTop + 2, Math.Max(1.5, X(r.End) - X(r.Start)), 3));
+        double lastX = double.NegativeInfinity;
+        foreach (var c in ev.Clicks)
+        {
+            if (c.T < _viewStart || c.T > viewEnd) continue;
+            var x = X(c.T);
+            if (x - lastX < 1) continue;
+            lastX = x;
+            dc.DrawEllipse(ClickDotBrush, null, new Point(x, OpsTop + OpsHeight / 2 + 1), 2, 2);
+        }
+    }
+
+    /// <summary>不要マーカーの旗（段の上端に小さな橙の旗、候補の段の下端まで縦線）。</summary>
+    private void DrawMarker(DrawingContext dc, double x)
+    {
+        dc.DrawLine(MarkerPen, new Point(x, OpsTop - 1), new Point(x, CandidateTop + CandidateHeight));
+        var flag = new StreamGeometry();
+        using (var g = flag.Open())
+        {
+            g.BeginFigure(new Point(x, OpsTop - 1), true, true);
+            g.LineTo(new Point(x + 7, OpsTop + 2), true, false);
+            g.LineTo(new Point(x, OpsTop + 5), true, false);
+        }
+        flag.Freeze();
+        dc.DrawGeometry(MarkerBrush, null, flag);
+    }
+
     private static void DrawSelection(DrawingContext dc, Rect r)
     {
         r.Inflate(1.5, 1.5);
@@ -508,6 +705,94 @@ public sealed class TimelineControl : FrameworkElement
         var ft = new FormattedText(text, CultureInfo.CurrentUICulture, FlowDirection.LeftToRight, Face, size, brush ?? TextBrush,
             VisualTreeHelper.GetDpi(this).PixelsPerDip);
         dc.DrawText(ft, new Point(x, y));
+    }
+}
+
+/// <summary>確定カットの端をドラッグして離したときの新しい範囲（元動画の秒）。</summary>
+public sealed class CutEdgeDraggedEventArgs(string id, double start, double end) : EventArgs
+{
+    public string Id { get; } = id;
+    public double Start { get; } = start;
+    public double End { get; } = end;
+}
+
+/// <summary>
+/// カットの端のドラッグ（v1.21。設計 3.3）の純粋な計算。画面に依存しないので単体で試験する。
+/// 端の当たり判定は ±<see cref="EdgeTolerancePx"/>px、吸着は ±<see cref="SnapTolerancePx"/>px、長さは <see cref="CutEdgeTarget.MinLength"/> 秒以上。
+/// </summary>
+public static class TimelineEdgeDrag
+{
+    public const double EdgeTolerancePx = 4;
+    public const double SnapTolerancePx = 5;
+
+    /// <summary>
+    /// time（元動画の秒）が確定カットの開始・終了の ±tolerancePx px（secondsPerPixel で秒に直す）に入れば、最も近い端。
+    /// 同じ距離なら、カットの内側にある方（開始なら time ≥ 開始、終了なら time ≤ 終了）を選ぶ（隣り合うカットの境目で、押した側のカットを動かす）。
+    /// </summary>
+    public static (CutSegment Cut, CutEdge Edge)? HitEdge(IReadOnlyList<CutSegment> cuts, double time, double secondsPerPixel, double tolerancePx = EdgeTolerancePx)
+    {
+        if (!(secondsPerPixel > 0)) return null;
+        var tol = tolerancePx * secondsPerPixel;
+        (CutSegment Cut, CutEdge Edge)? best = null;
+        double bestScore = double.MaxValue;
+        foreach (var c in cuts)
+        {
+            Consider(c, CutEdge.Start, c.Start, time >= c.Start);
+            Consider(c, CutEdge.End, c.End, time <= c.End);
+        }
+        return best;
+
+        void Consider(CutSegment c, CutEdge edge, double at, bool inside)
+        {
+            var d = Math.Abs(time - at);
+            if (d > tol + 1e-12) return;
+            // 内側の端を少しだけ優先する（同じ距離のときだけ効く）。
+            var score = d + (inside ? 0 : 1e-9);
+            if (score < bestScore)
+            {
+                bestScore = score;
+                best = (c, edge);
+            }
+        }
+    }
+
+    /// <summary>time を、±tolerancePx px 以内で最も近い吸着先へ寄せる。無ければそのまま。</summary>
+    public static double Snap(double time, IEnumerable<double> targets, double secondsPerPixel, double tolerancePx = SnapTolerancePx)
+    {
+        if (!(secondsPerPixel > 0)) return time;
+        var tol = tolerancePx * secondsPerPixel;
+        double best = time, bestD = double.MaxValue;
+        foreach (var s in targets)
+        {
+            if (!double.IsFinite(s)) continue;
+            var d = Math.Abs(s - time);
+            if (d <= tol + 1e-12 && d < bestD)
+            {
+                bestD = d;
+                best = s;
+            }
+        }
+        return best;
+    }
+
+    /// <summary>
+    /// ドラッグ中のマウス位置 time に対する新しい範囲。noSnap（Shift）でなければ吸着先へ寄せてから <see cref="Resize"/> する。
+    /// </summary>
+    public static (double Start, double End) Drag(double start, double end, CutEdge edge, double time, double duration,
+        IEnumerable<double> snapTargets, double secondsPerPixel, bool noSnap)
+        => Resize(start, end, edge, noSnap ? time : Snap(time, snapTargets, secondsPerPixel), duration);
+
+    /// <summary>
+    /// 端を time に動かした新しい範囲（ミリ秒に丸める）。動かさない側は元のまま、長さは <see cref="CutEdgeTarget.MinLength"/> 秒以上、[0, duration] の中。
+    /// duration が 0 以下なら上限を設けない。
+    /// </summary>
+    public static (double Start, double End) Resize(double start, double end, CutEdge edge, double time, double duration)
+    {
+        var max = duration > 0 ? duration : double.MaxValue;
+        time = Math.Round(time, 3);
+        if (edge == CutEdge.Start)
+            return (Math.Clamp(time, 0, Math.Max(0, Math.Round(end - CutEdgeTarget.MinLength, 3))), end);
+        return (start, Math.Clamp(time, Math.Min(max, Math.Round(start + CutEdgeTarget.MinLength, 3)), max));
     }
 }
 

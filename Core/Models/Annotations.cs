@@ -18,6 +18,8 @@ public enum AnnotationKind
     Mosaic,
     /// <summary>矢じりの無い直線（v1.6）。</summary>
     Line,
+    /// <summary>拡大する範囲（v1.21。動画に重ねる図形だけで使う。手順書画像の注釈には使わない）。</summary>
+    Zoom,
 }
 
 /// <summary>
@@ -31,6 +33,7 @@ public enum AnnotationKind
 [JsonDerivedType(typeof(TextAnnotation), "text")]
 [JsonDerivedType(typeof(MosaicAnnotation), "mosaic")]
 [JsonDerivedType(typeof(LineAnnotation), "line")]
+[JsonDerivedType(typeof(ZoomAnnotation), "zoom")]
 public abstract class Annotation
 {
     // JSON のキー順: type → id → 位置・大きさ → 種類ごとの項目（人が読みやすい順）。
@@ -45,6 +48,7 @@ public abstract class Annotation
         ArrowAnnotation => AnnotationKind.Arrow,
         TextAnnotation => AnnotationKind.Text,
         LineAnnotation => AnnotationKind.Line,
+        ZoomAnnotation => AnnotationKind.Zoom,
         _ => AnnotationKind.Mosaic,
     };
 
@@ -188,4 +192,20 @@ public sealed class MosaicAnnotation : BoxAnnotation
         base.ScaleBy(sx, sy);
         BlockSize = Math.Max(1, (int)Math.Round(BlockSize * Math.Min(sx, sy)));
     }
+}
+
+/// <summary>
+/// 拡大する範囲（v1.21。動画に重ねる図形のまとまりの中に 0～1 個）。表示時間の間、この範囲を画面いっぱいに拡大する。
+/// 範囲の縦横比は動画と同じにする（編集画面で固定）。倍率 = 基準画像の幅 / Width。
+/// 手順書画像の注釈には使わない（読み込み時に除く）。画像には描かない（枠は編集画面だけ）。
+/// </summary>
+public sealed class ZoomAnnotation : BoxAnnotation
+{
+    /// <summary>最小の倍率（範囲の幅が画像の幅の 90%）。</summary>
+    public const double MinFactor = 1.0 / 0.9;
+    /// <summary>最大の倍率（範囲の幅が画像の幅の 25%）。</summary>
+    public const double MaxFactor = 4.0;
+
+    /// <summary>基準画像の幅に対する倍率（幅が 0 以下なら 1）。</summary>
+    public double FactorFor(int imageWidth) => Width > 0 && imageWidth > 0 ? imageWidth / Width : 1;
 }

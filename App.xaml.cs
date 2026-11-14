@@ -90,6 +90,8 @@ public partial class App : Application
         sc.AddSingleton<ManualVideoStudio.Core.Join.IRecordingJoinService, ManualVideoStudio.Core.Join.RecordingJoinService>();
         sc.AddSingleton(new CaptionRequestStore(_paths.CaptionRequestDirectory));
         sc.AddSingleton<CaptionRequestService>();
+        sc.AddSingleton<AiRequestVideoService>();
+        sc.AddSingleton<CutRequestSession>();
         sc.AddSingleton<SubtitleSampleRenderer>();
         sc.AddSingleton<IGifExportService, GifExportService>();
         sc.AddSingleton<IRecordingProcessFactory>(sp => new FFmpegRecordingProcessFactory(sp.GetRequiredService<ILoggerFactory>()));

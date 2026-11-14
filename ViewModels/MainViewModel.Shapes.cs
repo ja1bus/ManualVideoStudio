@@ -52,11 +52,13 @@ public sealed partial class MainViewModel
         AddShapesCommand.NotifyCanExecuteChanged();
         // 図形の中身が変わっても同じまとまりのため、プレビューを描き直させる。
         UpdateCurrentShapes(force: true);
+        NotifyClickHighlight(); // クリックの強調の設定も元に戻す・やり直しで変わる（v1.21）
     }
 
     /// <summary>再生位置の図形をプレビューに出す（削除される位置では出さない）。</summary>
     private void UpdateCurrentShapes(bool force = false)
     {
+        UpdatePreviewOverlays(); // 拡大・クリックの輪（v1.21）も再生位置ごとに求め直す
         var p = Project;
         IReadOnlyList<ShapeGroup> now = [];
         if (p is not null && p.ShapeGroups.Count > 0 && !EditTimelineCalculator.IsRemoved(CurrentTime, KeepRanges))
@@ -110,7 +112,7 @@ public sealed partial class MainViewModel
             MarkIn = null;
             MarkOut = null;
             SelectedTabIndex = TabShapes;
-            StatusMessage = "図形を追加しました（元に戻す: Ctrl+Z）。タイムラインの赤紫の段に表示時間が出ます。";
+            StatusMessage = "図形を追加しました。タイムラインの赤紫の段に表示時間が出ます。";
         }
     }
 
@@ -126,8 +128,8 @@ public sealed partial class MainViewModel
         var frameOutput = t >= g.Start && t < g.End ? t : g.Start + Math.Min(g.Duration / 2, 1);
         if (await OpenShapeEditorAsync(g, g.Start, g.End, frameOutput))
             StatusMessage = Editor.Project.ShapeGroups.Any(x => x.Id == g.Id)
-                ? "図形を変更しました（元に戻す: Ctrl+Z）。"
-                : "図形がすべて無くなったため、まとまりを削除しました（元に戻す: Ctrl+Z）。";
+                ? "図形を変更しました。"
+                : "図形がすべて無くなったため、まとまりを削除しました。";
     }
 
     [RelayCommand]
@@ -136,7 +138,7 @@ public sealed partial class MainViewModel
         if (Editor is null || items is null || items.Count == 0 || !IsSubtitlePhase) return;
         var ids = items.OfType<ShapeGroupItem>().Select(i => i.Id).ToList();
         var r = Editor.RemoveShapeGroups(ids);
-        StatusMessage = r.Success ? $"図形を {ids.Count} 件削除しました（元に戻す: Ctrl+Z）。" : r.Message;
+        StatusMessage = r.Success ? $"図形を {ids.Count} 件削除しました。" : r.Message;
     }
 
     [RelayCommand]

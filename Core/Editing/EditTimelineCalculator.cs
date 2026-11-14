@@ -12,7 +12,7 @@ public readonly record struct TimeRange(double Start, double End)
 /// 確定カット区間から「出力に残す区間」を計算する。書き出し引数生成と出力時刻の対応付けに使う純粋ロジック。
 /// Shorten は区間の先頭から KeepSeconds だけ残す。
 /// </summary>
-public static class EditTimelineCalculator
+public static partial class EditTimelineCalculator
 {
     private const double MinRange = 0.001;
 

@@ -23,6 +23,10 @@ public enum CandidateKind
     Silence,
     FreezeAndSilence,
     Ai,
+    /// <summary>入力（クリック・キー・マウス移動）が無く、画面は動いている区間（v1.21。録画時の操作の記録がある動画だけ）。</summary>
+    Idle,
+    /// <summary>静止していて、入力も無い区間（v1.21。録画時の操作の記録がある動画だけ）。</summary>
+    IdleAndFreeze,
 }
 
 /// <summary>候補の状態。Accepted になった候補は確定 CutSegment を別途持つ。</summary>

@@ -113,4 +113,6 @@ public sealed class UiSettings
     public bool ShowProjectListOnStartup { get; set; } = true;
     /// <summary>最後にエクスポート・インポートした zip のフォルダー（v1.7）。空ならダウンロードフォルダー。</summary>
     public string LastArchiveDirectory { get; set; } = "";
+    /// <summary>解析候補で、次の未判断の候補へ移った直後に［▶ 試す］を実行する（v1.21。候補タブのチェックボックス）。</summary>
+    public bool AutoTrialNextCandidate { get; set; }
 }

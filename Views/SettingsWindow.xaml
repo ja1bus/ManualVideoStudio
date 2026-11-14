@@ -41,10 +41,10 @@
                         </Grid.RowDefinitions>
                         <TextBlock Style="{StaticResource Label}" Text="ffmpeg.exe"/>
                         <TextBox Grid.Column="1" Text="{Binding FfmpegPath, UpdateSourceTrigger=PropertyChanged}" ToolTip="空欄なら PATH から探します"/>
-                        <Button Grid.Column="2" Content="参照..." Command="{Binding BrowseFfmpegCommand}"/>
+                        <Button Grid.Column="2" Content="参照…" Command="{Binding BrowseFfmpegCommand}"/>
                         <TextBlock Grid.Row="1" Style="{StaticResource Label}" Text="ffprobe.exe（任意）"/>
                         <TextBox Grid.Row="1" Grid.Column="1" Text="{Binding FfprobePath, UpdateSourceTrigger=PropertyChanged}" ToolTip="空欄なら ffmpeg.exe と同じフォルダー → PATH から探します"/>
-                        <Button Grid.Row="1" Grid.Column="2" Content="参照..." Command="{Binding BrowseFfprobeCommand}"/>
+                        <Button Grid.Row="1" Grid.Column="2" Content="参照…" Command="{Binding BrowseFfprobeCommand}"/>
                     </Grid>
                     <WrapPanel Margin="0,6,0,0">
                         <Button Content="再検出" Style="{StaticResource AccentButton}" Command="{Binding DetectCommand}"/>
@@ -89,7 +89,7 @@
                     <StackPanel Margin="12">
                         <TextBlock Style="{StaticResource SectionTitle}" Text="プロジェクトの保存先"/>
                         <DockPanel>
-                            <Button DockPanel.Dock="Right" Content="参照..." Command="{Binding BrowseProjectRootCommand}"/>
+                            <Button DockPanel.Dock="Right" Content="参照…" Command="{Binding BrowseProjectRootCommand}"/>
                             <TextBox Text="{Binding ProjectRootDirectory, UpdateSourceTrigger=PropertyChanged}" AutomationProperties.Name="プロジェクトの保存先"/>
                         </DockPanel>
                         <TextBlock Style="{StaticResource Subtle}" TextWrapping="Wrap" Margin="0,2,0,10"
@@ -107,10 +107,10 @@
                             </Grid.RowDefinitions>
                             <TextBlock Style="{StaticResource Label}" Text="動画"/>
                             <TextBox Grid.Column="1" Text="{Binding VideoOutputDirectory, UpdateSourceTrigger=PropertyChanged}"/>
-                            <Button Grid.Column="2" Content="参照..." Command="{Binding BrowseVideoOutputCommand}"/>
+                            <Button Grid.Column="2" Content="参照…" Command="{Binding BrowseVideoOutputCommand}"/>
                             <TextBlock Grid.Row="1" Style="{StaticResource Label}" Text="画像" Visibility="{Binding IsFullMode, Converter={StaticResource BoolToVisibility}}"/>
                             <TextBox Grid.Row="1" Grid.Column="1" Text="{Binding ImageOutputDirectory, UpdateSourceTrigger=PropertyChanged}" ToolTip="空欄ならプロジェクトフォルダーの images" Visibility="{Binding IsFullMode, Converter={StaticResource BoolToVisibility}}"/>
-                            <Button Grid.Row="1" Grid.Column="2" Content="参照..." Command="{Binding BrowseImageOutputCommand}" Visibility="{Binding IsFullMode, Converter={StaticResource BoolToVisibility}}"/>
+                            <Button Grid.Row="1" Grid.Column="2" Content="参照…" Command="{Binding BrowseImageOutputCommand}" Visibility="{Binding IsFullMode, Converter={StaticResource BoolToVisibility}}"/>
                         </Grid>
 
                         <!-- 手順書画像の形式（簡易モードでは隠す。v1.11） -->
@@ -144,7 +144,7 @@
                             <TextBox Grid.Row="2" Grid.Column="1" Style="{StaticResource Num}" Text="{Binding AudioBitrateKbps}"/>
                         </Grid>
                         <CheckBox Content="カットのつなぎ目に短いクロスフェード（0.3 秒）を入れる（MP4 / GIF 共通）" IsChecked="{Binding CutTransition}" Margin="0,8,0,0"
-                                  ToolTip="削除・短縮で消す部分を前後 0.15 秒ずつ重ねてなめらかにつなぎます。動画の長さと字幕の時刻は変わりません"/>
+                                  ToolTip="カットのつなぎ目を前後 0.15 秒ずつ重ねてなめらかにします（動画の長さ・字幕の時刻は変わりません）"/>
                     </StackPanel>
                 </ScrollViewer>
             </TabItem>
@@ -202,7 +202,7 @@
                             <ComboBoxItem Content="下"/>
                         </ComboBox>
                         <StackPanel Grid.Row="5" Grid.Column="1" Orientation="Horizontal" Margin="0,6,0,0">
-                            <Button Content="初期値に戻す" Command="{Binding ResetSubtitleCommand}"
+                            <Button Content="既定値に戻す" Command="{Binding ResetSubtitleCommand}"
                                     ToolTip="白文字＋半透明の黒帯・メイリオ・余白 5%・48・下 に戻します（OK で保存）"/>
                             <Button Content="確認画像を作り直す" Command="{Binding RefreshSampleCommand}"/>
                         </StackPanel>
@@ -316,7 +316,7 @@
                     <DockPanel DockPanel.Dock="Bottom" Margin="0,6,0,0">
                         <StackPanel DockPanel.Dock="Right" Orientation="Horizontal">
                             <Button Content="保存" Style="{StaticResource AccentButton}" Command="{Binding SaveTemplateCommand}"/>
-                            <Button Content="初期値へ戻す" Command="{Binding ResetTemplateCommand}"/>
+                            <Button Content="既定値に戻す" Command="{Binding ResetTemplateCommand}"/>
                         </StackPanel>
                         <TextBlock Text="{Binding TemplateMessage}" Foreground="{StaticResource SubtleTextBrush}" TextWrapping="Wrap" VerticalAlignment="Center"/>
                     </DockPanel>
@@ -346,6 +346,7 @@
 
             <!-- 操作 -->
             <TabItem Header="操作・その他">
+                <ScrollViewer VerticalScrollBarVisibility="Auto">
                 <StackPanel Margin="12">
                     <TextBlock Style="{StaticResource SectionTitle}" Text="画面のモード" Margin="0,0,0,6"/>
                     <!-- ○に GroupName を付けない（同じ親の○は自動で 1 組になる）。GroupName があると閉じた設定画面の○とも組になり、開き直したときに両方の○が外れる（v1.11） -->
@@ -395,8 +396,53 @@
                         <TextBlock Grid.Row="1" Style="{StaticResource Label}" Text="AI の回答言語（{{LANGUAGE}}）" Visibility="{Binding IsFullMode, Converter={StaticResource BoolToVisibility}}"/>
                         <TextBox Grid.Row="1" Grid.Column="1" Width="160" HorizontalAlignment="Left" Text="{Binding Language}" Visibility="{Binding IsFullMode, Converter={StaticResource BoolToVisibility}}"/>
                     </Grid>
+                    <!-- 録画のショートカット（v1.21）。修飾キーとキーを別々に選ぶ（自由入力にしない）。3 つが重なると保存できない。 -->
+                    <TextBlock Style="{StaticResource SectionTitle}" Text="{local:Str Settings.Hotkey.Title}" Margin="0,18,0,6"/>
+                    <Grid AutomationProperties.AutomationId="Settings.Hotkey.Panel">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="160"/>
+                            <ColumnDefinition Width="Auto"/>
+                            <ColumnDefinition Width="Auto"/>
+                            <ColumnDefinition Width="*"/>
+                        </Grid.ColumnDefinitions>
+                        <Grid.RowDefinitions>
+                            <RowDefinition/>
+                            <RowDefinition/>
+                            <RowDefinition/>
+                        </Grid.RowDefinitions>
+                        <TextBlock Style="{StaticResource Label}" Text="{local:Str Settings.Hotkey.StartStop}"/>
+                        <ComboBox Grid.Column="1" Width="130" Margin="0,2,6,2" ItemsSource="{Binding HotkeyModifierOptions}" DisplayMemberPath="Label" SelectedValuePath="Value"
+                                  SelectedValue="{Binding StartStopModifiers}" AutomationProperties.Name="{local:Str Settings.Hotkey.StartStop.Modifiers}"
+                                  AutomationProperties.AutomationId="Settings.Hotkey.StartStop.Modifiers"/>
+                        <ComboBox Grid.Column="2" Width="80" Margin="0,2" ItemsSource="{Binding HotkeyKeyOptions}" DisplayMemberPath="Label" SelectedValuePath="Value"
+                                  SelectedValue="{Binding StartStopKey}" AutomationProperties.Name="{local:Str Settings.Hotkey.StartStop.Key}"
+                                  AutomationProperties.AutomationId="Settings.Hotkey.StartStop.Key"/>
+                        <TextBlock Grid.Row="1" Style="{StaticResource Label}" Text="{local:Str Settings.Hotkey.Pause}"/>
+                        <ComboBox Grid.Row="1" Grid.Column="1" Width="130" Margin="0,2,6,2" ItemsSource="{Binding HotkeyModifierOptions}" DisplayMemberPath="Label" SelectedValuePath="Value"
+                                  SelectedValue="{Binding PauseModifiers}" AutomationProperties.Name="{local:Str Settings.Hotkey.Pause.Modifiers}"
+                                  AutomationProperties.AutomationId="Settings.Hotkey.Pause.Modifiers"/>
+                        <ComboBox Grid.Row="1" Grid.Column="2" Width="80" Margin="0,2" ItemsSource="{Binding HotkeyKeyOptions}" DisplayMemberPath="Label" SelectedValuePath="Value"
+                                  SelectedValue="{Binding PauseKey}" AutomationProperties.Name="{local:Str Settings.Hotkey.Pause.Key}"
+                                  AutomationProperties.AutomationId="Settings.Hotkey.Pause.Key"/>
+                        <TextBlock Grid.Row="2" Style="{StaticResource Label}" Text="{local:Str Settings.Hotkey.Marker}"/>
+                        <ComboBox Grid.Row="2" Grid.Column="1" Width="130" Margin="0,2,6,2" ItemsSource="{Binding HotkeyModifierOptions}" DisplayMemberPath="Label" SelectedValuePath="Value"
+                                  SelectedValue="{Binding MarkerModifiers}" AutomationProperties.Name="{local:Str Settings.Hotkey.Marker.Modifiers}"
+                                  AutomationProperties.AutomationId="Settings.Hotkey.Marker.Modifiers"/>
+                        <ComboBox Grid.Row="2" Grid.Column="2" Width="80" Margin="0,2" ItemsSource="{Binding HotkeyKeyOptions}" DisplayMemberPath="Label" SelectedValuePath="Value"
+                                  SelectedValue="{Binding MarkerKey}" AutomationProperties.Name="{local:Str Settings.Hotkey.Marker.Key}"
+                                  AutomationProperties.AutomationId="Settings.Hotkey.Marker.Key"/>
+                        <Button Grid.Row="0" Grid.Column="3" HorizontalAlignment="Left" VerticalAlignment="Center" Margin="12,0,0,0" Padding="10,3"
+                                Content="{local:Str Settings.Hotkey.Reset}" Command="{Binding ResetHotkeysCommand}"
+                                AutomationProperties.AutomationId="Settings.Hotkey.Reset"/>
+                    </Grid>
+                    <TextBlock Text="{Binding HotkeyError}" Foreground="{StaticResource ErrorBrush}" TextWrapping="Wrap" Margin="0,4,0,0"
+                               Visibility="{Binding HasHotkeyError, Converter={StaticResource BoolToVisibility}}"
+                               AutomationProperties.AutomationId="Settings.Hotkey.Error"/>
+                    <TextBlock Style="{StaticResource Subtle}" TextWrapping="Wrap" Margin="0,4,0,0" Text="{local:Str Settings.Hotkey.Warning}"
+                               AutomationProperties.AutomationId="Settings.Hotkey.Warning"/>
                     <TextBlock Text="{Binding AboutText}" Style="{StaticResource Subtle}" Margin="0,24,0,0" AutomationProperties.AutomationId="About.Version"/>
                 </StackPanel>
+                </ScrollViewer>
             </TabItem>
         </TabControl>
     </DockPanel>

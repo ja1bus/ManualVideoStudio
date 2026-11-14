@@ -10,6 +10,8 @@ public interface IVideoPlayer
     bool IsPlaying { get; }
     /// <summary>秒。</summary>
     double Position { get; set; }
+    /// <summary>順方向の再生速度（1 = 等倍。v1.21）。再生中に変えるとすぐ反映し、Play のたびに設定し直す。</summary>
+    double SpeedRatio { get; set; }
     void Open(string path);
     void Close();
     void Play();
@@ -67,6 +69,18 @@ public sealed class MediaElementPlayer : IVideoPlayer
         set => _media.Position = TimeSpan.FromSeconds(Math.Max(0, value));
     }
 
+    private double _speedRatio = 1;
+
+    public double SpeedRatio
+    {
+        get => _speedRatio;
+        set
+        {
+            _speedRatio = value > 0 ? value : 1;
+            _media.SpeedRatio = _speedRatio;
+        }
+    }
+
     public event EventHandler? Opened;
     public event EventHandler<string>? Failed;
     public event EventHandler? Ended;
@@ -94,6 +108,8 @@ public sealed class MediaElementPlayer : IVideoPlayer
     public void Play()
     {
         if (!IsOpened) return;
+        // MediaElement は Source の差し替えなどで速度が戻ることがあるため、再生のたびに設定し直す。
+        _media.SpeedRatio = _speedRatio;
         _media.Play();
         IsPlaying = true;
         _timer.Start();

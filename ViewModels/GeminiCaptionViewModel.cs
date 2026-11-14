@@ -257,7 +257,7 @@ public sealed partial class GeminiCaptionViewModel : ObservableObject
         try { _s.Shell.OpenUrl(GeminiUrl); }
         catch (Exception ex) when (ex is System.ComponentModel.Win32Exception or InvalidOperationException)
         {
-            PromptMessage = $"ブラウザを開けませんでした。{GeminiUrl} を開いてください。（{ex.Message}）";
+            PromptMessage = $"ブラウザーを開けませんでした。{GeminiUrl} を開いてください。（{ex.Message}）";
         }
     }
 
@@ -342,7 +342,7 @@ public sealed partial class GeminiCaptionViewModel : ObservableObject
         }
 
         ResponseText = "";
-        ResultMessage = r.Message + "（元に戻す: Ctrl+Z）";
+        ResultMessage = r.Message;
         var closeAfter = AskDeleteRequestVideo();
         Refresh();
         // 画面を閉じても結果が分かるよう、主画面のステータスバーへ集約する。

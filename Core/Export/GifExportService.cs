@@ -22,7 +22,8 @@ public sealed record GifExportRequest(
     double TransitionSeconds = 0,
     ISubtitleTextMeasurer? TextMeasurer = null,
     VideoShapeLayers? Shapes = null,
-    VideoTitleImage? Title = null);
+    VideoTitleImage? Title = null,
+    bool ZoomPanAvailable = true);
 
 public sealed record GifExportResult(string OutputPath, double OutputDuration, long FileSize, TimeSpan Elapsed);
 
@@ -48,6 +49,7 @@ public sealed class GifExportService(IProcessRunner runner, ILogger<GifExportSer
             throw new InvalidOperationException("出力先が元動画と同じです。別のファイル名を指定してください。");
         if (!request.Metadata.HasVideo || request.Metadata.Width <= 0 || request.Metadata.Height <= 0)
             throw new InvalidOperationException("映像の大きさが分からないため GIF を作成できません。");
+        ZoomSupport.EnsureAvailable(request.Shapes, request.ZoomPanAvailable);
 
         var keep = EditTimelineCalculator.ComputeKeepRanges(request.Metadata.Duration, request.CutSegments);
         if (keep.Count == 0) throw new InvalidOperationException("すべての区間が削除されるため出力できません。");

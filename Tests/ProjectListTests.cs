@@ -654,7 +654,7 @@ public class MainViewModelEditsTests
         public Task<string> GetFullFrameAsync(string f, string v, double t, CancellationToken ct) => throw new NotSupportedException();
         public Task<VideoExportResult> ExportAsync(VideoExportRequest r, IProgress<VideoExportProgress>? p, CancellationToken ct) => throw new NotSupportedException();
         public Task<GifExportResult> ExportAsync(GifExportRequest r, IProgress<VideoExportProgress>? p, CancellationToken ct) => throw new NotSupportedException();
-        public Task<AnalysisResult> AnalyzeAsync(string f, string v, VideoMetadata m, AnalysisSettings s, IProgress<double>? p, CancellationToken ct) => throw new NotSupportedException();
+        public Task<AnalysisResult> AnalyzeAsync(string f, string v, VideoMetadata m, AnalysisSettings s, IProgress<double>? p, CancellationToken ct, IReadOnlyList<ManualVideoStudio.Core.Editing.TimeRange>? idle = null) => throw new NotSupportedException();
         public void OpenFolder(string folder) { }
         public void RevealFile(string file) { }
         public void OpenUrl(string url) { }

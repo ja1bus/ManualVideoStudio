@@ -1354,7 +1354,7 @@ public class ScreenRefinementTests
                 new Clip(null), dialogs, new MainViewModelPhaseTests.Unused(), NullLogger<AiAssistViewModel>.Instance);
             Assert.Equal(AiPurpose.CutAnalysis, ai.Purpose);
             Assert.Equal([AiPurpose.CutAnalysis], ai.Purposes.Select(c => c.Value));
-            Assert.Contains("remove", ai.PromptText);
+            Assert.Contains("\"segments\"", ai.PromptText);                     // v1.21: 区間方式の回答
             Assert.DoesNotContain("keep_seconds", ai.PromptText);               // プロンプトは削除のみ（短縮は廃止）
             Assert.DoesNotContain("shorten", ai.PromptText);
         }

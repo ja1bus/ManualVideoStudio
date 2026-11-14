@@ -29,7 +29,7 @@ public sealed partial class MainViewModel
         [Loc.Get("Cand.Filter.AllSources"), Loc.Get("Cand.Filter.Local"), Loc.Get("Cand.Filter.Ai")];
 
     public static IReadOnlyList<string> CandidateKindFilters { get; } =
-        [Loc.Get("Cand.Filter.AllKinds"), Loc.Get("Cand.Filter.FreezeSilence"), Loc.Get("Cand.Filter.Freeze"), Loc.Get("Cand.Filter.Silence"), Loc.Get("Cand.Filter.AiKind")];
+        [Loc.Get("Cand.Filter.AllKinds"), Loc.Get("Cand.Filter.FreezeSilence"), Loc.Get("Cand.Filter.Freeze"), Loc.Get("Cand.Filter.Silence"), Loc.Get("Cand.Filter.AiKind"), Loc.Get("Cand.Idle.Filter")];
 
     public static IReadOnlyList<string> CandidateStatusFilters { get; } = [Loc.Get("Cand.View.Pending"), Loc.Get("Cand.View.Dismissed"), Loc.Get("Cand.View.All")];
 
@@ -41,7 +41,7 @@ public sealed partial class MainViewModel
     /// <summary>出所の絞り込み（0=すべて / 1=ローカル解析 / 2=AI）。</summary>
     [ObservableProperty] private int _candidateSourceFilter;
 
-    /// <summary>種類の絞り込み（0=すべて / 1=静止＋無音 / 2=静止のみ / 3=無音のみ / 4=AI）。</summary>
+    /// <summary>種類の絞り込み（0=すべて / 1=静止＋無音 / 2=静止のみ / 3=無音のみ / 4=AI / 5=入力なし（v1.21。入力なし・静止＋入力なし））。</summary>
     [ObservableProperty] private int _candidateKindFilter;
 
     partial void OnCandidateSourceFilterChanged(int value) => RefreshAll();
@@ -62,6 +62,7 @@ public sealed partial class MainViewModel
                 2 => c.Kind == CandidateKind.Freeze,
                 3 => c.Kind == CandidateKind.Silence,
                 4 => c.Kind == CandidateKind.Ai,
+                5 => c.Kind is CandidateKind.Idle or CandidateKind.IdleAndFreeze,
                 _ => true,
             }).ToList();
     }
@@ -230,7 +231,29 @@ public sealed partial class MainViewModel
         var next = CandidateItems.Where(i => i.IsPending && !handledIds.Contains(i.Id) && i.Model.Start >= firstStart - 0.0005)
             .OrderBy(i => i.Model.Start).FirstOrDefault();
         if (next is null) { StatusMessage += " " + Loc.Get("Cand.NoNext"); return; }
-        SelectInList(ListKind.Candidates, [next.Id], seek: true);
+        MoveToCandidate(next);
+    }
+
+    /// <summary>候補を選んで開始の少し前へ移動し、「次の候補を自動で試す」が ON なら試し再生する（v1.21）。</summary>
+    private void MoveToCandidate(CandidateItem item)
+    {
+        SelectInList(ListKind.Candidates, [item.Id], seek: true);
+        // 一覧の選択は View が後から通知するが、続けてキー操作（A / D / P）を使えるよう、ここでも選択として持つ。
+        SetSelectedCandidates([item.Id]);
+        if (AutoTrialNextCandidate && item.IsPending) PreviewCandidateTrial(item);
+    }
+
+    /// <summary>「次の候補を自動で試す」（v1.21。アプリの設定に保存する）。</summary>
+    public bool AutoTrialNextCandidate
+    {
+        get => Settings.Ui.AutoTrialNextCandidate;
+        set
+        {
+            if (Settings.Ui.AutoTrialNextCandidate == value) return;
+            Settings.Ui.AutoTrialNextCandidate = value;
+            SaveSettingsQuietly();
+            OnPropertyChanged();
+        }
     }
 
     // ---------------- 候補だけを消す ----------------

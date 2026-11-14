@@ -1,5 +1,6 @@
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
+using ManualVideoStudio.Core.Editing;
 using ManualVideoStudio.Core.Models;
 
 namespace ManualVideoStudio.ViewModels;
@@ -39,8 +40,59 @@ public sealed partial class MainViewModel
         ShapeDraftStart = _shapeBaseStart;
         ShapeDraftEnd = _shapeBaseEnd;
         ShapeDraftError = "";
+        ShapeAlignInfo = "";
         OnPropertyChanged(nameof(HasSelectedShape));
         OnPropertyChanged(nameof(HasShapeDraft));
+        NotifyShapeAlign();
+    }
+
+    // ---------------- ［字幕に合わせる］（v1.21.0。設計 6 章） ----------------
+
+    /// <summary>「字幕「…」に合わせました」の表示（入力欄を選び直したら消す）。</summary>
+    [ObservableProperty] private string _shapeAlignInfo = "";
+
+    private bool CanAlignShapeToSubtitle() => SelectedShapeGroup is not null && Project is { SubtitleSegments.Count: > 0 };
+
+    private void NotifyShapeAlign()
+    {
+        ShapeAlignStartCommand.NotifyCanExecuteChanged();
+        ShapeAlignRangeCommand.NotifyCanExecuteChanged();
+    }
+
+    /// <summary>合わせる字幕（再生位置に出ている字幕、無ければ入力欄の開始にいちばん近い字幕）。</summary>
+    private SubtitleSegment? PickAlignSubtitle(ShapeGroup g)
+    {
+        double? current = EditTimelineCalculator.IsRemoved(CurrentTime, KeepRanges) ? null : CurrentOutputTime;
+        double? draftStart = TimeFormat.TryParse(ShapeDraftStart, out var s) ? s : null;
+        return SubtitleAlign.Pick(Project!.SubtitleSegments, current, draftStart, g.Start);
+    }
+
+    /// <summary>［字幕の開始に合わせる］: 入力欄の開始を字幕の開始にする（確定は［変更を反映］）。</summary>
+    [RelayCommand(CanExecute = nameof(CanAlignShapeToSubtitle))]
+    private void ShapeAlignStart()
+    {
+        if (SelectedShapeGroup is not { } g || PickAlignSubtitle(g) is not { } sub) return;
+        double start = TimeFormat.TryParse(ShapeDraftStart, out var s) ? s : g.Start;
+        double end = TimeFormat.TryParse(ShapeDraftEnd, out var e) ? e : g.End;
+        var r = SubtitleAlign.AlignStart(sub, start, end, OutputDuration);
+        FillShapeDraftFromAlign(r);
+    }
+
+    /// <summary>［字幕の時間に合わせる］: 入力欄の開始・終了を字幕の開始・終了にする（確定は［変更を反映］）。</summary>
+    [RelayCommand(CanExecute = nameof(CanAlignShapeToSubtitle))]
+    private void ShapeAlignRange()
+    {
+        if (SelectedShapeGroup is not { } g || PickAlignSubtitle(g) is not { } sub) return;
+        FillShapeDraftFromAlign(SubtitleAlign.AlignRange(sub));
+    }
+
+    private void FillShapeDraftFromAlign(SubtitleAlignResult r)
+    {
+        ShapeDraftStart = TimeFormat.Format(r.Start);
+        ShapeDraftEnd = TimeFormat.Format(r.End);
+        ShapeDraftError = "";
+        ShapeAlignInfo = r.Description;
+        StatusMessage = Loc.Format("ShapeAlign.Filled", r.Description);
     }
 
     [RelayCommand] private void ShapeDraftStartFromCurrent() => ShapeDraftStart = TimeFormat.Format(CurrentOutputTime);
