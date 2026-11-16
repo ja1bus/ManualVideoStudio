@@ -35,9 +35,12 @@ public class MainViewModelPhaseTests
         public string? SaveFileResult { get; set; }
         public int SaveFileCalls { get; private set; }
         public string LastConfirm { get; private set; } = "";
+        /// <summary>最後の SaveFile の引数（v1.22 の字幕ファイルの書き出しの試験で使う）。</summary>
+        public (string Filter, string DefaultFileName, string? InitialDirectory, string Title)? LastSaveFile { get; private set; }
         public string? SaveFile(string filter, string defaultFileName, string? initialDirectory = null, string title = "名前を付けて保存")
         {
             SaveFileCalls++;
+            LastSaveFile = (filter, defaultFileName, initialDirectory, title);
             return SaveFileResult;
         }
         public string? PickFolder(string? initialDirectory = null, string title = "フォルダーの選択") => null;
@@ -65,7 +68,16 @@ public class MainViewModelPhaseTests
         public bool EditCut(CutEditViewModel vm) { EditCutCalls++; return false; }
         public void EditImage(ImageEditorViewModel vm) { }
         public string? PromptText(string title, string message, string initial, bool singleLine = false) => null;
-        public Task<bool> RunWithProgressAsync(string title, Func<IProgress<ProgressInfo>, CancellationToken, Task> work) => Task.FromResult(false);
+        /// <summary>true なら進捗画面の処理を実行して true を返す（v1.22 §44.5 の試験）。既定は従来どおり実行せず false（キャンセル）。</summary>
+        public bool RunWork { get; set; }
+        public List<string> ProgressTitles { get; } = [];
+        public async Task<bool> RunWithProgressAsync(string title, Func<IProgress<ProgressInfo>, CancellationToken, Task> work)
+        {
+            ProgressTitles.Add(title);
+            if (!RunWork) return false;
+            await work(new Progress<ProgressInfo>(), CancellationToken.None);
+            return true;
+        }
 
         public bool EditSubtitle(SubtitleEditViewModel vm)
         {

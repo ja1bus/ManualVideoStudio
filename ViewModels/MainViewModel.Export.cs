@@ -45,11 +45,7 @@ public sealed partial class MainViewModel
         if (!TryBuildShapeLayers(project, out var shapes)) return;
         // 映像は偶数の大きさへ切り下げて書き出すため、タイトルの画像も同じ大きさで作る。
         if (!TryBuildTitleImage(project, Metadata.Width & ~1, Metadata.Height & ~1, out var titleImage)) return;
-        var request = new VideoExportRequest(FFmpeg.FfmpegPath!, FFmpeg.MajorVersion, VideoPath, Metadata,
-            project.CutSegments.ToList(), output,
-            new VideoEncodeOptions { Crf = es.VideoCrf, Preset = es.VideoPreset, AudioBitrateKbps = es.AudioBitrateKbps },
-            project.SubtitleSegments.ToList(), Settings.Subtitle.Clone(), es.TransitionSecondsForExport, WpfSubtitleTextMeasurer.Instance, shapes, titleImage,
-            ZoomPanAvailable: FFmpeg.Capabilities?.HasZoomPan ?? true);
+        var request = CreateVideoExportRequest(project, output, shapes, titleImage, burnSubtitles: true);
         VideoExportResult? result = null;
         try
         {
@@ -83,6 +79,22 @@ public sealed partial class MainViewModel
         StatusMessage = $"書き出しました: {output}（{TimeFormat.Format(result!.OutputDuration)}、{result.Elapsed.TotalSeconds:0} 秒{BurnedInText(project, shapes is { HasClicks: true })}）";
         if (_dialogs.Confirm($"書き出しが完了しました。{Environment.NewLine}{output}{Environment.NewLine}{Environment.NewLine}フォルダーを開きますか？", "完了"))
             _shell.RevealFile(output);
+    }
+
+    /// <summary>
+    /// MP4 の書き出しの要求（通常の書き出しと YouTube 用で共通。v1.22 §44.5）。burnSubtitles が false なら字幕に空の一覧を渡す
+    /// （字幕 0 件のプロジェクトを通常の書き出しで出すときと同じ値）。それ以外の項目は同じ式で作る。
+    /// </summary>
+    private VideoExportRequest CreateVideoExportRequest(ProjectDocument project, string output, VideoShapeLayers? shapes,
+        Core.Export.VideoTitleImage? titleImage, bool burnSubtitles)
+    {
+        var es = project.ExportSettings;
+        return new VideoExportRequest(FFmpeg.FfmpegPath!, FFmpeg.MajorVersion, VideoPath, Metadata!,
+            project.CutSegments.ToList(), output,
+            new VideoEncodeOptions { Crf = es.VideoCrf, Preset = es.VideoPreset, AudioBitrateKbps = es.AudioBitrateKbps },
+            burnSubtitles ? project.SubtitleSegments.ToList() : [], Settings.Subtitle.Clone(), es.TransitionSecondsForExport,
+            WpfSubtitleTextMeasurer.Instance, shapes, titleImage,
+            ZoomPanAvailable: FFmpeg.Capabilities?.HasZoomPan ?? true);
     }
 
     /// <summary>完了表示の「、字幕 n 件・図形 m 件を焼き込み」。</summary>
@@ -243,6 +255,138 @@ public sealed partial class MainViewModel
         StatusMessage = $"GIF を書き出しました: {output}（{TimeFormat.Format(result.OutputDuration)}、{mb:0.0} MB）";
         if (_dialogs.Confirm($"GIF の書き出しが完了しました（{mb:0.0} MB）。{Environment.NewLine}{output}{Environment.NewLine}{Environment.NewLine}フォルダーを開きますか？", "完了"))
             _shell.RevealFile(output);
+    }
+
+    /// <summary>字幕ファイル（SRT）を書き出せるか（v1.22）: プロジェクトがあり、字幕が 1 件以上。</summary>
+    private bool CanExportSrt() => HasProject && Project is { SubtitleSegments.Count: > 0 };
+
+    /// <summary>
+    /// 字幕ファイル（SRT）の書き出し（v1.22、仕様書 §44.1）。ffmpeg は使わない。時刻は完成動画の時刻（冒頭タイトルの長さを足す）。
+    /// 保存先はプロジェクト・設定に残さない（既定は MP4 の既定の拡張子を .srt にしたもの）。
+    /// </summary>
+    [RelayCommand(CanExecute = nameof(CanExportSrt))]
+    private void ExportSrt()
+    {
+        if (Editor is null || !CanExportSrt()) return;
+        PauseIfPlaying();
+        if (!FlushSubtitleDraft()) return;
+        var project = Editor.Project;
+        if (project.SubtitleSegments.Count == 0) return;
+
+        var defaultPath = SrtExport.DefaultOutputPath(VideoPath, project.ExportSettings, ProjectPath);
+        var output = _dialogs.SaveFile(SrtExport.FileFilter, Path.GetFileName(defaultPath), Path.GetDirectoryName(defaultPath), "字幕ファイルの書き出し");
+        if (output is null) return;
+
+        var offset = SrtExport.TitleOffsetSeconds(project.Title, Metadata?.Fps ?? 0);
+        var document = SrtExport.Build(project.SubtitleSegments, offset);
+        string fullPath = output;
+        try
+        {
+            fullPath = Path.GetFullPath(output);
+            SrtExport.Write(fullPath, document);
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or NotSupportedException or ArgumentException
+                                       or System.Security.SecurityException)
+        {
+            _logger.LogError(ex, "SRT export failed: {Path}", fullPath);
+            _dialogs.ShowError($"字幕ファイルを書き出せませんでした。{Environment.NewLine}{fullPath}", ex.Message);
+            return;
+        }
+        _logger.LogInformation("SRT exported: {Path} ({Count} subtitles, offset {Offset:0.000}s)", fullPath, document.Count, offset);
+        StatusMessage = $"字幕ファイルを書き出しました: {fullPath}（字幕 {document.Count} 件）";
+    }
+
+    /// <summary>
+    /// YouTube 用に書き出し（v1.22 §44.5）: 字幕を焼き込まない MP4 と、同じ名前の SRT を 1 回の操作で保存する。
+    /// MP4 は通常の書き出しから字幕だけを除いた要求（<see cref="CreateVideoExportRequest"/>）、SRT は［字幕ファイルを書き出し（SRT）…］と同じ内容。
+    /// 書き出し先はプロジェクトに記録しない（未保存の状態にもしない）。
+    /// </summary>
+    [RelayCommand(CanExecute = nameof(CanExportSrt))]
+    private async Task ExportYouTubeAsync()
+    {
+        if (Editor is null || Metadata is null || !CanExportSrt() || !EnsureFFmpeg()) return;
+        PauseIfPlaying();
+        if (!FlushSubtitleDraft()) return;
+        var project = Editor.Project;
+        if (project.SubtitleSegments.Count == 0) return;
+        // 通常の書き出しと同じ確認（字幕が 1 件以上あるため、実際には出ない。AC-27）。
+        if (project.CutSegments.Count == 0 && project.SubtitleSegments.Count == 0 && project.ShapeGroups.Count == 0
+            && !project.Title.HasTitle && !(project.ClickHighlight.Enabled && HasRecordedClicks) && !_dialogs.Confirm("確定したカット区間・字幕・図形がありません。元動画全体を再エンコードして書き出しますか？"))
+            return;
+        var pendingCount = PendingCandidateCount;
+        if (pendingCount > 0
+            && !_dialogs.Confirm($"未判断のカット候補が {pendingCount} 件あります。候補は書き出しに反映されません（確定区間のみ反映）。続行しますか？"))
+            return;
+
+        var defaultPath = VideoExportService.DefaultOutputPath(VideoPath, project.ExportSettings, ProjectPath);
+        var output = _dialogs.SaveFile(VideoOutputFilter, Path.GetFileName(defaultPath), Path.GetDirectoryName(defaultPath), "YouTube 用に書き出し（字幕なし MP4＋SRT）");
+        if (output is null) return;
+        if (string.Equals(Path.GetFullPath(output), Path.GetFullPath(VideoPath), StringComparison.OrdinalIgnoreCase))
+        {
+            _dialogs.ShowError("元動画と同じファイルには書き出せません。別の名前を指定してください。");
+            return;
+        }
+        var videoPath = Path.GetFullPath(output);
+        var srtPath = Path.ChangeExtension(videoPath, ".srt");
+        if (string.Equals(srtPath, videoPath, StringComparison.OrdinalIgnoreCase))
+        {
+            _dialogs.ShowError("動画と字幕ファイルが同じ名前になります。拡張子 .mp4 で指定してください。");
+            return;
+        }
+        if (File.Exists(srtPath)
+            && !_dialogs.Confirm($"同じ名前の字幕ファイルがあります。上書きしますか？{Environment.NewLine}{srtPath}"))
+            return;
+
+        // 字幕の焼き込みにだけ必要な確認（libass・字幕のフォント）は行わない（AC-27）。
+        if (!TryBuildShapeLayers(project, out var shapes)) return;
+        if (!TryBuildTitleImage(project, Metadata.Width & ~1, Metadata.Height & ~1, out var titleImage)) return;
+        var request = CreateVideoExportRequest(project, videoPath, shapes, titleImage, burnSubtitles: false);
+        var subtitles = project.SubtitleSegments.ToList();
+        var offset = SrtExport.TitleOffsetSeconds(project.Title, Metadata.Fps);
+        try
+        {
+            var completed = await _windows.RunWithProgressAsync("YouTube 用の書き出し", async (progress, ct) =>
+            {
+                var p = new Progress<VideoExportProgress>(x => progress.Report(new ProgressInfo(x.Ratio,
+                    $"書き出し中 {TimeFormat.Format(x.ProcessedSeconds)} / {TimeFormat.Format(x.TotalSeconds)}（{x.Ratio:0%}）")));
+                await _videoExport.ExportAsync(request, p, ct);
+            });
+            if (!completed)
+            {
+                StatusMessage = "動画の書き出しをキャンセルしました（途中のファイルは削除しました）。字幕ファイルは書き出していません。";
+                return;
+            }
+        }
+        catch (FFmpegException ex)
+        {
+            _dialogs.ShowError(ex.Message, ex.ErrorDetail);
+            return;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "YouTube export failed");
+            _dialogs.ShowError("動画の書き出しに失敗しました。", ex.Message);
+            return;
+        }
+
+        // MP4 の成功後に SRT を書く（AC-24）。失敗しても MP4 は残す（AC-25）。
+        var document = SrtExport.Build(subtitles, offset);
+        try
+        {
+            SrtExport.Write(srtPath, document);
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or NotSupportedException or ArgumentException
+                                       or System.Security.SecurityException)
+        {
+            _logger.LogError(ex, "YouTube export: SRT write failed: {Path}", srtPath);
+            StatusMessage = $"動画を書き出しました: {videoPath}（字幕ファイルは書き出せませんでした）";
+            _dialogs.ShowError($"動画は書き出しましたが、字幕ファイルを書き出せませんでした。{Environment.NewLine}{srtPath}{Environment.NewLine}動画: {videoPath}", ex.Message);
+            return;
+        }
+        _logger.LogInformation("YouTube export done: {Video} + {Srt} ({Count} subtitles, offset {Offset:0.000}s)", videoPath, srtPath, document.Count, offset);
+        StatusMessage = $"YouTube 用に書き出しました: {videoPath}／字幕ファイル: {srtPath}（字幕 {document.Count} 件）";
+        if (_dialogs.Confirm($"書き出しが完了しました。{Environment.NewLine}{videoPath}{Environment.NewLine}{srtPath}{Environment.NewLine}{Environment.NewLine}フォルダーを開きますか？", "完了"))
+            _shell.RevealFile(videoPath);
     }
 
     [RelayCommand(CanExecute = nameof(CanUseFullFeatures))]

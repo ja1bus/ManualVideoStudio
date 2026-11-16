@@ -119,6 +119,8 @@
                 <MenuItem Header="{local:Str Export.Tejunsho}" Command="{Binding ExportTejunshoCommand}" Visibility="{Binding ShowExternalDocument, Converter={StaticResource BoolToVisibility}}" AutomationProperties.AutomationId="Menu.Export.Document"/>
                 <MenuItem Header="編集済み動画を書き出し（MP4）…" Command="{Binding ExportVideoCommand}"/>
                 <MenuItem Header="Animated GIF を書き出し…" Command="{Binding ExportGifCommand}"/>
+                <MenuItem Header="字幕ファイルを書き出し（SRT）…" Command="{Binding ExportSrtCommand}" AutomationProperties.AutomationId="Menu.Export.Srt"/>
+                <MenuItem Header="YouTube 用に書き出し（字幕なし MP4＋SRT）…" Command="{Binding ExportYouTubeCommand}" AutomationProperties.AutomationId="Menu.Export.YouTube"/>
             </MenuItem>
             <MenuItem Header="ツール(_T)">
                 <MenuItem Header="設定（FFmpeg・出力・解析・プロンプト）…" Command="{Binding ShowSettingsCommand}"/>

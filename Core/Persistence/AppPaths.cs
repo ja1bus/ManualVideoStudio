@@ -66,12 +66,19 @@ public static class AtomicFile
     public static void WriteAllText(string path, string content) => WriteAllText(path, content, DefaultRetryDelaysMs);
 
     public static void WriteAllText(string path, string content, IReadOnlyList<int> retryDelaysMs)
+        => WriteAllText(path, content, new System.Text.UTF8Encoding(false), retryDelaysMs);
+
+    /// <summary>文字コードを指定して書く（v1.22。字幕ファイルの BOM 付き UTF-8 など）。指定しない場合は BOM なしの UTF-8。</summary>
+    public static void WriteAllText(string path, string content, System.Text.Encoding encoding)
+        => WriteAllText(path, content, encoding, DefaultRetryDelaysMs);
+
+    public static void WriteAllText(string path, string content, System.Text.Encoding encoding, IReadOnlyList<int> retryDelaysMs)
     {
         var dir = Path.GetDirectoryName(Path.GetFullPath(path))!;
         Directory.CreateDirectory(dir);
         CleanupStaleTemps(dir, Path.GetFileName(path));
         var temp = Path.Combine(dir, $"{TempPrefix(Path.GetFileName(path))}{Guid.NewGuid():N}.tmp");
-        File.WriteAllText(temp, content, new System.Text.UTF8Encoding(false));
+        File.WriteAllText(temp, content, encoding);
         try
         {
             for (int attempt = 0; ; attempt++)

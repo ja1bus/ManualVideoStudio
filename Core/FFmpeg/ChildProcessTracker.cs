@@ -11,11 +11,15 @@ internal static class ChildProcessTracker
 {
     private static readonly IntPtr JobHandle = CreateJob();
 
-    public static void Add(Process process)
+    /// <summary>
+    /// Job に入れる。入れられなかった（Job を作れなかった・割り当てに失敗した・既に終了していた）ときは false。
+    /// false のときはアプリの終了でプロセスが止まる保証が無い（v1.22 R1）。
+    /// </summary>
+    public static bool Add(Process process)
     {
-        if (JobHandle == IntPtr.Zero) return;
-        try { AssignProcessToJobObject(JobHandle, process.Handle); }
-        catch (Exception) { /* 既に終了していた等。キャンセル時の Kill で対処する */ }
+        if (JobHandle == IntPtr.Zero) return false;
+        try { return AssignProcessToJobObject(JobHandle, process.Handle); }
+        catch (Exception) { return false; /* 既に終了していた等。キャンセル時の Kill で対処する */ }
     }
 
     private static IntPtr CreateJob()

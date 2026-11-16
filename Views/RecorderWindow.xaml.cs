@@ -29,6 +29,8 @@ public partial class RecorderWindow : Window
     private RecordingControllerWindow? _controller;
     private HwndSource? _source;
     private bool _closingConfirmed;
+    /// <summary>録画中に閉じる操作の確認・中止の途中（v1.22。二重の確認・中止を防ぐ）。</summary>
+    private bool _closeRequested;
 
     public RecorderWindow(RecorderViewModel vm)
     {
@@ -251,14 +253,26 @@ public partial class RecorderWindow : Window
     private async void Window_Closing(object? sender, CancelEventArgs e)
     {
         if (_closingConfirmed) return;
+        if (_closeRequested)
+        {
+            // 確認中・中止中にもう一度閉じる操作が来た場合（v1.22）: 確認も中止も二重にしない。
+            e.Cancel = true;
+            return;
+        }
         if (_vm.IsBusy)
         {
             // 録画中に閉じる（アプリの終了を含む）場合は、録画を止めて途中のファイルを消す。
             e.Cancel = true;
+            _closeRequested = true;
             if (MessageBox.Show(this, "録画中です。録画を中止して閉じますか？（録画した内容は保存されません）", "録画の中止",
                     MessageBoxButton.OKCancel, MessageBoxImage.Warning) != MessageBoxResult.OK)
+            {
+                _closeRequested = false;
                 return;
-            await _vm.AbortAsync();
+            }
+            // Closing の処理を抜けてから中止・Close する（一時停止中は中止が待たずに終わり、閉じている途中の Close() になるため）。
+            await Task.Yield();
+            await _vm.AbortForCloseAsync();
             _closingConfirmed = true;
             Close();
             return;

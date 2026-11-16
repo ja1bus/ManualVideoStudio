@@ -13,7 +13,7 @@ This repository contains the source code of the publicly released ManualVideoStu
 - Keyboard-driven cutting (J / K / L for fast and reverse playback, Q / W to adjust a cut's edge, A / D / P / N to work through candidates) and dragging cut edges on the timeline. Cuts can be added even after subtitles, and subtitle and shape times are adjusted automatically
 - An "unwanted" marker during recording (the recording shortcuts can be changed in Settings). Optional recording of click positions and input times (off by default; stays on your PC and never includes the keys you press), used to highlight clicks and to suggest cuts where there was no input
 - Subtitles (4 styles, using fonts installed in Windows), timed shapes (rectangles, arrows, lines, text, mosaic and zoom; their timing can be matched to a subtitle) and a title at the start of the video
-- Exports MP4 and Animated GIF (light / standard / high quality) with subtitles and shapes burned in
+- Exports MP4 and Animated GIF (light / standard / high quality) with subtitles and shapes burned in. Subtitles can also be exported as an SRT file, and for YouTube an MP4 without burned-in subtitles can be exported together with its SRT file
 - Extracts still images for documents (`<number>_<caption>.png`) and adds rectangles, arrows, lines, text and mosaic annotations
 - Lets Gemini (in the browser) draft subtitles, captions and unwanted parts (answered by numbered segments), which you check and import (a manual workflow of copying the prompt and pasting the answer; the Gemini API is not used)
 - Keeps each project in its own folder with the source video and exported files; the project list can open, duplicate, rename, delete (to the Recycle Bin), and export / import projects as zip files

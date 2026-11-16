@@ -708,11 +708,22 @@ public sealed partial class ProjectEditor
         return EditResult.Ok();
     }
 
-    /// <summary>AI 履歴を追加・更新する（Undo 対象外）。</summary>
+    /// <summary>
+    /// AI 履歴を追加・更新する（Undo 対象外）。追加して上限（v1.22。<see cref="Ai.AiHistoryLimit"/>）を超えたときだけ古い履歴を削る
+    /// （追加した履歴と、候補が参照している履歴は削らない）。既存の id の更新では削らない。
+    /// </summary>
     public void UpsertAiHistory(AiHistoryEntry entry)
     {
         var i = Project.AiHistory.FindIndex(h => h.Id == entry.Id);
-        if (i >= 0) Project.AiHistory[i] = entry; else Project.AiHistory.Add(entry);
+        if (i >= 0)
+        {
+            Project.AiHistory[i] = entry;
+        }
+        else
+        {
+            Project.AiHistory.Add(entry);
+            Ai.AiHistoryLimit.Prune(Project.AiHistory, Project.CutCandidates, entry.Id);
+        }
         MarkDirty();
     }
 

@@ -831,6 +831,24 @@ public sealed partial class RecorderViewModel : ObservableObject
         await _recorder.AbortAsync();
     }
 
+    /// <summary>
+    /// 録画画面を閉じるときの中止（v1.22）。中止に失敗しても、ログに残してエラーを出し、例外を外へ出さない（画面は呼び出し側が閉じる）。
+    /// </summary>
+    public async Task AbortForCloseAsync()
+    {
+        try
+        {
+            await AbortAsync();
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Recording abort failed while closing");
+            _dialogs.ShowError("録画の中止で問題が起きました。画面を閉じます。" + Environment.NewLine
+                + "録画（ffmpeg）が止まっていない可能性があります。止まらない場合はアプリを終了するか、タスク マネージャーで ffmpeg を終了してください。" + Environment.NewLine
+                + "録画の途中のファイルが残った場合は、録画の保存先から削除してください。", ex.Message);
+        }
+    }
+
     [RelayCommand]
     private void Close()
     {

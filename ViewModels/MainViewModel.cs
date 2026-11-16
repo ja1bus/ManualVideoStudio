@@ -607,6 +607,8 @@ public sealed partial class MainViewModel : ObservableObject
         AddRemoveCutCommand.NotifyCanExecuteChanged();
         CutInSubtitlePhaseCommand.NotifyCanExecuteChanged();
         ExportGifCommand.NotifyCanExecuteChanged();
+        ExportSrtCommand.NotifyCanExecuteChanged();
+        ExportYouTubeCommand.NotifyCanExecuteChanged();
         ConfirmCutsCommand.NotifyCanExecuteChanged();
         ReturnToCutEditingCommand.NotifyCanExecuteChanged();
         AddSubtitleCommand.NotifyCanExecuteChanged();

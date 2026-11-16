@@ -413,6 +413,8 @@ public sealed partial class MainViewModel
         AddSubtitleCommand.NotifyCanExecuteChanged();
         AddRemoveCutCommand.NotifyCanExecuteChanged();
         CutInSubtitlePhaseCommand.NotifyCanExecuteChanged();
+        ExportSrtCommand.NotifyCanExecuteChanged();
+        ExportYouTubeCommand.NotifyCanExecuteChanged();
         NotifyShapeAlign();
     }
 

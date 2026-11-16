@@ -111,7 +111,8 @@ public sealed class FFmpegRecordingProcess(string ffmpegPath, IReadOnlyList<stri
             throw new RecordingException($"ffmpeg を起動できません: {ffmpegPath}（{ex.Message}）", null, ex);
         }
         _process = p;
-        ChildProcessTracker.Add(p);
+        if (!ChildProcessTracker.Add(p))
+            logger.LogWarning("Recording process was not added to the job object; it may outlive the app if not stopped");
         p.BeginOutputReadLine();
         p.BeginErrorReadLine();
 

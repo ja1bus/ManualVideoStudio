@@ -176,10 +176,17 @@ public sealed class RecordingService(IRecordingProcessFactory factory, IProcessR
 
     public async Task AbortAsync()
     {
-        if (_current is not null) await CloseSegmentAsync().ConfigureAwait(false);
-        if (State is not (RecordingState.Idle or RecordingState.Completed)) SetState(RecordingState.Failed);
-        TryDeleteWorkDir();
-        _logger.LogInformation("Recording aborted");
+        try
+        {
+            if (_current is not null) await CloseSegmentAsync().ConfigureAwait(false);
+        }
+        finally
+        {
+            // 停止・破棄に失敗しても状態を戻し、途中のファイルの削除を試みる（v1.22 R1）。
+            if (State is not (RecordingState.Idle or RecordingState.Completed)) SetState(RecordingState.Failed);
+            TryDeleteWorkDir();
+            _logger.LogInformation("Recording aborted");
+        }
     }
 
     private async Task StartSegmentAsync(CancellationToken ct)
@@ -222,11 +229,33 @@ public sealed class RecordingService(IRecordingProcessFactory factory, IProcessR
             _segmentClock.Reset();
             _clockSegment = -1;
         }
-        var graceful = await p.StopAsync(StopTimeout).ConfigureAwait(false);
-        if (!graceful) _logger.LogWarning("Segment was killed: {Segment}", _segments.LastOrDefault());
+        // 停止に失敗しても、プロセスの破棄（強制終了）と保持の解除は必ず試みる（v1.22 R1）。
+        // 例外は最初のもの（停止の失敗）を外へ出し、破棄の失敗で隠さない。
+        Exception? stopError = null;
+        try
+        {
+            var graceful = await p.StopAsync(StopTimeout).ConfigureAwait(false);
+            if (!graceful) _logger.LogWarning("Segment was killed: {Segment}", _segments.LastOrDefault());
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Recording process stop failed; disposing: {Segment}", _segments.LastOrDefault());
+            stopError = ex;
+        }
         p.Exited -= OnProcessExited;
-        await p.DisposeAsync().ConfigureAwait(false);
         _current = null;
+        Exception? disposeError = null;
+        try
+        {
+            await p.DisposeAsync().ConfigureAwait(false);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Recording process dispose failed: {Segment}", _segments.LastOrDefault());
+            disposeError = ex;
+        }
+        var first = stopError ?? disposeError;
+        if (first is not null) System.Runtime.ExceptionServices.ExceptionDispatchInfo.Capture(first).Throw();
     }
 
     private void OnProcessExited(object? sender, EventArgs e)
